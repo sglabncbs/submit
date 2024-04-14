@@ -1,5 +1,5 @@
 # Package to generate coarse-Grain structure and topology for using Enhanced Structure Based Models MD simulations on GROMACS and OpenSMOG (OpenMM based)##
-# digvijaylp @ shachilab16.ncbs.res #
+# digvijaylp #
 $ python esbm.py --help
 "
 usage: esbm.py [-h] [--CA_rad CA_RAD] [--CA_com] [--CB_rad CB_RAD]
