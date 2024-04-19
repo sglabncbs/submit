@@ -41,7 +41,7 @@ class CoarseGrain:
                 if (chain,resnum,resname) not in bb_group:
                     bb_group[(chain,resnum,resname)] = []
                     sc_group[(chain,resnum,resname)] = []
-                if atname in ["N","CA","C","O"]: bb_group[(chain,resnum,resname)].append(atnum[x])
+                if atname in ["N","CA","C","O","H","OXT"]: bb_group[(chain,resnum,resname)].append(atnum[x])
                 else: sc_group[(chain,resnum,resname)].append(atnum[x])
             elif resname[-1] in "AUTGC": 
                 assert len(resname) < 3
@@ -55,7 +55,7 @@ class CoarseGrain:
         for x in range(XYZ.shape[0]):
             chain,resnum,resname,atname = reslist[x]
             if (chain,resnum,resname) not in bb_xyz: bb_xyz[(chain,resnum,resname)],bb_mass[(chain,resnum,resname)] = [],[]
-            if atname in ["N","CA","C","O"]:
+            if atname in ["N","CA","C","O","H","OXT"]:
                 bb_xyz[(chain,resnum,resname)].append(XYZ[x])
                 bb_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
         COM = {}
@@ -72,16 +72,22 @@ class CoarseGrain:
             if atname == "CA": CA[(chain,resnum,resname)]=XYZ[x]
         return CA
 
-    def get_CB_COM(self,reslist,XYZ):
+    def get_CB_COM(self,reslist,XYZ,inc_gly):
         #calculate COM of the bakcbone#
         assert len(reslist) == len(XYZ)
         sc_xyz,sc_mass = dict(),dict()
+        CB_for_H = 0
+        gly_count = 0
         for x in range(XYZ.shape[0]):
             chain,resnum,resname,atname = reslist[x]
             if (chain,resnum,resname) not in sc_xyz: sc_xyz[(chain,resnum,resname)],sc_mass[(chain,resnum,resname)] = [],[]
-            if atname not in ["N","CA","C","O"]:
+            if resname == "GLY" and atname == "CA": gly_count += 1
+            if atname not in ["N","CA","C","O","H","OXT"]:
                 sc_xyz[(chain,resnum,resname)].append(XYZ[x])
                 sc_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
+                if resname == "GLY" and inc_gly: CB_for_H += 1
+        if inc_gly: assert CB_for_H == 2*gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+    
         COM = {}
         for resnum in sc_xyz:
             C,M=np.float_(sc_xyz[resnum]),np.float_(sc_mass[resnum])
@@ -91,23 +97,37 @@ class CoarseGrain:
     def get_CB_atom(self,reslist,XYZ,inc_gly):
         assert len(reslist) == len(XYZ)
         CB = {}
+        CB_for_H = 0
+        gly_count = 0
         for x in range(XYZ.shape[0]):
             chain,resnum,resname,atname = reslist[x]
             if atname == "CB": CB[(chain,resnum,resname)]=XYZ[x]
-            if inc_gly:
-                if resname == "GLY":
-                    if atname == "HA3": CB[(chain,resnum,resname)]=XYZ[x]
-
+            if resname == "GLY":
+                if atname == "CA": gly_count += 1
+                if inc_gly:
+                    if atname == "HA3":
+                        CB[(chain,resnum,resname)]=XYZ[x]
+                        CB_for_H += 1
+        if inc_gly: assert CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+        else: assert CB_for_H == 0
         return CB
 
-    def get_CB_far(self,reslist,XYZ):
+    def get_CB_far(self,reslist,XYZ,inc_gly):
         assert len(reslist) == len(XYZ)
         CA,sc_xyz = {},{}
+        CB_for_H = 0
+        gly_count = 0
         for x in range(XYZ.shape[0]):
             chain,resnum,resname,atname = reslist[x]
-            if atname == "CA": CA[(chain,resnum,resname)]=XYZ[x]
+            if atname == "CA": 
+                CA[(chain,resnum,resname)]=XYZ[x]
+                if resname == "GLY": gly_count += 1
             if (chain,resnum,resname) not in sc_xyz: sc_xyz[(chain,resnum,resname)]=[]
-            if atname not in ["N","CA","C","O"]: sc_xyz[(chain,resnum,resname)].append(XYZ[x])
+            if atname not in ["N","CA","C","O","H","OXT"]:
+                sc_xyz[(chain,resnum,resname)].append(XYZ[x])
+                if resname == "GLY" and inc_gly: CB_for_H += 1
+        if inc_gly: assert CB_for_H == 2*gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+
         CB = {}
         for resnum in CA:
             sc_xyz[resnum]=np.float_(sc_xyz[resnum])
@@ -460,8 +480,8 @@ class PDB_IO:
                 fgro.close()
 
             if CGlevel["prot"] == 2:
-                if CBcom: self.prot.CB = det.get_CB_COM(reslist=self.prot.res,XYZ=self.prot.xyz)
-                elif CBfar: self.prot.CB = det.get_CB_far(reslist=self.prot.res,XYZ=self.prot.xyz)
+                if CBcom: self.prot.CB = det.get_CB_COM(reslist=self.prot.res,XYZ=self.prot.xyz,inc_gly=CBgly)
+                elif CBfar: self.prot.CB = det.get_CB_far(reslist=self.prot.res,XYZ=self.prot.xyz,inc_gly=CBgly)
                 else: self.prot.CB = det.get_CB_atom(reslist=self.prot.res,XYZ=self.prot.xyz,inc_gly=CBgly)
                 self.prot.sc_file = ".".join(self.prot.pdbfile.split(".")[:-1]+["native_CB.pdb"])
                 self.prot.CB_atn = dict()
@@ -492,7 +512,8 @@ class PDB_IO:
                     fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
                     fgro.close()
 
-        if self.nucl.lines != 0:                    
+        if len(self.nucl.lines) != 0:   
+            print ("HERE")                 ;exit()
             nucl_grofile = "nucl_"+outgro
             self.nucl.P = det.get_P_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["P"])
             self.nucl.bb_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P.pdb"])

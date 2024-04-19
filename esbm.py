@@ -5,15 +5,64 @@ LISC
 """
 import argparse
 import numpy as np
-#from util import Utils
+from typing import NamedTuple, Dict
+from pathlib import Path
 from PDB_IO import PDB_IO,Nucl_Data,Prot_Data
-from topology import Topology
+from topology import *
+
+class Options(Dict):
+	sopsc=False
+	uniqtype = False
+	btparams=False
+	mjmap=False
+	btmap=False
+	dswap=False
+	interactions="interactions.dat"
+	hphobic=False
+	dsb=False
+
+class Constants(Dict):
+	Kb_prot = 200.0
+	Ka_prot = 40.0
+	Kd_prot = {"bb":1.0,"sc":Ka_prot,"mf":2.0}
+	Kr_prot = 1.0
+	Kb_nucl= 200				
+	Ka_nucl = 40				
+	Kd_nucl = {"bb":0.7,"sc":0.5,"mf":1.0}				
+	Kr_nucl = 1.0
+	Kboltz = 8.314462618E-3
+	kcalAtokjA=4.184 #kcal/mol/A2 to kcal/mol/A2
+
+class ContactMap(Dict):
+	cutoff = 4.5 	#A
+	type = 1 		#all-atom mapped to CG
+	scale = 1.0 
+	func = 2 		# LJ 10-12
+	W = False 		#Equal weights 
+	file = str()	# no cmap file
+	scsc_custom=False
+
+class ModelDir:
+	def __init__(self,file) -> str:
+		self.path = "/".join(str(Path(__file__)).split("/")[:-1]+["models"]+file.split("/"))
+		return 
+
+	def copy2(self,copyfile):
+		with open(copyfile,"w+") as fout:
+			fout.write(open(self.path).read())
+		return 1
 
 def main():
 	
 	""" loading arguments here """
 	parser = argparse.ArgumentParser(description="Generate GROMACS and OPTIM potential files for Protein + Nucleic Acids enhanced SBM models.")
-    
+	
+	#Predefined Models
+	parser.add_argument("--clementi2000","-clementi2000",action="store_true",help="Clementi et. al. 2000 CA-only model")
+	parser.add_argument("--azia2009","-azia2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model")
+	parser.add_argument("--pal2019","-pal2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
+	parser.add_argument("--reddy2017","-reddy2017",action="store_true",help="Reddy. 2017 SOP-SC CA-CB")
+	
 	#input options for protein
 	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius for C-alpha (same for all beads) in Angstrom. Default: 4.0A")
 	parser.add_argument("--CA_com","-CA_com",action='store_true',help="Place C-alpha at COM of backbone. Default: False")
@@ -25,7 +74,7 @@ def main():
 	parser.add_argument("--Kd_sc_prot","-Kd_sc_prot","--Kd_chiral","-Kd_chiral", help="User defined force constant K_dihedral for Proteins")
 	parser.add_argument("--mulfac_prot","-mulfac_prot", help="User defined Multiplicity scale factor of K_dihedral/mulfac_prot for Proteins")
 	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality. Default: False")
-
+	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for large systems)")
 	parser.add_argument("--bfunc","-bfunc",help="Bond function 1: harnomic, 7: FENE. Default: 1 (Harmonic)")
 	#native  determining contacts parameters
 	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5A")
@@ -33,7 +82,7 @@ def main():
 	parser.add_argument("--W_cont","-W_cont",action="store_true",help="Weight (and normalize) CG contacts based on all atom contacts")
 	parser.add_argument("--cmap","-cmap",help="User defined cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling","-scaling", help="User defined scaling for mapping to all-atom contact-map.")
-	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 4 Gauss-C12 . Default: 2")
+	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	
 	#atom type 1: CA only. 2: Ca+Cb
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -57,11 +106,9 @@ def main():
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 
 	#file parameters
-	parser.add_argument("--pl_map","-pl_map", action='store_true', default=False, help='Plot contact map for two bead model. Default: False')
 	parser.add_argument("--CB_gly","--CB_GLY","-CB_gly","-CB_GLY",action='store_true',default=False,help='Add C-beta for glycine (pdb-file must have H-atoms). Default: Flase ')
-	#parser.add_argument("--skip_glycine","-skip_glycine", action='store_true', default=False, help='Skip putting C-beta on glycine')
-	parser.add_argument('--btmap',"-btmap", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
-	parser.add_argument('--mjmap',"-mjmap", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
+	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
+	parser.add_argument('--mjparams',"-mjparams", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
 
 	#For Nucleotide
 	#radius for P,B,S
@@ -102,7 +149,7 @@ def main():
 	#disabled for now
 	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
 	parser.add_argument('--ext_conmap',"-ext_conmap",help='External contact map in format chain res chain res')
-	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interaction.dat.')
+	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
 	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts.')
@@ -113,51 +160,33 @@ def main():
 	parser.add_argument("--control", action='store_true', help='Use the native system as control. Use DNA/RNA bound to native protein site. --custom_nuc will be disabled. Default: False (Move DNA/RNA away from native binding site)')
 	#exclusion volume
 	parser.add_argument("--excl_rule",help="Use 1: Geometric mean. 2: Arithmatic mean")
-	parser.add_argument("--Kr", help="Krepulsion. Default=5.7A")
+	parser.add_argument("--Kr_prot", help="Krepulsion. Default=1.0")
+	parser.add_argument("--Kr_nucl", help="Krepulsion. Default=1.0")
 
 	#presets 
 	args = parser.parse_args()
 
 	#defualt potoein-NA parameters
 	interface = False
-	custom_nuc = True
+	custom_nuc = False
 	control_run = False
+
 
 	#Set default parameters for proteins
 	#For preteins
+	opt = Options()
+	fconst = Constants()
 	CGlevel = {"prot":2,"nucl":3}
-	sopc=False
-	btparams=False
-	mjmap=False
-	btmap=False
-	dswap=False
-	skip_glycine=True
-	fconst = dict()
+	contmap = ContactMap()
 	rad = dict()	 
 	bond_function = 1
-	fconst["Kb_prot"] = 200.0
-	fconst["Ka_prot"] = 40.0
-	fconst["Kd_prot"] = {"bb":1.0,"sc":fconst["Ka_prot"],"mf":2.0}
-	contmap = dict()
-	contmap["cutoff"] = 4.5 #A
-	contmap["type"] = 1 #all-atom mapped to CG
-	contmap["scale"] = 1.0 
-	contmap["func"] = 2 # LJ 10-12
-	contmap["W"] = False
-	contmap["file"] = str()
 	rad["CA"] = 1.9
 	rad["CB"] = 1.5
 	CA_com = False
-	hphobic=False
-	dsb=False
 	CB_far=False
 	CB_com=False
 	CB_chiral=False
 	#Set default parameters for nucleotides
-	fconst["Kb_nucl"]= 200				
-	fconst["Ka_nucl"] = 40				
-	fconst["Kd_nucl"] = {"bb":0.7,"sc":0.5,"mf":1.0}				
-	fconst["Kr"] = 5.7				
 	rad["P"] = 3.7					#A
 	rad["S"] = 3.7					#A
 	rad["Bpy"] = 1.5				#A
@@ -182,12 +211,63 @@ def main():
 	nucl_pos["S"] = "COM"			#Center of Mass for sugar
 
 
+	if args.clementi2000:
+		print (">>> Using Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb"
+		args.prot_cg = 1	# CA_only	
+		args.CA_rad = 2.0	# 4.0 A excl vol rad
+		args.W_cont = 1		# not weighted 
+		args.cutoff = 4.5	# 4.5 A
+		args.cutofftype = 1	# all-atom contacts mapped to CG
+		args.contfunc = 2	# LJ 10-12
+
+	if args.pal2019:
+		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb."
+		args.prot_cg = 2	# CB-CA
+		args.CA_rad = 1.9	# 3.8 A excl vol rad
+		args.CB_rad = 1.5	# 3.0 A excl vol rad
+		args.CB_far = True	# CB at farthest SC atom 
+		args.CB_chiral = True	# improp dihed for CAi-1 CAi+1 CAi CBi
+		args.CB_charge = True	# Charge on CB
+		args.excl_rule = 2		# Excl volume Arith. Mean
+		args.mulfac_prot = 1.0	
+		args.W_cont = 1
+		args.cutoff = 4.5
+		args.cutofftype = 1
+		args.contfunc = 2
+
+	if args.azia2009:
+		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
+		args.uniqtype = True
+		args.Kr_prot = 0.7**12
+
+	if args.reddy2017:
+		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
+		args.prot_cg = 2
+		args.bfunc = 8
+		args.cutoff = 8.0
+		args.cutofftype = 2
+		args.contfunc = 1
+		args.excl_rule = 2
+		args.btparams = True
+		opt.sopsc = True
+		args.CB_charge = True
+		args.CB_gly = True
+		args.Kb_prot = 20.0*fconst.kcalAtokjA
+		args.Kr_prot = 1.0*fconst.kcalAtokjA
+		args.CB_radii = True
+		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
 	if args.excl_rule: 
 		excl_rule = int(args.excl_rule)
 		assert excl_rule in (1,2), "Error: Choose correct exclusion rule. Use 1: Geometric mean or 2: Arithmatic mean"
 	else: excl_rule = 1
-
+	
+	if args.uniqtype: uniqtype = True
+	else: uniqtype = False
+	
 	if args.prot_cg: 
 		CGlevel["prot"] = int(args.prot_cg)
 		if CGlevel["prot"] == 1: print (">>> Using CA-only model for protein. All other CB parameters will be ingnored.")
@@ -202,38 +282,45 @@ def main():
 	else: CGlevel["nucl"] = 3
 
 	if args.interface: interface = True
-	if args.Kb_prot:fconst["Kb_prot"]=float(args.Kb_prot)
-	if args.Ka_prot:fconst["Ka_prot"]=float(args.Ka_prot)
-	if args.Kd_bb_prot:fconst["Kd_prot"]["bb"]=float(args.Kd_bb_prot)
-	if args.Kd_sc_prot:fconst["Kd_prot"]["Sc"]=float(args.Kd_sc_prot)
-	else: fconst["Kd_prot"]["Sc"]=fconst["Ka_prot"]
-	if args.mulfac_prot:fconst["Kd_prot"]["mf"]=float(args.mulfac_prot)
-	if args.cutoff:contmap["cutoff"]=float(args.cutoff)
+	if args.Kb_prot:fconst.Kb_prot=float(args.Kb_prot)
+	if args.Ka_prot:fconst.Ka_prot=float(args.Ka_prot)
+	if args.Kd_bb_prot:fconst.Kd_prot["bb"]=float(args.Kd_bb_prot)
+	if args.Kd_sc_prot:fconst.Kd_prot["Sc"]=float(args.Kd_sc_prot)
+	else: fconst.Kd_prot["Sc"]=fconst.Ka_prot
+	if args.mulfac_prot:fconst.Kd_prot["mf"]=float(args.mulfac_prot)
+	if args.Kr_prot:fconst.Kr_prot = float(args.Kr_prot)
+	if args.cutoff:contmap.cutoff=float(args.cutoff)
+
 	if args.cmap: 
-		contmap["type"] = 0
-		contmap["file"] = args.cmap
+		contmap.type = 0
+		contmap.file = args.cmap
 	if args.cutofftype:
-		contmap["type"] = int(args.cutofftype)
-		if len(contmap["file"]) > 0:
-			assert contmap["type"] == 0, "Error, Use type 0 if giving cmap file"
-	if args.scaling: contmap["scale"] = float(args.scaling)
-	if args.W_cont: contmap["W"] = True
-	else: cmap=str()
+		contmap.type = int(args.cutofftype)
+		if len(contmap.file) > 0:
+			assert contmap.type == 0, "Error, Use type 0 if giving cmap file"
+	if args.scaling: contmap.scale = float(args.scaling)
+	if args.W_cont: contmap.W = True
 	if args.contfunc: 
-		contmap["func"] = int(args.contfunc)
-		assert (contmap["func"] in range(0,5))
-	else: contmap["func"] = 2
+		contmap.func = int(args.contfunc)
+		assert (contmap.func in range(0,5))
+	else: contmap.func = 2
+
 	if args.bfunc: 
 		bond_function = int(args.bfunc)
-		assert bond_function in (1,7), "Only Harmonic (1) and FENE (7) are supported bond length potentials"
-	if args.interaction:
-		Utils.file_exists('interaction.dat')
-		btparams=True
-	else: btparams=False
+		assert bond_function in (1,7,8), "Only Harmonic (1) and FENE (7) are supported bond length potentials"
 
+	if args.interaction: contmap.scsc_custom = True
+	if args.btparams:
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
+		opt.btparams=True
+		contmap.scsc_custom=True
+	if args.mjparams:
+		ModelDir("reddy2017/sopsc.mjparams.dat").copy2("interactions.dat")
+		opt.mjparams = True
+		contmap.scsc_custom=True
+	
 	if args.CB_radii:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
-		Utils.file_exists('radii.dat')
 		CBradii=True
 	else: CBradii=False
 
@@ -242,9 +329,7 @@ def main():
 		skip_glycine=False
 		CB_gly = True
 		print ("WARNING: Using CB for Glycines!! Make sure the all-atom pdb contains H-atom (HB)")
-	else: 
-		skip_glycine = True
-		CB_gly = False
+	else: CB_gly = False
 
 	if args.CB_chiral:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -266,9 +351,7 @@ def main():
 		print ("Setting --all_chains True")
 		all_chains = True
 	
-	if args.CA_rad:
-		rad["CA"]=float(args.CA_rad)
-		print (">>> Setting CA_rad to ",CA_rad)
+	if args.CA_rad: rad["CA"]=float(args.CA_rad)
 
 	if args.CB_rad:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -283,6 +366,10 @@ def main():
 		aa_resi = Prot_Data().amino_acid_dict
 		with open("radii.dat") as fin:
 			rad.update({"CB"+aa_resi[x.split()[0]]:float(x.split()[1]) for x in fin})
+	else:
+		aa_resi = Prot_Data().amino_acid_dict
+		rad.update({"CB"+aa_resi[x]:rad["CB"] for x in aa_resi})
+
 	#converting A to nm
 	for x in rad: rad[x] = np.round(0.1*rad[x],3)
 
@@ -303,14 +390,6 @@ def main():
 		CB_com=True
 		assert not CB_far, "Conflicting input --CB_far and CB_com"
 
-	if args.btmap:
-		import shutil
-		shutil.copy2('btmap.dat','interaction.dat')
-		btparams=True;btmap=True
-	if args.mjmap:
-		import shutil
-		shutil.copy2('mjmap.dat', 'interaction.dat')
-		btparams=True;mjmap=True
 
 	#Replacing default paramteres with input paramters for nucleotide
 	if args.Bpu_pos:
@@ -332,12 +411,12 @@ def main():
 
 	
 	#Force constants
-	if args.Kb_nucl: fconst["Kb_nucl"] = float(args.nKb)
-	if args.Ka_nucl: fconst["Ka_nuck"] = float(args.nKa)
-	if args.Kd_sc_nucl: fconst["Kd_nucl"]["sc"] = float(args.Kd_sc_nucl)
-	if args.Kd_bb_nucl: fconst["Kd_nucl"]["bb"] = float(args.Kd_bb_nucl)
-	if args.mulfac_nucl:fconst["Kd_nucl"]["mf"] = float(args.mulfac_nucl)
-	if args.Kr:	fconst["Kr"] = float(args.Kr)
+	if args.Kb_nucl: fconst.Kb_nucl = float(args.nKb)
+	if args.Ka_nucl: fconst.Ka_nuck = float(args.nKa)
+	if args.Kd_sc_nucl: fconst.Kd_nucl["sc"] = float(args.Kd_sc_nucl)
+	if args.Kd_bb_nucl: fconst.Kd_nucl["bb"] = float(args.Kd_bb_nucl)
+	if args.mulfac_nucl:fconst.Kd_nucl["mf"] = float(args.mulfac_nucl)
+	if args.Kr_nucl:	fconst.Kr_nucl = float(args.Kr_nucl)
 	if args.P_rad: rad["P"] = float(args.P_rad)
 	if args.S_rad: rad["S"] = float(args.S_rad)
 	if args.Bpu_rad: rad["Bpu"] = float(args.Bpu_rad)
@@ -354,7 +433,7 @@ def main():
 	sol_params = {"conc":iconc,"rad":irad,"D":D}
 
 	#initializing global paramters
-	#X.globals(Ka,Kb,Kd,CA_rad,skip_glycine,sopc,dswap,btparams,CA_com,hphobic,hpstrength,hpdist,dsb,mjmap,btmap,CB_far,CB_charge)
+	#X.globals(Ka,Kb,Kd,CA_rad,skip_glycine,sopsc,dswap,btparams,CA_com,hphobic,hpstrength,hpdist,dsb,mjmap,btmap,CB_far,CB_charge)
 	#########################
 
 	#input structure file
@@ -374,10 +453,10 @@ def main():
 			pdbdata.nucl = custom_nucl_file.nucl
 			del(custom_nucl_file)
 		else:
-			custom_nucl_file = pdbdata.nucl.pdbfile
-			print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
-			assert pdbdata.nucl.pdbfile != "", "Error, --cutom_unc without input, no RNA/DNA in "+args.aa_pdb
-		pdbdata.coordinateTransform()
+			if pdbdata.nucl.pdbfile != "":
+				custom_nucl_file = pdbdata.nucl.pdbfile
+				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
+				pdbdata.coordinateTransform()
 	#output grofiles
 	if args.pdbgro: grofile = str(args.pdbgro)
 	else: grofile = "gromacs.gro"
@@ -390,9 +469,20 @@ def main():
 	#write .top file
 	if args.grotop: ttopfile = str(args.grotop)
 	else:topfile = 'gromacs.top'
+	
 
-	top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap)
-	topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+	if args.clementi2000:
+		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
+		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+	if args.pal2019:
+		top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
+		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+	if args.reddy2017:
+		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
+		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+	else:
+		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
+		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 
 if __name__ == '__main__':
     main()
