@@ -1,8 +1,36 @@
 #!/usr/bin/env python
 
 """
-LISC
+	Enhanced SBN (esbm)
+	Copyright (C) <2024>  <Digvijay Lalwani Prakash>
+
+	A toolkit for generating input files for performing Molecular Dynamics
+	Simulations (MD) of Coarse-Grain Structure Based Models (CG-SBM) on 
+	GROMACS (4.5.4/5.1.4) and/or OpenSMOG (v1.1.1)
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+	To add a new model, 1) add a new class (to a new .py file or to topology.py)
+	and inherit Topology from topology.py. 2) See availabel functions in Class 
+	Topology and re-write those which require changes based on your model.
+	3) Predefine available arguments in (esbm.py).
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+	<http://www.gnu.org/licenses/>.
+
+    A copy of the GNU General Public License is included along with
+	this program.
+
+usage: python esbm.py --help
+(Author: Digvijay L. Prakash)
 """
+
 import argparse
 import numpy as np
 from typing import NamedTuple, Dict
@@ -58,11 +86,11 @@ def main():
 	parser = argparse.ArgumentParser(description="Generate GROMACS and OPTIM potential files for Protein + Nucleic Acids enhanced SBM models.")
 	
 	#Predefined Models
-	parser.add_argument("--clementi2000","-clementi2000",action="store_true",help="Clementi et. al. 2000 CA-only model")
+	parser.add_argument("--clementi2000","-clementi2000","--calpha_go2000","-calpha_go2000",action="store_true",help="Clementi et. al. 2000 CA-only model")
 	parser.add_argument("--azia2009","-azia2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model")
-	parser.add_argument("--pal2019","-pal2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
-	parser.add_argument("--reddy2017","-reddy2017",action="store_true",help="Reddy. 2017 SOP-SC CA-CB")
-	
+	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
+	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy. 2017 SOP-SC CA-CB")
+	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp","-sopsc_idp",action="store_true",help="SOP-SC-IDP CA-CB")
 	#input options for protein
 	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius for C-alpha (same for all beads) in Angstrom. Default: 4.0A")
 	parser.add_argument("--CA_com","-CA_com",action='store_true',help="Place C-alpha at COM of backbone. Default: False")
@@ -210,6 +238,7 @@ def main():
 	nucl_pos["P"] = "COM"			#Center of Mass for phosphate group
 	nucl_pos["S"] = "COM"			#Center of Mass for sugar
 
+	"""" Defining inputs for preset models """
 
 	if args.clementi2000:
 		print (">>> Using Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
@@ -259,6 +288,24 @@ def main():
 		args.CB_radii = True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
+
+	if args.baidya2022:
+		print (">>> Using Reddy SOP-SCP-IDP model.")
+		args.prot_cg = 2
+		args.bfunc = 8
+		args.cutoff = 8.0
+		args.cutofftype = -1
+		args.contfunc = 1
+		args.excl_rule = 2
+		args.btparams = True
+		opt.sopsc = True
+		args.CA_rad = 1.9 #A
+		args.CB_charge = True
+		args.CB_gly = True
+		args.Kb_prot = 20.0*fconst.kcalAtokjA
+		args.Kr_prot = 1.0*fconst.kcalAtokjA
+
+	""" presets end here """
 
 	if args.excl_rule: 
 		excl_rule = int(args.excl_rule)
@@ -439,6 +486,7 @@ def main():
 	#input structure file
 	pdbdata = PDB_IO()
 	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb,refine=True)
+	if args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb,refine=True)
 	if args.control:	#Use Protein with DNA/RNA bound at natve site
 		control_run = True
 		assert not args.custom_nuc, "Error: --custom_nuc cannot be used with --control"
@@ -474,11 +522,14 @@ def main():
 	if args.clementi2000:
 		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	if args.pal2019:
+	elif args.pal2019:
 		top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	if args.reddy2017:
+	elif args.reddy2017:
 		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
+		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+	elif args.baidya2022:
+		top = Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	else:
 		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=contmap,opt=opt)

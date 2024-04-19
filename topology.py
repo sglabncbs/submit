@@ -194,9 +194,15 @@ class Calculate:
                                 pairs += [(self.CA_atn[c1][x],self.CB_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CA_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CB_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c2]]
-
             pairs = np.int_(pairs)
+            cutoff = 0.1*cmap.cutoff
             distances = self.__distances__(pairs)
+            contacts = np.where(np.int_(distances<=cutoff))[0]
+            pairs = pairs[contacts]
+            distances = distances[contacts]
+            check_dist = self.__distances__(pairs)
+            for x in range(pairs.shape[0]): 
+                assert check_dist[x] == distances[x] and distances[x] < cutoff
             weights = np.ones(pairs.shape[0])
         self.contacts.append((pairs,distances,weights))
 
@@ -401,7 +407,7 @@ class Topology:
                 eps = eps_bbbb*np.int_(interaction_type==0) \
                     + eps_bbsc*np.int_(interaction_type==1) \
                     + eps_scsc*np.int_(interaction_type==2) 
-                for x in range(eps.shape[0]): print(eps[x],interaction_type[x],new_eps[x])
+                #for x in range(eps.shape[0]): print(eps[x],interaction_type[x],new_eps[x])
                 #eps = np.round(eps + (eps_IJ - eps)*interaction_type,3)
                 data.contacts[index] = pairs,dist,eps
 
@@ -545,8 +551,6 @@ class Reddy2017(Topology):
                         if p not in pairs:
                             fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
                             pairs.append(p)
-        sopsc = False
-        if sopsc: print ("WIP") 
         return 0
 
     def __write_protein_bonds__(self,fout,data,func):
@@ -569,16 +573,17 @@ class Reddy2017(Topology):
         fout.write("\n%s\n"%("[ bonds ]"))
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
         data.Bonds()
-        table = dict()
+        table_idx = dict()
         for pairs,dist in data.bonds:
             pairs += 1 
             for i in range(pairs.shape[0]): 
-                r0 = dist[i]
+                r0 = np.round(dist[i],3)
+                if r0 not in table_idx: table_idx[r0]=len(table_idx)
                 r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
-                V = -(R*K/2)*np.log(1-((r-r0)/R)**2)
-                V_1 = -(R*K/2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
-                Tables().__write_bond_table__(X=r,index=i,V=V,V_1=V_1)
-                fout.write(" %5d %5d %5d %5d %e\n"%(pairs[i][0],pairs[i][1],func,i,K))
+                V = -(K/2)*(R**2)*np.log(1-((r-r0)/R)**2)
+                V_1 = -(K/2)*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
+                Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
+                fout.write(" %5d %5d %5d %5d %e\n"%(pairs[i][0],pairs[i][1],func,table_idx[r0],K))
         return 
 
     def __write_protein_angles__(self,fout,data):
@@ -597,8 +602,7 @@ class Reddy2017(Topology):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
-
-        assert cmap.scsc_custom and cmap.type==2 and cmap.func==1
+        assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
         with open("interactions.dat") as fin:
             scscmat = {line.split()[0]:float(line.split()[1]) for line in fin}
             scscmat.update({k[1]+k[0]:v for k,v in scscmat.items()})                
@@ -634,13 +638,15 @@ class Reddy2017(Topology):
             c12 = eps*(dist**12.0)
             for x in range(pairs.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(pairs[x][0],pairs[x][1],func,c06[x],c12[x]))
-        
+
+        print ("> Using -C6 repulsion for local beads")
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         data.Angles()
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
         eps_bbbb = 1.0*self.fconst.kcalAtokjA
         eps_bbsc = 1.0*self.fconst.kcalAtokjA
+        
         for index in range(len(data.angles)):
             triplets,angles = data.angles[index]
             I,J,K = np.transpose(triplets)
@@ -652,8 +658,96 @@ class Reddy2017(Topology):
             assert 2 not in interaction_type
             c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
                 + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
+            pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+            data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
             I,K = I+1,K+1
             for x in range(triplets.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
+class Baidya2022(Reddy2017):
+    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+        self.allatomdata = allatomdata
+        self.fconst = fconst
+        self.CGlevel = CGlevel
+        self.cmap = cmap
+        self.opt = opt
+        self.eps_bbbb = 0.12*self.fconst.kcalAtokjA 
+        self.eps_bbsc = 0.24*self.fconst.kcalAtokjA 
+        self.eps_scsc = 0.18*self.fconst.kcalAtokjA 
+        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+        self.excl_volume = dict()
+        self.atomtypes = []
+
+    def __write_nonbond_params__(self,fout,type,excl_rule):
+        print (">> Writing nonbond_params section")
+        fout.write("\n%s\n"%("[ nonbond_params ]"))
+        fout.write('%s\n' % ('; i    j     func C6  C12'))
+        assert type==2 and excl_rule == 2
+        pairs = []
+        eps = dict()
+        eps[("CA","CA")] = self.eps_bbbb
+        eps[("CB","CB")] = self.eps_bbsc
+        eps[("CA","CB")] = self.eps_scsc
+
+        with open("interactions.dat") as fin:
+            epsmat = {("CA","CA"):1.0}
+            for k,v in {line.split()[0]:float(line.split()[1]) for line in fin}.items():
+                epsmat[("CB"+k[0],"CB"+k[1])] = np.abs(0.7-v)
+                epsmat[("CB"+k[1],"CB"+k[0])] = np.abs(0.7-v)
+                epsmat[("CA","CB"+k[0])] = 1.0
+                epsmat[("CB"+k[0],"CA")] = 1.0
+
+        for x in self.excl_volume:
+            if x.startswith(("CA","CB")):
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB")):
+                        sig = (self.excl_volume[x]+self.excl_volume[y])/2.0
+                        p = [x[:2],y[:2]]; p.sort(); p = tuple(p)
+                        C06 = 2*eps[p]*epsmat[(x,y)]*(sig)**6
+                        C12 = 1*eps[p]*epsmat[(x,y)]*(sig)**12
+                        if p not in pairs:
+                            fout.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
+                            pairs.append(p)
+        return 0  
+
+    def __write_protein_pairs__(self,fout,data,excl_rule):
+        print (">> Writing SOP-SC pairs section")
+        cmap = self.cmap
+        assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
+            
+        CA_atn = {v:"CA"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CA_atn.items()}
+        CB_atn = {v:"CB"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CB_atn.items()}
+        all_atn = CA_atn.copy()
+        all_atn.update(CB_atn.copy())
+        eps_bbbb = 0.5*self.fconst.kcalAtokjA
+        eps_bbsc = 0.5*self.fconst.kcalAtokjA
+
+        fout.write("\n%s\n"%("[ pairs ]"))
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        func = 1
+        diam = self.excl_volume.copy()
+        diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
+        eps_bbbb = 1.0*self.fconst.kcalAtokjA
+        eps_bbsc = 1.0*self.fconst.kcalAtokjA
+        eps_scsc = 1.0*self.fconst.kcalAtokjA
+    
+        pairs  = []
+        pairs += [(x,y) for x in CA_atn for y in range(x+3,x+6) if y in all_atn]
+        pairs += [(x,y) for x in CB_atn for y in range(x+1,x+5) if y in all_atn]
+                
+        I,K = np.transpose(np.int_(pairs))
+        interaction_type = np.int_(\
+            np.int_([x in CB_atn for x in I])+ \
+            np.int_([x in CB_atn for x in K]))
+        sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
+            + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) \
+            + -1*eps_scsc*((0.8*sig)**6)*np.int_(interaction_type==2) 
+        pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+        data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        I,K = I+1,K+1
+        for x in range(len(pairs)): 
+            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        return 
