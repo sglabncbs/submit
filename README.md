@@ -1,7 +1,7 @@
 # Package to generate coarse-Grain structure and topology for using Enhanced Structure Based Models MD simulations on GROMACS and OpenSMOG (OpenMM based)##
-# digvijaylp @ shachilab16.ncbs.res #
+# digvijaylp #
 $ python esbm.py --help
-
+"
 usage: esbm.py [-h] [--CA_rad CA_RAD] [--CA_com] [--CB_rad CB_RAD]
                [--CB_radii] [--Kb_prot KB_PROT] [--Ka_prot KA_PROT]
                [--Kd_bb_prot KD_BB_PROT] [--Kd_sc_prot KD_SC_PROT]
@@ -202,3 +202,4 @@ optional arguments:
   --excl_rule EXCL_RULE
                         Use 1: Geometric mean. 2: Arithmatic mean
   --Kr KR               Krepulsion. Default=5.7A
+"
