@@ -14,7 +14,7 @@
     (at your option) any later version.
 
 	To add a new model, 1) add a new class (to a new .py file or to topology.py)
-	and inherit Topology from topology.py. 2) See availabel functions in Class 
+	and inherit Topology from topology.py. 2) See available functions in Class 
 	Topology and re-write those which require changes based on your model.
 	3) Predefine available arguments in (esbm.py).
 
@@ -76,7 +76,7 @@ class Charge(Dict):
 	CB = False
 	P = False
 	debye = False
-	dielec = 80   
+	dielec = 78
 	iconc = 0.1 #M L-1               
 	irad = 1.4 #nm (for NaCl)
 	debye_temp = 298  #K
@@ -304,6 +304,8 @@ def main():
 		args.Kr_prot = 1.0*fconst.caltoj
 		args.CB_radii = True
 		args.debye = True
+		args.dielec = 10
+		args.iconc = 0.01		# M
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
@@ -320,9 +322,11 @@ def main():
 		args.CA_rad = 1.9 #A
 		args.CB_charge = True
 		args.CB_gly = True
-		args.debye = True
 		args.Kb_prot = 20.0*fconst.caltoj
 		args.Kr_prot = 1.0*fconst.caltoj
+		args.debye = True
+		args.dielec = 78
+		args.iconc = 0.15	#M
 
 	""" presets end here """
 
