@@ -58,8 +58,9 @@ class Constants(Dict):
 	Ka_nucl = 40				
 	Kd_nucl = {"bb":0.7,"sc":0.5,"mf":1.0}				
 	Kr_nucl = 1.0
-	Kboltz = 8.314462618E-3
-	kcalAtokjA=4.184 #kcal/mol/A2 to kcal/mol/A2
+	Kboltz = 8.314462618E-3 #KJ mol-1 nm-1
+	caltoj=4.184 #kcal mol-1 A-2 to kcal mol-1 A-2
+	permol = 6.022E+23          #n/mol  		#Avogadro's number
 
 class ContactMap(Dict):
 	cutoff = 4.5 	#A
@@ -69,6 +70,20 @@ class ContactMap(Dict):
 	W = False 		#Equal weights 
 	file = str()	# no cmap file
 	scsc_custom=False
+
+class Charge(Dict):
+	CA = False
+	CB = False
+	P = False
+	debye = False
+	dielec = 80   
+	iconc = 0.1 #M L-1               
+	irad = 1.4 #nm (for NaCl)
+	debye_temp = 298  #K
+	inv_dl = 0
+	Kboltz = 8.314462618E-3 #KJ mol-1 nm-1
+	caltoj=4.184 #kcal mol-1 A-2 to kcal mol-1 A-2
+	permol = 6.022E+23          #n/mol  		#Avogadro's number
 
 class ModelDir:
 	def __init__(self,file) -> str:
@@ -166,13 +181,15 @@ def main():
 	parser.add_argument("--pistacklen", help="pi-pi stacking length. Default=3.6A")
 
 	#electrostatic
-	parser.add_argument("--debye",action='store_true', help="Use Debye-Huckel electrostatic term.")
-	parser.add_argument("--T", help="Temperature for Debye length calculation. Default = 298K")
+	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic term.")
+	parser.add_argument("--debye_temp","-debye_temp", help="Temperature for Debye length calculation. Default = 298K")
+	parser.add_argument("--debye_length","-debye_length", help="Debye length. in (A)")
+	parser.add_argument("--CA_charge","-CA_charge", action='store_true', default=False, help='Put charges on CA for K,L,H,D,E. Default: False')
 	parser.add_argument("--CB_charge","-CB_charge", action='store_true', default=False, help='Put charges on CB for K,L,H,D,E. Default: False')
 	parser.add_argument("--P_charge","-P_charge", action='store_true', default=False, help='Negative charge on Phosphate bead. Default: False')
-	parser.add_argument("--iconc", help="Solvant ion conc.(N) for Debye length calcluation. Default=0.1M")  
-	parser.add_argument("--irad", help="Solvant ion rad for Debye length calcluation. Default=1.4A")  
-	parser.add_argument("--dielec", help="Dielectric constant of solvant. Default=70")
+	parser.add_argument("--iconc","-iconc", help="Solvant ion conc.(N) for Debye length calcluation. Default=0.1M")  
+	parser.add_argument("--irad","-irad", help="Solvant ion rad for Debye length calcluation. Default=1.4A")  
+	parser.add_argument("--dielec","-dielec", help="Dielectric constant of solvant. Default=70")
 	
 	#disabled for now
 	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
@@ -221,15 +238,11 @@ def main():
 	rad["Bpu"] = 1.5				#A
 	rad["stack"] = 3.6					#A
 	P_Stretch = False
-	irad = 1.4						#A (Na+ = 1.1A	Cl- = 1.7A)
-	iconc = 0.1						#M
-	D =	70							#dilectric constant (dimensionlsess)
-	charge = dict()
-	charge["CB"] = False
-	charge["P"] = False
-	debye = False
-	T = 298							#for Debye length calculation
-	
+
+	charge = Charge()
+	charge.CA = False
+	charge.CB = False
+	charge.P = False
 
 	#default position
 	nucl_pos = dict()
@@ -259,12 +272,16 @@ def main():
 		args.CB_far = True	# CB at farthest SC atom 
 		args.CB_chiral = True	# improp dihed for CAi-1 CAi+1 CAi CBi
 		args.CB_charge = True	# Charge on CB
+		args.P_charge = True	#charge on P
 		args.excl_rule = 2		# Excl volume Arith. Mean
-		args.mulfac_prot = 1.0	
-		args.W_cont = 1
-		args.cutoff = 4.5
-		args.cutofftype = 1
-		args.contfunc = 2
+		args.mulfac_prot = 1.0	#factor to divide 3 multiplicity dihed term
+		args.W_cont = 1			# contact weight
+		args.cutoff = 4.5		# cutoff
+		args.cutofftype = 1		# Calculate from all-atom structure
+		args.contfunc = 2		# Use LJ 10-12 pairs
+		args.debye = True		# Use DH-electrostatics
+		args.dielec = 70		# dielectric constant
+		args.iconc = 0.01		# concentration
 
 	if args.azia2009:
 		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
@@ -283,9 +300,10 @@ def main():
 		opt.sopsc = True
 		args.CB_charge = True
 		args.CB_gly = True
-		args.Kb_prot = 20.0*fconst.kcalAtokjA
-		args.Kr_prot = 1.0*fconst.kcalAtokjA
+		args.Kb_prot = 20.0*fconst.caltoj
+		args.Kr_prot = 1.0*fconst.caltoj
 		args.CB_radii = True
+		args.debye = True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
@@ -302,8 +320,9 @@ def main():
 		args.CA_rad = 1.9 #A
 		args.CB_charge = True
 		args.CB_gly = True
-		args.Kb_prot = 20.0*fconst.kcalAtokjA
-		args.Kr_prot = 1.0*fconst.kcalAtokjA
+		args.debye = True
+		args.Kb_prot = 20.0*fconst.caltoj
+		args.Kr_prot = 1.0*fconst.caltoj
 
 	""" presets end here """
 
@@ -384,10 +403,10 @@ def main():
 
 	if args.CB_charge:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
-		charge["CB"] = True
+		charge.CB = True
 
-	if args.P_charge: charge["P"] = True
-	else: charge["P"] = False
+	if args.P_charge: charge.P = True
+	else: charge.P = False
 
 	if args.CA_com:
 		CA_com=True
@@ -471,22 +490,19 @@ def main():
 	if args.pistacklen: rad["stack"] = float(args.pistacklen)
 	
 	#solvant and ionic params
-	if args.dielec:	D = float(args.dielec)
-	else: D = 78.0
-	if args.iconc: iconc = float(args.iconc)
-	if args.irad: irad = float(args.irad)
-	if args.debye: debye = True
-	if args.T: T = float(args.T)
-	sol_params = {"conc":iconc,"rad":irad,"D":D}
-
-	#initializing global paramters
-	#X.globals(Ka,Kb,Kd,CA_rad,skip_glycine,sopsc,dswap,btparams,CA_com,hphobic,hpstrength,hpdist,dsb,mjmap,btmap,CB_far,CB_charge)
-	#########################
+	if args.dielec:	charge.dielec = float(args.dielec)
+	if args.iconc: charge.iconc = float(args.iconc)
+	if args.irad: charge.irad = float(args.irad)
+	if args.debye: charge.debye = True
+	if args.debye_temp: charge.debye_temp = float(args.T)
+	if args.debye_length: charge.inv_dl = 1.0/float(args.debye_length)
 
 	#input structure file
 	pdbdata = PDB_IO()
+	if contmap.type == 1: assert args.aa_pdb, "Error. No all-atom pdb provided. --aa_pdb"
+	assert args.aa_pdb or args.cg_pdb, "Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb"
 	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb,refine=True)
-	if args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb,refine=True)
+	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb,refine=True)
 	if args.control:	#Use Protein with DNA/RNA bound at natve site
 		control_run = True
 		assert not args.custom_nuc, "Error: --custom_nuc cannot be used with --control"

@@ -6,12 +6,109 @@ from hybrid_36 import hy36encode,hy36decode
 class Tables:
     def __init__(self) -> None:
         pass
+
+    def __pad__(self,X):
+        step = 0.001 #nm
+        return np.int_(range(0,int(X[0]*1000)))*0.001
+
     def __write_bond_table__(self,index,X,V,V_1):
         with open("table_b"+str(index)+".xvg","w+") as fout:
-            step = 0.002 #nm
+            for x in self.__pad__(X):           
+                fout.write("%e %e %e\n"%(x,V[0],0))
             for i in range(X.shape[0]):
                 fout.write("%e %e %e\n"%(X[i],V[i],-V_1[i]))
         return
+    
+    def __electrostatics__(self,elec,r):
+        jtocal = 1/elec.caltoj		#0.239  #Cal/J #SMOG tut mentiones 1/5 = 0.2
+        D = elec.dielec
+        if elec.debye:
+            if elec.inv_dl == 0:
+                """debye length
+                                            e0*D*KB*T
+                            dl**2 = -------------------------
+                                    2*el*el*NA*l_to_nm3*iconc
+                
+                ref: https://www.weizmann.ac.il/CSB/Levy/sites/Structural_Biology.Levy/files/publications/Givaty_JMB_2009.pdf
+                """
+                pi = np.pi
+                inv_4pieps =  138.935485    #KJ mol-1 e-2
+                iconc = elec.iconc 		    #M L-1
+                irad = 0.1*elec.irad        #nm 
+                T = elec.debye_temp			#K				#Temperature
+                e0 = 8.854e-21 			#C2 J-1 nm-1	#permitivity: The value have been converted into C2 J-1 nm-1
+                NA = 6.022E+23          #n/mol  		#Avogadro's number
+                KB = 1.3807E-23 	    #J/K			#Boltzmann constant
+                #NA = elec.permol          
+                #KB = elec.Kboltz*1000.0/NA
+                el = 1.6e-19			#C/e				#charge on electron
+                l_to_nm3 = 1e-24		#L/nm3			#converting l to nm3
+
+                # [C2 J-1 nm-1] * [J/K] * [K] = [C2 nm-1]
+                dl_N = e0*D*KB*T	#numerator
+                #  [C2] * [n/mol] * [L/nm3] =  [C2 n L mol-1 nm-3]
+                dl_D = 2*el*el*NA*l_to_nm3		#denom
+                # [C2 nm-1]/[C2 n L mol-1 nm-3] = [nm2 (mol/n) L-1]
+                dl = (dl_N/dl_D)**0.5 #debye length [nm M^0.5 L^-0.5]
+                inv_dl = (iconc**0.5)/dl 		#nm-1
+            else:
+                inv_dl = 10*elec.inv_dl #A-1 to -nm-1
+            Bk = np.exp(inv_dl*irad)/(1+inv_dl*irad)
+            #K_debye = (jtocal*inv_4pieps/D)*Bk
+        else:
+            inv_dl = 0
+            Bk = 1
+        K_elec = jtocal*Bk/D #inv_4pieps*q1q2 is multiplied by gromacs
+        V = K_elec*np.exp(-inv_dl*r)/r
+        #(1/K_elecd) * V/dr = (1/r)*[d/dr (exp(-inv_dl*r)) ]
+        #                       + exp(-inv_dl*r)*[d/dr (1/r)]
+        #                   = (1/r)*exp(-inv_dl*r)*(-inv_dl)
+        #                       + exp(-inv_dl*r)*(-1/r**2)
+        #                   = -(inv_dl/r)*exp(-inv_dl*r) - exp(-inv_dl*r)/r**2
+        #                   = -[(inv_dl/r)+(1/r**2)]*exp(-inv_dl*r)
+        #                   = -[inv_dl.r + 1]*exp(-inv_dl*r)/r**2
+        # for not debye, if Bk = 1 and inv_dl = 0
+        # V_1 = K_elec*(-1)*(1/r**2) = -K_elec/r**2
+        V_1 = K_elec*(-inv_dl*r-1)*np.exp(-inv_dl*r)/r**2
+        return V,V_1
+        
+    def __write_pair_table__(self,ljtype,elec):
+        #writing pairs table file
+
+        r = np.int_(range(0,50000))*0.002 #100 nm
+        cutoff = np.int_(r>=0.01)
+        r[0]=10E-9  #buffer to avoid division by zero
+
+        if ljtype == 1: 
+            assert elec.debye, "Table file only needed if using Debye-Huckel Electrostatics."
+            print (">> Writing LJ 6-12 table file",'table_lj0612.xvg')
+            suffix = "0612.xvg"
+            A 	= -1.0/r**6*cutoff  # r6
+            A_1	= -6.0/r**7*cutoff  # r6_1
+        elif ljtype == 2:
+            print (">> Writing LJ 10-12 table file",'table_lj1012.xvg')
+            suffix = "1012.xvg"
+            A 	=  -1.0/r**10*cutoff # r10
+            A_1	= -10.0/r**11*cutoff # r10_1
+
+        B     =   1/r**12*cutoff
+        B_1	=  12/r**13*cutoff
+
+        if elec.CA or elec.CB or elec.P:
+            V,V_1 = self.__electrostatics__(elec=elec,r=r)
+            V = V*cutoff
+            V_1 = -1*V_1*cutoff
+            r = np.round(r,3)
+            with open("table_coul_lj"+suffix,"w+") as fout1:
+                for i in range(r.shape[0]):
+                    fout1.write('%e %e %e %e %e %e %e\n' %(r[i],V[i],V_1[i],A[i],A_1[i],B[i],B_1[i]))
+        r = np.round(r,3)
+        with open("table_lj"+suffix,"w+") as fout:
+            for i in range(r.shape[0]):
+                fout.write('%e 0 0 %e %e %e %e\n' %(r[i],A[i],A_1[i],B[i],B_1[i]))
+
+        return
+    
 
 class Calculate:
     def __init__(self,pdb) -> None:
@@ -380,11 +477,10 @@ class Topology:
                 for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(quads[x][0],quads[x][1],quads[x][2],quads[x][3],func,diheds[x],Ksc))
         return
 
-    def __write_protein_pairs__(self,fout,data,excl_rule):
+    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
-
         if cmap.scsc_custom:
             assert cmap.type in (1,2)
             with open("interactions.dat") as fin:
@@ -478,13 +574,20 @@ class Topology:
                 self.__write_atomtypes__(fout=ftop,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
                 self.__write_nonbond_params__(fout=ftop,type=self.CGlevel["prot"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge["CB"])
-                self.__write_protein_pairs__(fout=ftop, data=proc_data,excl_rule=excl)
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.CB)
+                self.__write_protein_pairs__(fout=ftop, data=proc_data,excl_rule=excl,charge=charge)
                 self.__write_protein_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data)
                 self.__write_protein_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
                 self.__write_protein_exclusions(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
+        
+        table = Tables()
+        if self.cmap.func == 2:
+            table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
+        elif self.cmap.func == 1:
+            if charge.debye: 
+                table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
         return
     
 class Clementi2000(Topology):
@@ -567,8 +670,10 @@ class Reddy2017(Topology):
         assert func == 8
         R = 0.2
 
-        # V = - (K/2)*R*ln(1-((r-r0)/R)^2)
-        # V_1 = dV/dr = -(K/2)*R*(1/(1-((r-r0)/R)^2))*(-2*(r-r0)/R^2)
+        # V = - (K/2)*R^2*ln(1-((r-r0)/R)^2)
+        # V_1 = dV/dr = -K*0.5*R^2*(1/(1-((r-r0)/R)^2))*(-2*(r-r0)/R^2)
+        #             = -K*0.5*(-2)(r-r0)/(1-((r-r0)/R)^2)
+        #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
 
         fout.write("\n%s\n"%("[ bonds ]"))
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
@@ -580,8 +685,9 @@ class Reddy2017(Topology):
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)
                 r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
-                V = -(K/2)*(R**2)*np.log(1-((r-r0)/R)**2)
-                V_1 = -(K/2)*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
+                V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
+                #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
+                V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
                 Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
                 fout.write(" %5d %5d %5d %5d %e\n"%(pairs[i][0],pairs[i][1],func,table_idx[r0],K))
         return 
@@ -598,11 +704,12 @@ class Reddy2017(Topology):
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
         return
 
-    def __write_protein_pairs__(self,fout,data,excl_rule):
+    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
         assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
+        
         with open("interactions.dat") as fin:
             scscmat = {line.split()[0]:float(line.split()[1]) for line in fin}
             scscmat.update({k[1]+k[0]:v for k,v in scscmat.items()})                
@@ -611,9 +718,9 @@ class Reddy2017(Topology):
         CB_atn = {v:"CB"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CB_atn.items()}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.kcalAtokjA
-        eps_bbsc = 0.5*self.fconst.kcalAtokjA
-        Kboltz = self.fconst.Kboltz #*self.fconst.kcalAtokjA/self.fconst.kcalAtokjA
+        eps_bbbb = 0.5*self.fconst.caltoj
+        eps_bbsc = 0.5*self.fconst.caltoj
+        Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
         for index in range(len(data.contacts)):
             pairs,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
@@ -644,8 +751,8 @@ class Reddy2017(Topology):
         data.Angles()
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
-        eps_bbbb = 1.0*self.fconst.kcalAtokjA
-        eps_bbsc = 1.0*self.fconst.kcalAtokjA
+        eps_bbbb = 1.0*self.fconst.caltoj
+        eps_bbsc = 1.0*self.fconst.caltoj
         
         for index in range(len(data.angles)):
             triplets,angles = data.angles[index]
@@ -672,9 +779,9 @@ class Baidya2022(Reddy2017):
         self.CGlevel = CGlevel
         self.cmap = cmap
         self.opt = opt
-        self.eps_bbbb = 0.12*self.fconst.kcalAtokjA 
-        self.eps_bbsc = 0.24*self.fconst.kcalAtokjA 
-        self.eps_scsc = 0.18*self.fconst.kcalAtokjA 
+        self.eps_bbbb = 0.12*self.fconst.caltoj 
+        self.eps_bbsc = 0.24*self.fconst.caltoj 
+        self.eps_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
         self.atomtypes = []
@@ -711,26 +818,26 @@ class Baidya2022(Reddy2017):
                             pairs.append(p)
         return 0  
 
-    def __write_protein_pairs__(self,fout,data,excl_rule):
+    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap
         assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
-            
+
         CA_atn = {v:"CA"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CA_atn.items()}
         CB_atn = {v:"CB"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CB_atn.items()}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.kcalAtokjA
-        eps_bbsc = 0.5*self.fconst.kcalAtokjA
+        eps_bbbb = 0.5*self.fconst.caltoj
+        eps_bbsc = 0.5*self.fconst.caltoj
 
         fout.write("\n%s\n"%("[ pairs ]"))
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         func = 1
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
-        eps_bbbb = 1.0*self.fconst.kcalAtokjA
-        eps_bbsc = 1.0*self.fconst.kcalAtokjA
-        eps_scsc = 1.0*self.fconst.kcalAtokjA
+        eps_bbbb = 1.0*self.fconst.caltoj
+        eps_bbsc = 1.0*self.fconst.caltoj
+        eps_scsc = 1.0*self.fconst.caltoj
     
         pairs  = []
         pairs += [(x,y) for x in CA_atn for y in range(x+3,x+6) if y in all_atn]
