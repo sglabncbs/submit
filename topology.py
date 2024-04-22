@@ -219,12 +219,12 @@ class Calculate:
         pairs,weights,distances = [],[],[]
         if cmap.type == -1: return  # Generating top without pairs 
         elif cmap.type == 0:        # Use pairs from user input in format cid_i, atnum_i, cid_j, atnum_j, weight_ij (opt), dist_ij (opt)
-            assert cmap["file"] != ""
-            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap["file"])
-            with open(cmap["file"]) as fin:
+            assert cmap.file != ""
+            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap.file)
+            with open(cmap.file) as fin:
                 for line in fin:
                     line = line.split()
-                    c1,a1,c2,a2 = np.int_(line[:4])
+                    c1,a1,c2,a2 = np.int_(line[:4])-1
                     if len(line) < 6:
                         w,d = 1.0,0.0
                         if len(line)==5: w = np.float(line[4])
@@ -232,7 +232,7 @@ class Calculate:
                     elif len(line)==6: 
                         w,d = np.float_(line[4:])
                         pairs.append((a1,a2));weights.append(w);distances.append(d)
-            if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)-1))
+            if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
             pairs += temp_p; weights += temp_w; distances += temp_d
             pairs = np.int_(pairs); weights = np.float_(weights); distances = np.float_(distances)
         elif cmap.type == 1:        # Calculating contacts from all-atom structure and maping to CG structure

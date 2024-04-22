@@ -365,6 +365,7 @@ def main():
 	if args.cutoff:contmap.cutoff=float(args.cutoff)
 
 	if args.cmap: 
+		args.cutofftype = 0
 		contmap.type = 0
 		contmap.file = args.cmap
 	if args.cutofftype:
