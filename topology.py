@@ -827,8 +827,6 @@ class Baidya2022(Reddy2017):
         CB_atn = {v:"CB"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CB_atn.items()}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.caltoj
-        eps_bbsc = 0.5*self.fconst.caltoj
 
         fout.write("\n%s\n"%("[ pairs ]"))
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12(N/A)"))        

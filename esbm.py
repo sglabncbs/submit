@@ -321,12 +321,15 @@ def main():
 		opt.sopsc = True
 		args.CA_rad = 1.9 #A
 		args.CB_charge = True
+		args.CB_radii = True
 		args.CB_gly = True
 		args.Kb_prot = 20.0*fconst.caltoj
 		args.Kr_prot = 1.0*fconst.caltoj
 		args.debye = True
 		args.dielec = 78
 		args.iconc = 0.15	#M
+		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
 	""" presets end here """
 
