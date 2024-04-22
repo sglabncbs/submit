@@ -831,7 +831,7 @@ class Baidya2022(Reddy2017):
         eps_bbsc = 0.5*self.fconst.caltoj
 
         fout.write("\n%s\n"%("[ pairs ]"))
-        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12(N/A)"))        
         func = 1
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
@@ -842,7 +842,7 @@ class Baidya2022(Reddy2017):
         pairs  = []
         pairs += [(x,y) for x in CA_atn for y in range(x+3,x+6) if y in all_atn]
         pairs += [(x,y) for x in CB_atn for y in range(x+1,x+5) if y in all_atn]
-                
+
         I,K = np.transpose(np.int_(pairs))
         interaction_type = np.int_(\
             np.int_([x in CB_atn for x in I])+ \
@@ -850,8 +850,8 @@ class Baidya2022(Reddy2017):
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
         sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-            + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) \
-            + -1*eps_scsc*((0.8*sig)**6)*np.int_(interaction_type==2) 
+            + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
+            + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
         data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         I,K = I+1,K+1
