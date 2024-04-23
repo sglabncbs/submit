@@ -119,6 +119,7 @@ def main():
 	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality. Default: False")
 	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for large systems)")
 	parser.add_argument("--bfunc","-bfunc",help="Bond function 1: harnomic, 7: FENE. Default: 1 (Harmonic)")
+	parser.add_argument("--prot_seq","-prot_seq",help="User input sequence for building IDRs/helices etc.")
 	#native  determining contacts parameters
 	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype","-cutofftype",type=int,help="-1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
@@ -507,9 +508,17 @@ def main():
 	#input structure file
 	pdbdata = PDB_IO()
 	if contmap.type == 1: assert args.aa_pdb, "Error. No all-atom pdb provided. --aa_pdb"
-	assert args.aa_pdb or args.cg_pdb, "Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb"
 	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb,refine=True)
 	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb,refine=True)
+	else:
+		if args.prot_seq:
+			assert args.baidya2022 or args.reddy2017, "Error, building CG PDB using prot_seq only supported with --Baidya2022"
+			assert args.prot_seq.endswith((".fa",".fasta"))
+			pdbdata.buildProtIDR(fasta=args.prot_seq,rad=rad)
+		else: 
+			if args.baidya2022: assert args.prot_seq, "Provide --aa_pdb, --cg_pdb or --prot_seq"
+			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
+
 	if args.control:	#Use Protein with DNA/RNA bound at natve site
 		control_run = True
 		assert not args.custom_nuc, "Error: --custom_nuc cannot be used with --control"

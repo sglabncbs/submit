@@ -578,3 +578,40 @@ class PDB_IO:
                     fout.write("END\n")
                     fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
                     fgro.close()
+
+    def buildProtIDR(self,fasta,rad):
+        #reading fasta and writing stretched IDR to pdb
+        outpdb = fasta+".pdb"
+        chains = dict()
+        with open(fasta) as fin:
+            for line in fin:
+                line = line.strip()
+                if len(line) == 0: continue
+                elif line.startswith(">"):
+                    tag = line.strip().strip(">")
+                    chains[tag] = str()
+                else: chains[tag] += line.strip()
+        
+        amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
+        with open(outpdb,"w+") as fout:
+            ca_xyz = np.float_([0,0,0])
+            offset = 0
+            for c in chains:
+                for x in range(len(chains[c])):
+                    res = chains[c][x]
+                    Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
+                    line = "ATOM".ljust(6)+hy36encode(5,2*x+1)+" "+"CA".center(4)\
+                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,x+1+offset)\
+                         +4*" "+3*"%8.3f"%tuple(ca_xyz+50)
+                    fout.write(line+"\n")
+                    cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
+                    line = "ATOM".ljust(6)+hy36encode(5,2*x+2)+" "+"CB".center(4)\
+                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,x+1+offset)\
+                         +4*" "+3*"%8.3f"%tuple(cb_xyz+50.0)
+                    fout.write(line+"\n")
+                    ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
+                fout.write("TER\n")
+                offset = x+1
+        self.pdbfile=self.__refinePDB__(infile=outpdb)
+        self.__readPDB__()
+        return outpdb
