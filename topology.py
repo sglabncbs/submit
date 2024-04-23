@@ -914,7 +914,7 @@ class Baidya2022(Reddy2017):
         pairs  = []
         pairs += [(x,y) for x in CA_atn for y in range(x+3,x+6) if y in all_atn]
         pairs += [(x,y) for x in CB_atn for y in range(x+1,x+5) if y in all_atn]
-                
+
         I,K = np.transpose(np.int_(pairs))
         interaction_type = np.int_(\
             np.int_([x in CB_atn for x in I])+ \

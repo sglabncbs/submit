@@ -327,6 +327,7 @@ def main():
 		args.CA_rad = 1.9 #A
 		args.CB_radii = True
 		args.CB_charge = True
+		args.CB_radii = True
 		args.CB_gly = True
 		args.CB_charge = True
 		args.Kb_prot = 20.0*fconst.caltoj
