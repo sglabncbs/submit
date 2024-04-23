@@ -256,17 +256,20 @@ def main():
 	if args.clementi2000:
 		print (">>> Using Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb"
+		#fixed params can't be overwritten
 		args.prot_cg = 1	# CA_only	
-		args.CA_rad = 2.0	# 4.0 A excl vol rad
-		args.W_cont = 1		# not weighted 
-		args.cutoff = 4.5	# 4.5 A
-		args.cutofftype = 1	# all-atom contacts mapped to CG
-		args.contfunc = 2	# LJ 10-12
+		args.nucl_cg = 0	# No RNA/DNA
+		rad["CA"] = 2.0	# 4.0 A excl vol rad
+		contmap.W = 1		# not weighted 
+		contmap.cutoff = 4.5	# 4.5 A
+		contmap.cutofftype = 1	# all-atom contacts mapped to CG
+		contmap.contfunc = 2	# LJ 10-12
 
 	if args.pal2019:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
 		args.prot_cg = 2	# CB-CA
+		args.nucl_cg = 3	# P-S-B
 		args.CA_rad = 1.9	# 3.8 A excl vol rad
 		args.CB_rad = 1.5	# 3.0 A excl vol rad
 		args.CB_far = True	# CB at farthest SC atom 
@@ -291,6 +294,7 @@ def main():
 	if args.reddy2017:
 		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
 		args.prot_cg = 2
+		args.uncl_cg = 3
 		args.bfunc = 8
 		args.cutoff = 8.0
 		args.cutofftype = 2
@@ -312,6 +316,7 @@ def main():
 	if args.baidya2022:
 		print (">>> Using Reddy SOP-SCP-IDP model.")
 		args.prot_cg = 2
+		args.nuck_cg = 0
 		args.bfunc = 8
 		args.cutoff = 8.0
 		args.cutofftype = -1
@@ -320,13 +325,17 @@ def main():
 		args.btparams = True
 		opt.sopsc = True
 		args.CA_rad = 1.9 #A
+		args.CB_radii = True
 		args.CB_charge = True
 		args.CB_gly = True
+		args.CB_charge = True
 		args.Kb_prot = 20.0*fconst.caltoj
 		args.Kr_prot = 1.0*fconst.caltoj
 		args.debye = True
 		args.dielec = 78
 		args.iconc = 0.15	#M
+		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
 	""" presets end here """
 
@@ -362,6 +371,7 @@ def main():
 	if args.cutoff:contmap.cutoff=float(args.cutoff)
 
 	if args.cmap: 
+		args.cutofftype = 0
 		contmap.type = 0
 		contmap.file = args.cmap
 	if args.cutofftype:
@@ -422,7 +432,6 @@ def main():
 		all_chains = True
 	
 	if args.CA_rad: rad["CA"]=float(args.CA_rad)
-
 	if args.CB_rad:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		rad["CB"] = float(args.CB_rad)

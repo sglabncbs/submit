@@ -237,34 +237,40 @@ class PDB_IO:
        
     def __readPDB__(self):
         #reading all atom pdb data
-        nucl_chain_count = 0
-        for x in range(len(self.nucl.lines)):
-            l=self.nucl.lines[x]
-            if l.startswith("ATOM"):
-                self.nucl.xyz.append([l[30:38],l[38:46],l[46:54]])
-                self.nucl.res.append((nucl_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
-                self.nucl.atn.append(-1+hy36decode(5,l[6:11]))
-                if l[12:16].strip() == "C1'": self.nucl.seq += l[17:20].strip()[-1]
-            if l.startswith(("TER","END")) and self.nucl.lines[x-1].startswith("ATOM"):
-                self.nucl.ter.append(hy36decode(5,self.nucl.lines[x-1][6:11]))
-                self.nucl.cid.append(self.nucl.lines[x-1][21])
-                nucl_chain_count+=1
-                self.nucl.seq += " "
-        self.nucl.xyz=np.float_(self.nucl.xyz); self.nucl.atn=np.int_(self.nucl.atn); self.nucl.ter=np.int_(self.nucl.ter)
-        prot_chain_count = 0
-        for x in range(len(self.prot.lines)):
-            l=self.prot.lines[x]
-            if l.startswith("ATOM"):
-                self.prot.xyz.append([l[30:38],l[38:46],l[46:54]])
-                self.prot.res.append((prot_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
-                self.prot.atn.append(-1+hy36decode(5,l[6:11]))
-                if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]
-            if l.startswith(("TER","END")) and self.prot.lines[x-1].startswith("ATOM"):
-                self.prot.ter.append(hy36decode(5,self.prot.lines[x-1][6:11]))
-                self.prot.cid.append(self.prot.lines[x-1][21])
-                prot_chain_count+=1
-                self.prot.seq += " "
-        self.prot.xyz=np.float_(self.prot.xyz); self.prot.atn=np.int_(self.prot.atn); self.prot.ter=np.int_(self.prot.ter)
+        if len(self.nucl.lines) > 0:
+            nucl_chain_count = 0
+            bbseq = str()
+            for x in range(len(self.nucl.lines)):
+                l=self.nucl.lines[x]
+                if l.startswith("ATOM"):
+                    self.nucl.xyz.append([l[30:38],l[38:46],l[46:54]])
+                    self.nucl.res.append((nucl_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
+                    self.nucl.atn.append(-1+hy36decode(5,l[6:11]))
+                    if l[12:16].strip() in (("C0'","C1'","C'")): self.nucl.seq += l[17:20].strip()[-1]
+                    if l[12:16].strip() == "P": bbseq += l[17:20].strip()[-1]
+                if l.startswith(("TER","END")) and self.nucl.lines[x-1].startswith("ATOM"):
+                    self.nucl.ter.append(hy36decode(5,self.nucl.lines[x-1][6:11]))
+                    self.nucl.cid.append(self.nucl.lines[x-1][21])
+                    nucl_chain_count+=1
+                    self.nucl.seq += " "
+            if len(self.nucl.seq) == 0: self.nucl.seq = bbseq
+            else: assert len(self.nucl.seq) >= len(bbseq), "Error missing sugar atoms"
+            self.nucl.xyz=np.float_(self.nucl.xyz); self.nucl.atn=np.int_(self.nucl.atn); self.nucl.ter=np.int_(self.nucl.ter)
+        if len(self.prot.lines) > 0:
+            prot_chain_count = 0
+            for x in range(len(self.prot.lines)):
+                l=self.prot.lines[x]
+                if l.startswith("ATOM"):
+                    self.prot.xyz.append([l[30:38],l[38:46],l[46:54]])
+                    self.prot.res.append((prot_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
+                    self.prot.atn.append(-1+hy36decode(5,l[6:11]))
+                    if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]
+                if l.startswith(("TER","END")) and self.prot.lines[x-1].startswith("ATOM"):
+                    self.prot.ter.append(hy36decode(5,self.prot.lines[x-1][6:11]))
+                    self.prot.cid.append(self.prot.lines[x-1][21])
+                    prot_chain_count+=1
+                    self.prot.seq += " "
+            self.prot.xyz=np.float_(self.prot.xyz); self.prot.atn=np.int_(self.prot.atn); self.prot.ter=np.int_(self.prot.ter)
         return
     
     def __fixNultiOcc__(self,pdb_lines=list()):
@@ -513,7 +519,6 @@ class PDB_IO:
                     fgro.close()
 
         if len(self.nucl.lines) != 0:   
-            print ("HERE")                 ;exit()
             nucl_grofile = "nucl_"+outgro
             self.nucl.P = det.get_P_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["P"])
             self.nucl.bb_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P.pdb"])
@@ -559,15 +564,15 @@ class PDB_IO:
                         line = str(res[1]).rjust(5)+res[-1].ljust(5)+"P".center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.P[res])
                         fgro.write(line+"\n")
                         atcount+=1
-                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("C"+res[-1][-1]+"'").center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.S[res])
+                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("C0'").center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.S[res])
                         fout.write(line+"\n")
-                        line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("C"+res[-1][-1]+"'").center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.S[res])
+                        line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("C0'").center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.S[res])
                         fgro.write(line+"\n")
                         for x in range(len(self.nucl.B[res])):
                             atcount+=1
-                            line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("N"+res[-1][-1]+str(x)).center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.B[res][x])
+                            line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("N"+str(x)).center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.B[res][x])
                             fout.write(line+"\n")
-                            line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("N"+res[-1][-1]+str(x)).center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.B[res][x])
+                            line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("N"+str(x)).center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.B[res][x])
                             fgro.write(line+"\n")
                         prev_chain = res[0]
                     fout.write("END\n")

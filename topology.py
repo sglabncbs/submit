@@ -163,6 +163,18 @@ class Calculate:
                 elif aname == "CB":
                     if chain not in self.CB_atn: self.CB_atn[chain] = dict()
                     self.CB_atn[chain][rnum] = data.atn[x]
+                elif aname.startswith("P"):
+                    if chain not in self.P_atn: self.P_atn[chain] = dict()
+                    if rname not in self.P_atn[chain]: self.P_atn[chain][rnum] = []
+                    self.P_atn[chain][rnum].append(data.atn[x])
+                elif aname.startswith(("C","R")):
+                    if chain not in self.S_atn: self.S_atn[chain] = dict()
+                    if rname not in self.S_atn[chain]: self.S_atn[chain][rnum] = []
+                    self.S_atn[chain][rnum].append(data.atn[x])
+                elif aname.startswith(("N","B")): 
+                    if chain not in self.B_atn: self.B_atn[chain] = dict()
+                    if rname not in self.B_atn[chain]: self.B_atn[chain][rnum] = []
+                    self.B_atn[chain][rnum].append(data.atn[x])
         return
 
     def Bonds(self):
@@ -219,12 +231,12 @@ class Calculate:
         pairs,weights,distances = [],[],[]
         if cmap.type == -1: return  # Generating top without pairs 
         elif cmap.type == 0:        # Use pairs from user input in format cid_i, atnum_i, cid_j, atnum_j, weight_ij (opt), dist_ij (opt)
-            assert cmap["file"] != ""
-            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap["file"])
-            with open(cmap["file"]) as fin:
+            assert cmap.file != ""
+            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap.file)
+            with open(cmap.file) as fin:
                 for line in fin:
                     line = line.split()
-                    c1,a1,c2,a2 = np.int_(line[:4])
+                    c1,a1,c2,a2 = np.int_(line[:4])-1
                     if len(line) < 6:
                         w,d = 1.0,0.0
                         if len(line)==5: w = np.float(line[4])
@@ -232,7 +244,7 @@ class Calculate:
                     elif len(line)==6: 
                         w,d = np.float_(line[4:])
                         pairs.append((a1,a2));weights.append(w);distances.append(d)
-            if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)-1))
+            if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
             pairs += temp_p; weights += temp_w; distances += temp_d
             pairs = np.int_(pairs); weights = np.float_(weights); distances = np.float_(distances)
         elif cmap.type == 1:        # Calculating contacts from all-atom structure and maping to CG structure
@@ -332,43 +344,89 @@ class Topology:
             fout.write("%s\n"%("Macromolecule     1"))
             return
 
-    def __write_atomtypes__(self,fout,type,rad,seq):
+    def __write_atomtypes__(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
         #1:CA model or 2:CA+CB model
-        assert type<=2
-        self.excl_volume["CA"] = 2*rad["CA"]
-        C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
-        fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-        if type == 2:
-            for s in seq:
-                bead = "CB"+s
-                if bead in self.excl_volume or s == " ": continue
-                C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
-                self.excl_volume[bead] = 2*rad[bead]
-                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
-        lego = False
-        if lego: print ("WIP for lego")
+
+        if len(data.CA_atn) > 0:
+            assert type<=2
+            self.excl_volume["CA"] = 2*rad["CA"]
+            C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
+            fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+            if type == 2:
+                for s in seq:
+                    bead = "CB"+s
+                    if bead in self.excl_volume or s == " ": continue
+                    C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
+                    self.excl_volume[bead] = 2*rad[bead]
+                    fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+            lego = False
+            if lego: print ("WIP for lego")
+        if len(data.P_atn) > 0:
+            assert type in (1,3,5)
+            self.excl_volume["P"] = 2*rad["P"]
+            C12 = self.fconst.Kr_nucl*(2*rad["P"])**12.0
+            fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("P".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"P"))
+            if type > 1:
+                codon_based = False
+                seq_list = seq.split()
+                assert len(seq_list) == len(data.S_atn)
+                for c in data.S_atn:
+                    assert c in data.B_atn
+                    seq = "5"+seq_list[c]+"3"
+                    resorder = list(data.B_atn[c].keys());resorder.sort()
+                    resorder = ["5'"]+resorder+["3'"]
+                    for i in range(1,len(seq)-1):
+                        if codon_based: codon = seq[i-1].lower()+seq[i]+seq[i+1].lower()
+                        else: codon = seq[i]
+                        r = resorder[i]
+                        for  x in range(len(data.S_atn[c][r])):
+                            bead = "S"+str(x)+codon
+                            if bead not in self.excl_volume:
+                                self.excl_volume[bead] = 2*rad["S"]
+                                C12 = self.fconst.Kr_prot*(2*rad["S"])**12.0
+                                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"S"))
+                        for  x in range(len(data.B_atn[c][r])):
+                            bead = "B"+str(x)+codon
+                            if bead not in self.excl_volume:
+                                self.excl_volume[bead] = 2*rad["S"]
+                                C12 = self.fconst.Kr_prot*(2*rad["S"])**12.0
+                                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"B"))
         return
 
-    def __write_nonbond_params__(self,fout,type,excl_rule):
+    def __write_nonbond_params__(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
         if type == 1 or excl_rule == 1: return
-        if excl_rule == 2 and type == 2:
-            pairs = []
-            for x in self.excl_volume:
-                if x.startswith(("CA","CB")):
-                    for y in self.excl_volume:
-                        if y.startswith(("CA","CB")):
-                            C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                            p = [x,y]; p.sort(); p=tuple(p)
-                            if p not in pairs:
-                                fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
-                                pairs.append(p)
+        if len(data.CA_atn) > 0:
+            if excl_rule == 2 and type == 2:
+                pairs = []
+                for x in self.excl_volume:
+                    if x.startswith(("CA","CB")):
+                        for y in self.excl_volume:
+                            if y.startswith(("CA","CB")):
+                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                                p = [x,y]; p.sort(); p=tuple(p)
+                                if p not in pairs:
+                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                                    pairs.append(p)
+        if len(data.P_atn) > 0:
+            if excl_rule == 2 and type in (3,5):
+                pairs = []
+                for x in self.excl_volume:
+                    if x.startswith(("P","S","B")):
+                        for y in self.excl_volume:
+                            if y.startswith(("P","S","B")):
+                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                                p = [x,y]; p.sort(); p=tuple(p)
+                                if p not in pairs:
+                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                                    pairs.append(p)
+
         return 0
 
     def __write_moleculetype__(self,fout):
@@ -387,7 +445,7 @@ class Topology:
         Q = dict()
         if inc_charge: 
             Q.update({x:1 for x in ["CBK","CBR","CBH"]})
-            Q.update({x:-1 for x in ["CBD","CBE"]})
+            Q.update({x:-1 for x in ["CBD","CBE","P"]})
         with open(cgfile) as fin:
             for line in fin:
                 if line.startswith("ATOM"):
@@ -397,6 +455,8 @@ class Topology:
                     resnum=hy36decode(4,line[22:26])
                     atype=atname
                     if atype=="CB": atype+=data.prot.amino_acid_dict[resname]
+                    elif atype.endswith("'"): atype="S"+atype[1]+resname[-1]
+                    elif atype.startswith("N"): atype="B"+atype[1]+resname[-1]
                     if atype not in Q: Q[atype] = 0
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
                     self.atomtypes.append(atype)
@@ -561,7 +621,7 @@ class Topology:
         return
 
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
-        if len(self.allatomdata.prot.lines) > 0:
+        if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
             cgpdb = PDB_IO()
             if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata.prot.bb_file,refine=False)
             elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata.prot.sc_file,refine=False)
@@ -571,17 +631,31 @@ class Topology:
                 proc_data = Calculate(pdb=cgpdb.prot)
                 proc_data.processData(data=cgpdb.prot)
                 self.__write_header__(fout=ftop,combrule=excl)
-                self.__write_atomtypes__(fout=ftop,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
-                self.__write_nonbond_params__(fout=ftop,type=self.CGlevel["prot"],excl_rule=excl)
+                self.__write_atomtypes__(fout=ftop,data=proc_data,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
+                self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["prot"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.CB)
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=(charge.CA or charge.CB))
                 self.__write_protein_pairs__(fout=ftop, data=proc_data,excl_rule=excl,charge=charge)
                 self.__write_protein_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data)
                 self.__write_protein_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
                 self.__write_protein_exclusions(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
-        
+
+        if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
+            if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata.nucl.bb_file,refine=False)
+            elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
+            nucl_topfile = "nucl_"+outtop
+            with open(nucl_topfile,"w+") as ftop:
+                print (">>> writing Protein GROMACS toptology", prot_topfile)
+                proc_data = Calculate(pdb=cgpdb.nucl)
+                proc_data.processData(data=cgpdb.nucl)
+                self.__write_header__(fout=ftop,combrule=excl)
+                self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data,seq=cgpdb.nucl.seq,rad=rad)
+                self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["nucl"],excl_rule=excl)
+                self.__write_moleculetype__(fout=ftop)
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.P)
+
         table = Tables()
         if self.cmap.func == 2:
             table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
@@ -637,7 +711,7 @@ class Reddy2017(Topology):
                 or "CB" in atlist[rnum], "Error, SOP-SC needs H-atoms in the PDB file."
         return
 
-    def __write_nonbond_params__(self,fout,type,excl_rule):
+    def __write_nonbond_params__(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
@@ -786,7 +860,7 @@ class Baidya2022(Reddy2017):
         self.excl_volume = dict()
         self.atomtypes = []
 
-    def __write_nonbond_params__(self,fout,type,excl_rule):
+    def __write_nonbond_params__(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6  C12'))
@@ -827,11 +901,9 @@ class Baidya2022(Reddy2017):
         CB_atn = {v:"CB"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CB_atn.items()}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.caltoj
-        eps_bbsc = 0.5*self.fconst.caltoj
 
         fout.write("\n%s\n"%("[ pairs ]"))
-        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12(N/A)"))        
         func = 1
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
@@ -850,8 +922,8 @@ class Baidya2022(Reddy2017):
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
         sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-            + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) \
-            + -1*eps_scsc*((0.8*sig)**6)*np.int_(interaction_type==2) 
+            + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
+            + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
         data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         I,K = I+1,K+1
