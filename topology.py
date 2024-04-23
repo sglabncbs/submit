@@ -479,16 +479,16 @@ class Topology:
 
         data.Bonds()
         for pairs,dist in data.bonds:
-            pairs += 1 
+            I,J = 1+np.transpose(pairs)
             for x in range(pairs.shape[0]): 
-                fout.write(" %5d %5d %5d %e %e\n"%(pairs[x][0],pairs[x][1],func,dist[x],K))
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],K))
         return 
 
     def __write_protein_angles__(self,fout,data):
         print (">> Writing angless section")
         #V_ang = (Ktheta/2)*(r-r0)^2
         #Input units KJ mol-1 #GROMACS units KJ mol-1 
-        K = float(self.fconst.Ka_prot)
+        Ka = float(self.fconst.Ka_prot)
 
         fout.write("\n%s\n"%("[ angles ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s\n"%("ai", "aj", "ak","func", "th0(deg)", "Ka"))
@@ -496,9 +496,9 @@ class Topology:
         func = 1
         data.Angles()
         for triplets,angles in data.angles:
-            triplets += 1 
+            I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
-                fout.write(" %5d %5d %5d %5d %e %e\n"%(triplets[x][0],triplets[x][1],triplets[x][2],func,angles[x],K))
+                fout.write(" %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],func,angles[x],Ka))
         return
 
     def __write_protein_dihedrals__(self,fout,data,chiral):
@@ -511,8 +511,8 @@ class Topology:
         #if n is odd i.e. n=1,3.... then cos(n180) = -1
         #hence Edihedrals = Kphi*(1 - cos(n(phi-phi0)))
 
-        Kbb = float(self.fconst.Kd_prot["bb"])
-        Ksc = float(self.fconst.Kd_prot["sc"])
+        Kd_bb = float(self.fconst.Kd_prot["bb"])
+        Kd_sc = float(self.fconst.Kd_prot["sc"])
         mfac = float(self.fconst.Kd_prot["mf"])
 
         phase = 180
@@ -524,17 +524,17 @@ class Topology:
         data.Dihedrals()
         func = 1
         for quads,diheds in data.bb_dihedrals:
-            quads+= 1 
+            I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
-                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(quads[x][0],quads[x][1],quads[x][2],quads[x][3],func,diheds[x],Kbb,1))
-                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(quads[x][0],quads[x][1],quads[x][2],quads[x][3],func,3*diheds[x],Kbb/mfac,3))
+                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_bb,1))
+                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_bb/mfac,3))
         if chiral and len(data.CB_atn) != 0:
             func = 2
             fout.write("; %5s %5s %5s %5s %5s %5s %5s \n" % (";ai","aj","ak","al","func","phi0(deg)","Kd"))
             for quads,diheds in data.sc_dihedrals:
-                quads+= 1 
-                for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(quads[x][0],quads[x][1],quads[x][2],quads[x][3],func,diheds[x],Ksc))
+                I,J,K,L = 1+np.transpose(quads)
+                for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_sc))
         return
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
@@ -573,28 +573,28 @@ class Topology:
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
             func = 1
             for pairs,dist,eps in data.contacts:
-                pairs += 1 
+                I,J = 1+np.transpose(pairs)
                 c06 = 2*eps*(dist**6.0)
                 c12 = eps*(dist**12.0)
                 for x in range(pairs.shape[0]): 
-                    fout.write(" %5d %5d %5d %e %e\n"%(pairs[x][0],pairs[x][1],func,c06[x],c12[x]))
+                    fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
         elif cmap.func==2:
             print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
             func = 1
             for pairs,dist,eps in data.contacts:
-                pairs += 1 
+                I,J = 1+np.transpose(pairs)
                 c10 = 6*eps*(dist**10.0)
                 c12 = 5*eps*(dist**12.0)
                 for x in range(pairs.shape[0]): 
-                    fout.write(" %5d %5d %5d %e %e\n"%(pairs[x][0],pairs[x][1],func,c10[x],c12[x]))
+                    fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c10[x],c12[x]))
         elif cmap.func==3:
             print ("> Using LJ C12-C18 for contacts. Note: Require Table file(s) or ")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C12(Att)","C18(Rep)"))
             func = 3
             assert func!=3, "Error, func 3 not encoded yes. WIP"
             for pairs,dist,eps in data.contacts:
-                pairs += 1 
+                I,J = 1+np.transpose(pairs)
         elif cmap.func in (5,6):
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
@@ -605,19 +605,19 @@ class Topology:
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
-                pairs += 1
+                I,J = 1+np.transpose(pairs)
                 for x in range(pairs.shape[0]): 
-                    fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(pairs[x][0],pairs[x][1],func,eps[x],dist[x],sd,c12[x]))
+                    fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
         return 
 
-    def __write_protein_exclusions(self,fout,data):
+    def __write_protein_exclusions__(self,fout,data):
         print (">> Writing exclusions section")
         fout.write("\n%s\n"%("[ exclusions ]"))
         fout.write("; %5s %5s\n"%("i","j"))
         for pairs,dist,eps in data.contacts:
-            pairs += 1
+            I,J = 1+np.transpose(pairs)
             for x in range(pairs.shape[0]): 
-                fout.write(" %5d %5d\n"%(pairs[x][0],pairs[x][1]))
+                fout.write(" %5d %5d\n"%(I[x],J[x]))
         return
 
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
@@ -639,7 +639,7 @@ class Topology:
                 self.__write_protein_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data)
                 self.__write_protein_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
-                self.__write_protein_exclusions(fout=ftop,data=proc_data)
+                self.__write_protein_exclusions__(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
 
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
@@ -754,7 +754,7 @@ class Reddy2017(Topology):
         data.Bonds()
         table_idx = dict()
         for pairs,dist in data.bonds:
-            pairs += 1 
+            I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)
@@ -763,7 +763,7 @@ class Reddy2017(Topology):
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
                 Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
-                fout.write(" %5d %5d %5d %5d %e\n"%(pairs[i][0],pairs[i][1],func,table_idx[r0],K))
+                fout.write(" %5d %5d %5d %5d %e\n"%(I[i],J[i],func,table_idx[r0],K))
         return 
 
     def __write_protein_angles__(self,fout,data):
@@ -814,11 +814,11 @@ class Reddy2017(Topology):
         fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
         func = 1
         for pairs,dist,eps in data.contacts:
-            pairs += 1 
+            I,J = 1+np.transpose(pairs)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
             for x in range(pairs.shape[0]): 
-                fout.write(" %5d %5d %5d %e %e\n"%(pairs[x][0],pairs[x][1],func,c06[x],c12[x]))
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
 
         print ("> Using -C6 repulsion for local beads")
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
@@ -841,7 +841,7 @@ class Reddy2017(Topology):
                 + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
             pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
             data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
-            I,K = I+1,K+1
+            I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
