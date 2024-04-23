@@ -208,7 +208,6 @@ def main():
 	parser.add_argument("--Kr_prot", help="Krepulsion. Default=1.0")
 	parser.add_argument("--Kr_nucl", help="Krepulsion. Default=1.0")
 
-	#presets 
 	args = parser.parse_args()
 
 	#defualt potoein-NA parameters
@@ -216,14 +215,16 @@ def main():
 	custom_nuc = False
 	control_run = False
 
+	opt = Options()
+	fconst = Constants()
+	charge = Charge()
+	contmap = ContactMap()
+	CGlevel = {"prot":2,"nucl":3}
+	rad = dict()	 
 
 	#Set default parameters for proteins
 	#For preteins
-	opt = Options()
-	fconst = Constants()
-	CGlevel = {"prot":2,"nucl":3}
-	contmap = ContactMap()
-	rad = dict()	 
+	
 	bond_function = 1
 	rad["CA"] = 1.9
 	rad["CB"] = 1.5
@@ -231,6 +232,8 @@ def main():
 	CB_far=False
 	CB_com=False
 	CB_chiral=False
+	CB_radii=False
+	CB_gly = False
 	#Set default parameters for nucleotides
 	rad["P"] = 3.7					#A
 	rad["S"] = 3.7					#A
@@ -239,10 +242,11 @@ def main():
 	rad["stack"] = 3.6					#A
 	P_Stretch = False
 
-	charge = Charge()
 	charge.CA = False
 	charge.CB = False
 	charge.P = False
+	excl_rule = 1
+	uniqtype = False
 
 	#default position
 	nucl_pos = dict()
@@ -257,10 +261,10 @@ def main():
 		print (">>> Using Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb"
 		#fixed params can't be overwritten
-		args.prot_cg = 1	# CA_only	
-		args.nucl_cg = 0	# No RNA/DNA
-		rad["CA"] = 2.0	# 4.0 A excl vol rad
-		contmap.W = 1		# not weighted 
+		CGlevel["prot"] = 1		# CA_only	
+		CGlevel["nucl"] = 0		# No RNA/DNA
+		rad["CA"] = 2.0			# 4.0 A excl vol rad
+		contmap.W = 1			# not weighted 
 		contmap.cutoff = 4.5	# 4.5 A
 		contmap.cutofftype = 1	# all-atom contacts mapped to CG
 		contmap.contfunc = 2	# LJ 10-12
@@ -268,48 +272,49 @@ def main():
 	if args.pal2019:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
-		args.prot_cg = 2	# CB-CA
-		args.nucl_cg = 3	# P-S-B
-		args.CA_rad = 1.9	# 3.8 A excl vol rad
-		args.CB_rad = 1.5	# 3.0 A excl vol rad
-		args.CB_far = True	# CB at farthest SC atom 
-		args.CB_chiral = True	# improp dihed for CAi-1 CAi+1 CAi CBi
-		args.CB_charge = True	# Charge on CB
-		args.P_charge = True	#charge on P
-		args.excl_rule = 2		# Excl volume Arith. Mean
-		args.mulfac_prot = 1.0	#factor to divide 3 multiplicity dihed term
-		args.W_cont = 1			# contact weight
-		args.cutoff = 4.5		# cutoff
-		args.cutofftype = 1		# Calculate from all-atom structure
-		args.contfunc = 2		# Use LJ 10-12 pairs
-		args.debye = True		# Use DH-electrostatics
-		args.dielec = 70		# dielectric constant
-		args.iconc = 0.01		# concentration
+		CGlevel["prot"] = 2		# CB-CA
+		CGlevel["nucl"] = 3		# P-S-B
+		rad["CA"] = 1.9			# 3.8 A excl vol rad
+		rad["CB"] = 1.5			# 3.0 A excl vol rad
+		CB_far = True			# CB at farthest SC atom 
+		CB_chiral = True		# improp dihed for CAi-1 CAi+1 CAi CBi
+		charge.CB = True		# Charge on CB
+		charge.P = True			#charge on P
+		excl_rule = 2			# Excl volume Arith. Mean
+		fconst.Kd_prot["mf"] = 1.0	#factor to divide 3 multiplicity dihed term
+		contmap.W = 1			# contact weight
+		contmap.cutoff = 4.5	# cutoff
+		contmap.type = 1		# Calculate from all-atom structure
+		contmap.func = 2		# Use LJ 10-12 pairs
+		charge.debye = True		# Use DH-electrostatics
+		charge.dielec = 70		# dielectric constant
+		charge.iconc = 0.01		# concentration
 
 	if args.azia2009:
 		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
-		args.uniqtype = True
-		args.Kr_prot = 0.7**12
+		uniqtype = True
+		fconst.Kr_prot = 0.7**12
 
 	if args.reddy2017:
 		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
-		args.prot_cg = 2
-		args.uncl_cg = 3
-		args.bfunc = 8
-		args.cutoff = 8.0
-		args.cutofftype = 2
-		args.contfunc = 1
-		args.excl_rule = 2
-		args.btparams = True
+		CGlevel["prot"] = 2
+		CGlevel["uncl"] = 3
+		bond_function = 8
+		contmap.cutoff = 8.0
+		contmap.type = 2
+		contmap.func = 1
+		contmap.scsc_custom = True
+		excl_rule = 2
+		opt.btparams = True
 		opt.sopsc = True
-		args.CB_charge = True
-		args.CB_gly = True
-		args.Kb_prot = 20.0*fconst.caltoj
-		args.Kr_prot = 1.0*fconst.caltoj
-		args.CB_radii = True
-		args.debye = True
-		args.dielec = 10
-		args.iconc = 0.01		# M
+		charge.CB = True
+		CB_gly = True
+		fconst.Kb_prot = 20.0*fconst.caltoj
+		fconst.Kr_prot = 1.0*fconst.caltoj
+		CB_radii = True
+		charge.debye = True
+		charge.dielec = 10
+		charge.iconc = 0.01		# M
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
@@ -340,26 +345,21 @@ def main():
 
 	""" presets end here """
 
+	if args.uniqtype: uniqtype = True
 	if args.excl_rule: 
 		excl_rule = int(args.excl_rule)
 		assert excl_rule in (1,2), "Error: Choose correct exclusion rule. Use 1: Geometric mean or 2: Arithmatic mean"
-	else: excl_rule = 1
-	
-	if args.uniqtype: uniqtype = True
-	else: uniqtype = False
-	
+
 	if args.prot_cg: 
 		CGlevel["prot"] = int(args.prot_cg)
 		if CGlevel["prot"] == 1: print (">>> Using CA-only model for protein. All other CB parameters will be ingnored.")
 		elif CGlevel["prot"] == 2: print (">>> Using CB-CA model for protein.")
-	else: CGlevel["prot"] = 2
 	if args.nucl_cg:
 		CGlevel["nucl"] = int(args.nucl_cg)
 		assert CGlevel["nucl"] in (1,3,5), "Error. RNA/DNA only supports 1,3 or 5 as atom types"
 		if CGlevel["nucl"] == 1: print (">>> Using P-only model for protein. All other parameters will be ingnored.")
 		elif CGlevel["nucl"] == 3: print (">>> Using 3-bead P-S-B model for RNA/DNA.")
 		elif CGlevel["nucl"] == 5: print (">>> Using 2-bead P-S and 3 beads per Base for RNA/DNA.")
-	else: CGlevel["nucl"] = 3
 
 	if args.interface: interface = True
 	if args.Kb_prot:fconst.Kb_prot=float(args.Kb_prot)
@@ -384,7 +384,6 @@ def main():
 	if args.contfunc: 
 		contmap.func = int(args.contfunc)
 		assert (contmap.func in range(0,5))
-	else: contmap.func = 2
 
 	if args.bfunc: 
 		bond_function = int(args.bfunc)
@@ -402,29 +401,25 @@ def main():
 	
 	if args.CB_radii:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
-		CBradii=True
-	else: CBradii=False
+		CB_radii=True
 
 	if args.CB_gly:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		skip_glycine=False
 		CB_gly = True
 		print ("WARNING: Using CB for Glycines!! Make sure the all-atom pdb contains H-atom (HB)")
-	else: CB_gly = False
 
 	if args.CB_chiral:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		CB_chiral = True
 
+	if args.CA_charge: charge.CA = True
 	if args.CB_charge:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		charge.CB = True
-
 	if args.P_charge: charge.P = True
-	else: charge.P = False
 
-	if args.CA_com:
-		CA_com=True
+	if args.CA_com:CA_com=True
 
 	if args.dswap:
 		dswap=True
@@ -440,9 +435,9 @@ def main():
 		with open("radii.dat","w+") as fout:
 			print (">>> C-beta radius given via user input. Storing in radii.dat")
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CB"]))
-		CBradii = True	#Read CB radius from radii.dat	
+		CB_radii = True	#Read CB radius from radii.dat	
 
-	if CBradii:
+	if CB_radii:
 		aa_resi = Prot_Data().amino_acid_dict
 		with open("radii.dat") as fin:
 			rad.update({"CB"+aa_resi[x.split()[0]]:float(x.split()[1]) for x in fin})
@@ -470,7 +465,6 @@ def main():
 		CB_com=True
 		assert not CB_far, "Conflicting input --CB_far and CB_com"
 
-
 	#Replacing default paramteres with input paramters for nucleotide
 	if args.Bpu_pos:
 		nucl_pos["Bpu"] = str(args.Bpu_pos)
@@ -489,7 +483,6 @@ def main():
 	if args.P_stretch: P_Stretch = True
 	else: P_Stretch = False
 
-	
 	#Force constants
 	if args.Kb_nucl: fconst.Kb_nucl = float(args.nKb)
 	if args.Ka_nucl: fconst.Ka_nuck = float(args.nKa)
