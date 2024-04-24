@@ -165,8 +165,7 @@ class Calculate:
                     self.CB_atn[chain][rnum] = data.atn[x]
                 elif aname.startswith("P"):
                     if chain not in self.P_atn: self.P_atn[chain] = dict()
-                    if rname not in self.P_atn[chain]: self.P_atn[chain][rnum] = []
-                    self.P_atn[chain][rnum].append(data.atn[x])
+                    self.P_atn[chain][rnum]= data.atn[x]
                 elif aname.startswith(("C","R")):
                     if chain not in self.S_atn: self.S_atn[chain] = dict()
                     if rname not in self.S_atn[chain]: self.S_atn[chain][rnum] = []
@@ -179,7 +178,7 @@ class Calculate:
 
     def Bonds(self):
         # Getting Bond length info from the pre-supplied data
-        pairs = []
+
         if len(self.CA_atn) != 0: #protein exists
             for c in self.CA_atn:
                 resnum = list(self.CA_atn[c].keys())
@@ -192,9 +191,40 @@ class Calculate:
                 D = self.__distances__(pairs)
                 self.bonds.append((pairs,D))
 
+        if len(self.P_atn): #RNA/DNA exists
+            for c in self.P_atn:
+                if len(self.S_atn) == 0: 
+                    assert len(self.B_atn) == 0
+                    resnum = list(self.P_atn[c].keys())
+                    resnum.sort()
+                    pairs = [(self.P_atn[c][x],self.P_atn[c][x+1]) for x in resnum if x+1 in self.P_atn[c]]
+                else:
+                    assert len(self.B_atn) > 0
+                    resnum = list(self.S_atn[c].keys())
+                    pairs = []
+                    for x in resnum:
+                        S_atoms = self.S_atn[c][x]
+                        B_atoms = self.B_atn[c][x]
+                        if len(S_atoms)==1: S_ps,S_sp,S_sb = 3*S_atoms
+                        elif len(S_atoms)>1: 
+                            S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
+                            pairs += [(i,i+1) for i in S_atoms if i+1 in S_atoms]
+                        else: exit() # NO SUCH MODEL ENCODED
+                        if x in self.P_atn[c]: pairs.append((self.P_atn[c][x],S_ps))
+                        if x+1 in self.P_atn[c]: pairs.append((S_sp,self.P_atn[c][x+1]))
+                        pairs.append((S_sb,B_atoms[0]))
+                        if len(B_atoms)>1: 
+                            pairs += [(i,i+1) for i in B_atoms if i+1 in B_atoms]
+                            if (B_atoms[0],B_atoms[-1]) not in pairs: pairs.append((B_atoms[0],B_atoms[-1]))
+                pairs = np.int_(pairs)
+                D = self.__distances__(pairs)
+                self.bonds.append((pairs,D))
+        
+        return
+
     def Angles(self):
         # Getting Bond angle info from the pre-supplied data
-        triplets = []
+
         if len(self.CA_atn) != 0:
             for c in self.CA_atn:
                 resnum = list(self.CA_atn[c].keys())
@@ -206,7 +236,43 @@ class Calculate:
                 triplets = np.int_(triplets)
                 A = self.__angles__(triplets=triplets)
                 self.angles.append((triplets,A))
-            
+
+        if len(self.P_atn): #RNA/DNA exists
+            for c in self.P_atn:
+                if len(self.S_atn) == 0: 
+                    assert len(self.B_atn) == 0
+                    resnum = list(self.P_atn[c].keys())
+                    resnum.sort()
+                    triplets = [(self.P_atn[c][x],self.P_atn[c][x+1],self.P_atn[c][x+2]) for x in resnum if x+2 in self.P_atn[c]]
+                else:
+                    assert len(self.B_atn) > 0
+                    resnum = list(self.S_atn[c].keys())
+                    triplets = []
+                    for x in resnum:
+                        S_atoms = self.S_atn[c][x]
+                        B_atoms = self.B_atn[c][x]
+                        if len(S_atoms)==1:
+                            S = S_atoms[0]
+                            if x in self.P_atn[c]:
+                                triplets.append((self.P_atn[c][x],S,B_atoms[0]))
+                                if x-1 in self.S_atn[c]:
+                                    prev_S = self.S_atn[c][x-1][0]
+                                    triplets.append((prev_S,self.P_atn[c][x],S))
+                                if x+1 in self.P_atn[c]:
+                                    triplets.append((self.P_atn[c][x],S,self.P_atn[c][x+1]))
+                                    triplets.append((B_atoms[0],S,self.P_atn[c][x+1]))
+    
+                        elif len(S_atoms)>1: 
+                            S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
+                            triplets += [(i,i+1,i+2) for i in S_atoms if i+1 in S_atoms and i+2 in S_atoms]
+                        else: exit() # NO SUCH MODEL ENCODED
+
+                triplets = np.int_(triplets)
+                A = self.__angles__(triplets=triplets)
+                self.angles.append((triplets,A))
+
+        return
+
     def Dihedrals(self):
         # Getting torsion angle info from the pre-supplied data
         if len(self.CA_atn) != 0:
@@ -468,20 +534,18 @@ class Topology:
         print (">> Writing bonds section")
         #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
         #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
-        K = float(self.fconst.Kb_prot)*100.0
+        Kb = float(self.fconst.Kb_prot)*100.0
 
         #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
         #if dsb: func = 9
         fout.write("\n%s\n"%("[ bonds ]"))
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "r0(nm)", "Kb"))
-        if func==1: R = str()
-        else: R = str(0.2) #nm
 
         data.Bonds()
         for pairs,dist in data.bonds:
             I,J = 1+np.transpose(pairs)
             for x in range(pairs.shape[0]): 
-                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],K))
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],Kb))
         return 
 
     def __write_protein_angles__(self,fout,data):
@@ -620,6 +684,39 @@ class Topology:
                 fout.write(" %5d %5d\n"%(I[x],J[x]))
         return
 
+    def __write_nucleicacid_bonds__(self,fout,data,func):
+        print (">> Writing bonds section")
+        #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
+        #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
+        Kb = float(self.fconst.Kb_nucl)*100.0
+
+        fout.write("\n%s\n"%("[ bonds ]"))
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "r0(nm)", "Kb"))
+
+        data.Bonds()
+        for pairs,dist in data.bonds:
+            I,J = 1+np.transpose(pairs)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],Kb))
+        return 
+
+    def __write_nucleicacid_angles__(self,fout,data):
+        print (">> Writing angless section")
+        #V_ang = (Ktheta/2)*(r-r0)^2
+        #Input units KJ mol-1 #GROMACS units KJ mol-1 
+        Ka = float(self.fconst.Ka_nucl)
+
+        fout.write("\n%s\n"%("[ angles ]"))
+        fout.write("; %5s %5s %5s %5s %5s %5s\n"%("ai", "aj", "ak","func", "th0(deg)", "Ka"))
+
+        func = 1
+        data.Angles()
+        for triplets,angles in data.angles:
+            I,J,K = 1+np.transpose(triplets)
+            for x in range(triplets.shape[0]): 
+                fout.write(" %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],func,angles[x],Ka))
+        return
+
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
         if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
             cgpdb = PDB_IO()
@@ -647,7 +744,7 @@ class Topology:
             elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
             nucl_topfile = "nucl_"+outtop
             with open(nucl_topfile,"w+") as ftop:
-                print (">>> writing Protein GROMACS toptology", prot_topfile)
+                print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
                 proc_data = Calculate(pdb=cgpdb.nucl)
                 proc_data.processData(data=cgpdb.nucl)
                 self.__write_header__(fout=ftop,combrule=excl)
@@ -655,7 +752,8 @@ class Topology:
                 self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["nucl"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
                 self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.P)
-
+                self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data,func=bond_function)
+                self.__write_nucleicacid_angles__(fout=ftop, data=proc_data)
         table = Tables()
         if self.cmap.func == 2:
             table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
