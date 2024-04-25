@@ -442,7 +442,7 @@ class Topology:
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
-        self.cmap = cmap
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -650,7 +650,7 @@ class Topology:
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
-        cmap = self.cmap
+        cmap = self.cmap["prot"]
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
         if cmap.scsc_custom:
             assert cmap.type in (1,2)
@@ -794,7 +794,7 @@ class Topology:
 
     def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
-        cmap = self.cmap
+        cmap = self.cmap["nucl"]
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.nucl)
 
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -892,11 +892,10 @@ class Topology:
                 self.__write_exclusions__(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
         table = Tables()
-        if self.cmap.func == 2:
-            table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
-        elif self.cmap.func == 1:
-            if charge.debye: 
-                table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
+        if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
+            table.__write_pair_table__(elec=charge,ljtype=2)
+        elif self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1:
+            if charge.debye: table.__write_pair_table__(elec=charge,ljtype=1)
         return
     
 class Clementi2000(Topology):
@@ -904,7 +903,7 @@ class Clementi2000(Topology):
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
-        self.cmap = cmap
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
         self.atomtypes = []
@@ -914,7 +913,7 @@ class Pal2019(Topology):
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
-        self.cmap = cmap
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -926,7 +925,7 @@ class Reddy2017(Topology):
         self.__check_H_atom__()
         self.fconst = fconst
         self.CGlevel = CGlevel
-        self.cmap = cmap
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -1015,7 +1014,7 @@ class Reddy2017(Topology):
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
-        cmap = self.cmap
+        cmap = self.cmap["prot"]
         data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
         assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
         
@@ -1086,7 +1085,7 @@ class Baidya2022(Reddy2017):
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
-        self.cmap = cmap
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.eps_bbbb = 0.12*self.fconst.caltoj 
         self.eps_bbsc = 0.24*self.fconst.caltoj 
@@ -1129,7 +1128,7 @@ class Baidya2022(Reddy2017):
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
-        cmap = self.cmap
+        cmap = self.cmap["prot"]
         assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
 
         CA_atn = {v:"CA"+Prot_Data().amino_acid_dict[k[2]] for k,v in self.allatomdata.prot.CA_atn.items()}
