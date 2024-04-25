@@ -45,6 +45,7 @@ class Options(Dict):
 	mjmap=False
 	btmap=False
 	dswap=False
+	P_stretch=False
 	interactions="interactions.dat"
 	hphobic=False
 	dsb=False
@@ -257,7 +258,7 @@ def main():
 	rad["Bpy"] = 1.5				#A
 	rad["Bpu"] = 1.5				#A
 	rad["stack"] = 3.6					#A
-	P_Stretch = False
+	opt.P_stretch = False
 
 	charge.CA = False
 	charge.CB = False
@@ -307,6 +308,9 @@ def main():
 		charge.debye = True		# Use DH-electrostatics
 		charge.dielec = 70		# dielectric constant
 		charge.iconc = 0.01		# concentration
+		opt.P_stretch = True	# set P_P_P_P dihed to 180
+		ModelDir("pal2019/levy.stackparams.dat").copy2("stackparams.dat")
+	
 
 	if args.azia2009:
 		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
@@ -516,9 +520,7 @@ def main():
 		nucl_pos["S"] = str(args.S_pos)
 		assert nucl_pos["S"] in Nucl_Data().sug_atom, "Error: Wrong Atom name entered for Sugar. Use --help option to check allowed atom names"
 	CG_pos = {"Bpu":nucl_pos["Bpu"],"Bpy":nucl_pos["Bpy"],"S":nucl_pos["S"],"P":nucl_pos["P"]}	
-
-	if args.P_stretch: P_Stretch = True
-	else: P_Stretch = False
+	if args.P_stretch: opt.P_stretch = True
 
 	#Force constants
 	if args.Kb_nucl: fconst.Kb_nucl = float(args.nKb)
@@ -586,7 +588,6 @@ def main():
 	if args.grotop: ttopfile = str(args.grotop)
 	else:topfile = 'gromacs.top'
 	
-
 	if args.clementi2000:
 		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)

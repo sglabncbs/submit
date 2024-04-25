@@ -627,7 +627,6 @@ class Topology:
         mfac = float(self.fconst.Kd_prot["mf"])
 
         phase = 180
-        radtodeg = 180/np.pi
 
         fout.write("\n%s\n"%("[ dihedrals ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
@@ -769,7 +768,6 @@ class Topology:
         mfac = float(self.fconst.Kd_nucl["mf"])
 
         phase = 180
-        radtodeg = 180/np.pi
 
         fout.write("\n%s\n"%("[ dihedrals ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
@@ -779,6 +777,7 @@ class Topology:
         func = 1
         for quads,diheds in data.bb_dihedrals:
             I,J,K,L = 1+np.transpose(quads)
+            if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
             diheds += phase
             for x in range(quads.shape[0]):
                 fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_bb,1))
@@ -916,8 +915,43 @@ class Pal2019(Topology):
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+        self.stack = 0.38 #nm
         self.excl_volume = dict()
         self.atomtypes = []
+
+    def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
+        print (">> Writing pairs section")
+        cmap = self.cmap["nucl"]
+
+        fout.write("\n%s\n"%("[ pairs ]"))
+        assert cmap.func==2
+        print ("> Using LJ C10-C12 for Stackubg. Note: Require Table file(s)")
+        fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
+        func = 1
+
+        with open("stackparams.dat") as fin:
+            epsmat = {}
+            for line in fin:
+                k0,k1 = line.split()[0][:]
+                if k0 in "AGCUT" and k1 in "AGCUT":
+                    epsmat[k0+k1] = float(line.split()[1])
+                    epsmat[k1+k0] = epsmat[k0+k1]
+
+        B_atn = {v:k[2] for k,v_list in self.allatomdata.nucl.B_atn.items() for v in v_list}
+        for c in data.B_atn:
+            resnum = list(data.B_atn[c].keys())
+            resnum.sort()
+            pairs = np.int_([(data.B_atn[c][x],data.B_atn[c][x+1]) for x in resnum if x+1 in data.B_atn[c]])
+            dist = np.ones(pairs.shape[0])*self.stack
+            I,J = np.transpose(pairs)
+            eps = np.float_([epsmat[B_atn[I[x]][-1]+B_atn[J[x]][-1]] for x in range(I.shape[0])])
+            data.contacts.append((pairs,dist,eps))
+            I,J = 1+np.transpose(pairs)
+            c10 = 6*eps*(dist**10.0)
+            c12 = 5*eps*(dist**12.0)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c10[x],c12[x]))
+        return 
 
 class Reddy2017(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:

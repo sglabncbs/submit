@@ -469,9 +469,6 @@ class PDB_IO:
                 fgro = open(prot_grofile,"w+")
                 fgro.write("CG file %s for GROMACS\n%d\n"%(prot_grofile,len(self.prot.CA)))
                 self.prot.group = []
-                #group = det.get_BB_group(reslist=self.prot.res,atnum=self.prot.atn)
-                #for x in range(len(group)):print (x,group[x])
-                #exit()
                 for res in self.prot.CA: 
                     self.prot.CA_atn[res] = atcount
                     atcount+=1
@@ -522,11 +519,13 @@ class PDB_IO:
             nucl_grofile = "nucl_"+outgro
             self.nucl.P = det.get_P_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["P"])
             self.nucl.bb_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P.pdb"])
+            self.nucl.P_atn = dict()
             with open(self.nucl.bb_file,"w+") as fout:
                 atcount,prev_chain = 0,0
                 fgro = open(nucl_grofile,"w+")
                 fgro.write("CG file %s for GROMACS\n%d\n"%(nucl_grofile,len(self.nucl.P)))
                 for res in self.nucl.P: 
+                    self.nucl.P_atn[res] = atcount
                     atcount+=1
                     if res[0]!=prev_chain: fout.write("TER\n")
                     line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
@@ -550,6 +549,7 @@ class PDB_IO:
                     print ("Sorry, 5-bead model is still work in progress. Stay tuned for updates")
                     exit()
                 #for x in self.nucl.B: print (x,self.nucl.B[x])
+                self.nucl.B_atn,self.nucl.S_atn = dict(),dict()
                 self.nucl.sc_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P-S-B.pdb"])
                 with open(self.nucl.sc_file,"w+") as fout:
                     fgro = open(nucl_grofile,"w+")
@@ -558,17 +558,21 @@ class PDB_IO:
                     atcount,prev_chain = 0,0
                     for res in self.nucl.P:
                         if res[0]!=prev_chain: fout.write("TER\n")
+                        self.nucl.P_atn[res] = atcount
                         atcount+=1
                         line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
                         fout.write(line+"\n")
                         line = str(res[1]).rjust(5)+res[-1].ljust(5)+"P".center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.P[res])
                         fgro.write(line+"\n")
+                        if res not in self.nucl.S_atn: self.nucl.S_atn[res],self.nucl.B_atn[res] = [],[]
+                        self.nucl.S_atn[res].append(atcount)
                         atcount+=1
                         line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("C0'").center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.S[res])
                         fout.write(line+"\n")
                         line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("C0'").center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.S[res])
                         fgro.write(line+"\n")
                         for x in range(len(self.nucl.B[res])):
+                            self.nucl.B_atn[res].append(atcount)
                             atcount+=1
                             line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("N"+str(x)).center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.B[res][x])
                             fout.write(line+"\n")
