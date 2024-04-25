@@ -237,9 +237,9 @@ class Calculate:
                 A = self.__angles__(triplets=triplets)
                 self.angles.append((triplets,A))
 
-        if len(self.P_atn): #RNA/DNA exists
+        if len(self.P_atn) != 0: #RNA/DNA exists
             for c in self.P_atn:
-                if len(self.S_atn) == 0: 
+                if len(self.S_atn) == 0:    #Pi--Pi+1--Pi+2 angle
                     assert len(self.B_atn) == 0
                     resnum = list(self.P_atn[c].keys())
                     resnum.sort()
@@ -247,6 +247,7 @@ class Calculate:
                 else:
                     assert len(self.B_atn) > 0
                     resnum = list(self.S_atn[c].keys())
+                    resnum.sort()
                     triplets = []
                     for x in resnum:
                         S_atoms = self.S_atn[c][x]
@@ -261,11 +262,10 @@ class Calculate:
                                 if x+1 in self.P_atn[c]:
                                     triplets.append((self.P_atn[c][x],S,self.P_atn[c][x+1]))
                                     triplets.append((B_atoms[0],S,self.P_atn[c][x+1]))
-    
-                        elif len(S_atoms)>1: 
-                            S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
-                            triplets += [(i,i+1,i+2) for i in S_atoms if i+1 in S_atoms and i+2 in S_atoms]
-                        else: exit() # NO SUCH MODEL ENCODED
+                        #elif len(S_atoms)>1: 
+                            #S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
+                            #triplets += [(i,i+1,i+2) for i in S_atoms if i+1 in S_atoms and i+2 in S_atoms]
+                        #else: exit() # NO SUCH MODEL ENCODED
 
                 triplets = np.int_(triplets)
                 A = self.__angles__(triplets=triplets)
@@ -276,21 +276,42 @@ class Calculate:
     def Dihedrals(self):
         # Getting torsion angle info from the pre-supplied data
         if len(self.CA_atn) != 0:
-            quadruplets = []
             for c in self.CA_atn:
                 resnum = list(self.CA_atn[c].keys())
                 resnum.sort()
-                quadruplets += [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
-            quadruplets = np.int_(quadruplets)
-            T = self.__torsions__(quadruplets=quadruplets)
-            self.bb_dihedrals.append((quadruplets,T))
-            if len(self.CB_atn)!=0:
-                quadruplets = []
-                for x in self.CA_atn: quadruplets += [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
+                quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
                 quadruplets = np.int_(quadruplets)
                 T = self.__torsions__(quadruplets=quadruplets)
-                self.sc_dihedrals.append((quadruplets,T))
+                self.bb_dihedrals.append((quadruplets,T))
+            if len(self.CB_atn)!=0:
+                for c in self.CA_atn:
+                    quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
+                    quadruplets = np.int_(quadruplets)
+                    T = self.__torsions__(quadruplets=quadruplets)
+                    self.sc_dihedrals.append((quadruplets,T))
 
+        if len(self.P_atn) != 0: #RNA/DNA exists
+            for c in self.P_atn:
+                resnum = list(self.P_atn[c].keys())
+                resnum.sort()
+                quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
+                quadruplets = np.int_(quadruplets)
+                T = self.__torsions__(quadruplets=quadruplets)
+                self.bb_dihedrals.append((quadruplets,T))
+            if len(self.S_atn) != 0:
+                assert len(self.B_atn) > 0
+                for c in self.S_atn:
+                    resnum = list(self.S_atn[c].keys())
+                    resnum.sort()
+                    x=resnum[0]
+                    quadruplets = [(self.B_atn[c][x][0],self.S_atn[c][x][0],self.S_atn[c][x+1][0],self.B_atn[c][x+1][0]) \
+                                    for x in resnum if x+1 in self.S_atn[c] and len(self.S_atn[c][x])==1]
+                    quadruplets = np.int_(quadruplets)
+                    T = self.__torsions__(quadruplets=quadruplets)
+                    self.sc_dihedrals.append((quadruplets,T))
+        
+        return
+    
     def Pairs(self,cmap,aa_data):
         # Getting Non-bonded contact pairs info from the pre-supplied data
         temp_p,temp_w,temp_d = [],[],[]
@@ -717,6 +738,92 @@ class Topology:
                 fout.write(" %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],func,angles[x],Ka))
         return
 
+    def __write_nucleicacid_dihedrals__(self,fout,data,chiral):
+        print (">> Writing dihedrals section")
+
+        #GROMACS IMPLEMENTATION: Edihedrals Kphi*(1 + cos(n(phi-phi0)))
+        #Our implementaion: Edihedrals = Kphi*(1 - cos(n(phi-phi0)))
+        #The negative sign is included by adding phase = 180 to the phi0
+        #Kphi*(1 + cos(n(phi-180-phi0))) = Kphi*(1 + cos(n180)*cos(n(phi-phi0)))
+        #if n is odd i.e. n=1,3.... then cos(n180) = -1
+        #hence Edihedrals = Kphi*(1 - cos(n(phi-phi0)))
+
+        Kd_bb = float(self.fconst.Kd_nucl["bb"])
+        Kd_sc = float(self.fconst.Kd_nucl["sc"])
+        mfac = float(self.fconst.Kd_nucl["mf"])
+
+        phase = 180
+        radtodeg = 180/np.pi
+
+        fout.write("\n%s\n"%("[ dihedrals ]"))
+        fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
+
+        data.Dihedrals()
+
+        func = 1
+        for quads,diheds in data.bb_dihedrals:
+            I,J,K,L = 1+np.transpose(quads)
+            diheds += phase
+            for x in range(quads.shape[0]):
+                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_bb,1))
+                fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_bb/mfac,3))
+        if len(data.S_atn):
+            for quads,diheds in data.sc_dihedrals:
+                I,J,K,L = 1+np.transpose(quads)
+                diheds += phase
+                for x in range(quads.shape[0]):
+                    fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_sc,1))
+                    fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_sc/mfac,3))
+        return
+
+    def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
+        print (">> Writing pairs section")
+        cmap = self.cmap
+        exit()
+        data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
+        fout.write("\n%s\n"%("[ pairs ]"))
+        if cmap.func==1:
+            print ("> Using LJ C6-C12 for contacts")
+            fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
+            func = 1
+            for pairs,dist,eps in data.contacts:
+                I,J = 1+np.transpose(pairs)
+                c06 = 2*eps*(dist**6.0)
+                c12 = eps*(dist**12.0)
+                for x in range(pairs.shape[0]): 
+                    fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
+        elif cmap.func==2:
+            print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
+            fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
+            func = 1
+            for pairs,dist,eps in data.contacts:
+                I,J = 1+np.transpose(pairs)
+                c10 = 6*eps*(dist**10.0)
+                c12 = 5*eps*(dist**12.0)
+                for x in range(pairs.shape[0]): 
+                    fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c10[x],c12[x]))
+        elif cmap.func==3:
+            print ("> Using LJ C12-C18 for contacts. Note: Require Table file(s) or ")
+            fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C12(Att)","C18(Rep)"))
+            func = 3
+            assert func!=3, "Error, func 3 not encoded yes. WIP"
+            for pairs,dist,eps in data.contacts:
+                I,J = 1+np.transpose(pairs)
+        elif cmap.func in (5,6):
+            fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
+            func = 6
+            sd = 0.05
+            for pairs,dist,eps in data.contacts:
+                I,J = np.transpose(pairs)
+                I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
+                J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
+                if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
+                elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
+                I,J = 1+np.transpose(pairs)
+                for x in range(pairs.shape[0]): 
+                    fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
+        return 
+
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
         if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
             cgpdb = PDB_IO()
@@ -752,8 +859,11 @@ class Topology:
                 self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["nucl"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
                 self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.P)
+                self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data,excl_rule=excl,charge=charge)
                 self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_nucleicacid_angles__(fout=ftop, data=proc_data)
+                self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
+                self.__write_footer__(fout=ftop)
         table = Tables()
         if self.cmap.func == 2:
             table.__write_pair_table__(elec=charge,ljtype=self.cmap.func)
