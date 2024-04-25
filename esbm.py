@@ -265,7 +265,7 @@ def main():
 		CGlevel["prot"] = 1		# CA_only	
 		CGlevel["nucl"] = 0		# No RNA/DNA
 		rad["CA"] = 2.0			# 4.0 A excl vol rad
-		contmap.W = 1			# not weighted 
+		contmap.W = False			# not weighted 
 		contmap.cutoff = 4.5	# 4.5 A
 		contmap.cutofftype = 1	# all-atom contacts mapped to CG
 		contmap.contfunc = 2	# LJ 10-12
@@ -283,7 +283,7 @@ def main():
 		charge.P = True			#charge on P
 		excl_rule = 2			# Excl volume Arith. Mean
 		fconst.Kd_prot["mf"] = 1.0	#factor to divide 3 multiplicity dihed term
-		contmap.W = 1			# contact weight
+		contmap.W = False			# contact weight
 		contmap.cutoff = 4.5	# cutoff
 		contmap.type = 1		# Calculate from all-atom structure
 		contmap.func = 2		# Use LJ 10-12 pairs
@@ -445,6 +445,11 @@ def main():
 	else:
 		aa_resi = Prot_Data().amino_acid_dict
 		rad.update({"CB"+aa_resi[x]:rad["CB"] for x in aa_resi})
+
+	#rad adding nucl rads
+	rad.update({"B"+b:rad["Bpu"] for b in "AG" if "B"+b not in rad})
+	rad.update({"B"+b:rad["Bpy"] for b in "UTC" if "B"+b not in rad})
+	rad.update({"S"+b:rad["S"] for b in "AGUTC" if "S"+b not in rad})
 
 	#converting A to nm
 	for x in rad: rad[x] = np.round(0.1*rad[x],3)

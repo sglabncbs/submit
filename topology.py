@@ -1,5 +1,5 @@
 import numpy as np
-from tqdm import trange
+from tqdm import trange,tqdm
 from PDB_IO import *
 from hybrid_36 import hy36encode,hy36decode
 
@@ -168,12 +168,14 @@ class Calculate:
                     self.P_atn[chain][rnum]= data.atn[x]
                 elif aname.startswith(("C","R")):
                     if chain not in self.S_atn: self.S_atn[chain] = dict()
-                    if rname not in self.S_atn[chain]: self.S_atn[chain][rnum] = []
-                    self.S_atn[chain][rnum].append(data.atn[x])
+                    self.S_atn[chain][rnum] = data.atn[x]
+                    #if rname not in self.S_atn[chain]: self.S_atn[chain][rnum] = []
+                    #self.S_atn[chain][rnum].append(data.atn[x])
                 elif aname.startswith(("N","B")): 
                     if chain not in self.B_atn: self.B_atn[chain] = dict()
-                    if rname not in self.B_atn[chain]: self.B_atn[chain][rnum] = []
-                    self.B_atn[chain][rnum].append(data.atn[x])
+                    self.B_atn[chain][rnum] = data.atn[x]
+                    #if rname not in self.B_atn[chain]: self.B_atn[chain][rnum] = []
+                    #self.B_atn[chain][rnum].append(data.atn[x])
         return
 
     def Bonds(self):
@@ -203,19 +205,9 @@ class Calculate:
                     resnum = list(self.S_atn[c].keys())
                     pairs = []
                     for x in resnum:
-                        S_atoms = self.S_atn[c][x]
-                        B_atoms = self.B_atn[c][x]
-                        if len(S_atoms)==1: S_ps,S_sp,S_sb = 3*S_atoms
-                        elif len(S_atoms)>1: 
-                            S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
-                            pairs += [(i,i+1) for i in S_atoms if i+1 in S_atoms]
-                        else: exit() # NO SUCH MODEL ENCODED
-                        if x in self.P_atn[c]: pairs.append((self.P_atn[c][x],S_ps))
-                        if x+1 in self.P_atn[c]: pairs.append((S_sp,self.P_atn[c][x+1]))
-                        pairs.append((S_sb,B_atoms[0]))
-                        if len(B_atoms)>1: 
-                            pairs += [(i,i+1) for i in B_atoms if i+1 in B_atoms]
-                            if (B_atoms[0],B_atoms[-1]) not in pairs: pairs.append((B_atoms[0],B_atoms[-1]))
+                        if x in self.P_atn[c]: pairs.append(((self.P_atn[c][x],self.S_atn[c][x])))
+                        pairs.append((self.S_atn[c][x],self.B_atn[c][x]))
+                        if x+1 in self.P_atn[c]: pairs.append((self.S_atn[c][x],self.P_atn[c][x+1]))
                 pairs = np.int_(pairs)
                 D = self.__distances__(pairs)
                 self.bonds.append((pairs,D))
@@ -250,23 +242,13 @@ class Calculate:
                     resnum.sort()
                     triplets = []
                     for x in resnum:
-                        S_atoms = self.S_atn[c][x]
-                        B_atoms = self.B_atn[c][x]
-                        if len(S_atoms)==1:
-                            S = S_atoms[0]
-                            if x in self.P_atn[c]:
-                                triplets.append((self.P_atn[c][x],S,B_atoms[0]))
-                                if x-1 in self.S_atn[c]:
-                                    prev_S = self.S_atn[c][x-1][0]
-                                    triplets.append((prev_S,self.P_atn[c][x],S))
-                                if x+1 in self.P_atn[c]:
-                                    triplets.append((self.P_atn[c][x],S,self.P_atn[c][x+1]))
-                                    triplets.append((B_atoms[0],S,self.P_atn[c][x+1]))
-                        #elif len(S_atoms)>1: 
-                            #S_ps,S_sp,S_sb = S_atoms[0],S_atoms[-2],S_atoms[-1]
-                            #triplets += [(i,i+1,i+2) for i in S_atoms if i+1 in S_atoms and i+2 in S_atoms]
-                        #else: exit() # NO SUCH MODEL ENCODED
-
+                        if x in self.P_atn[c]:
+                            triplets.append((self.P_atn[c][x],self.S_atn[c][x],self.B_atn[c][x]))
+                            if x-1 in self.S_atn[c]:
+                                triplets.append((self.S_atn[c][x-1],self.P_atn[c][x],self.S_atn[c][x]))
+                            if x+1 in self.P_atn[c]:
+                                triplets.append((self.P_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
+                                triplets.append((self.B_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
                 triplets = np.int_(triplets)
                 A = self.__angles__(triplets=triplets)
                 self.angles.append((triplets,A))
@@ -303,9 +285,9 @@ class Calculate:
                 for c in self.S_atn:
                     resnum = list(self.S_atn[c].keys())
                     resnum.sort()
-                    x=resnum[0]
-                    quadruplets = [(self.B_atn[c][x][0],self.S_atn[c][x][0],self.S_atn[c][x+1][0],self.B_atn[c][x+1][0]) \
-                                    for x in resnum if x+1 in self.S_atn[c] and len(self.S_atn[c][x])==1]
+                    quadruplets = [(self.B_atn[c][x],self.S_atn[c][x], \
+                                    self.S_atn[c][x+1],self.B_atn[c][x+1]) \
+                                    for x in resnum if x+1 in self.S_atn[c]]
                     quadruplets = np.int_(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
                     self.sc_dihedrals.append((quadruplets,T))
@@ -316,7 +298,9 @@ class Calculate:
         # Getting Non-bonded contact pairs info from the pre-supplied data
         temp_p,temp_w,temp_d = [],[],[]
         pairs,weights,distances = [],[],[]
+        
         if cmap.type == -1: return  # Generating top without pairs 
+
         elif cmap.type == 0:        # Use pairs from user input in format cid_i, atnum_i, cid_j, atnum_j, weight_ij (opt), dist_ij (opt)
             assert cmap.file != ""
             print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap.file)
@@ -334,23 +318,39 @@ class Calculate:
             if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
             pairs += temp_p; weights += temp_w; distances += temp_d
             pairs = np.int_(pairs); weights = np.float_(weights); distances = np.float_(distances)
+
         elif cmap.type == 1:        # Calculating contacts from all-atom structure and maping to CG structure
             group = []
             if len(self.CA_atn) != 0:
-                if len(self.CB_atn) == 0:
+                if len(self.CB_atn) == 0:   #0 for CA
                     for r in aa_data.res: group.append(tuple(list(r[:2])+[0]))
-                else:
+                else:                       #1 for CB
                     for r in aa_data.res: group.append(tuple(list(r[:2])+[int(r[-1] not in ("N","C","CA","O"))]))
+            if len(self.P_atn) != 0:
+                if len(self.B_atn) == 0:    #2 or P
+                    for r in aa_data.res: group.append(tuple(list(r[:2])+[2]))
+                else:                       # 3 for S #5 for B
+                    for r in aa_data.res: 
+                        group.append(tuple(list(r[:2])+[3+2*int("P" in r[-1])-1*int("'" in r[-1])]))
+
             faa = open(aa_data.pdbfile+".AAcont","w+")
             fcg = open(aa_data.pdbfile+".CGcont","w+")
             cid,rnum,bb_sc = np.transpose(np.array(group))
-            aa2cg = {0:self.CA_atn,1:self.CB_atn}
             del (group)
+            aa2cg = {0:self.CA_atn,1:self.CB_atn,\
+                     5:self.P_atn,2:self.S_atn,3:self.B_atn}
+            
             cutoff = cmap.cutoff*cmap.scale
             resgap = 4 
             contacts_dict = dict()
-            for i in range(aa_data.xyz.shape[0]):
-                gap=resgap-np.int_(bb_sc+bb_sc[i]>0)
+            
+            print ("> Determining contacts for %d*%d atom pairs using %.2f A cutoff and %.2f scaling-factor"%(aa_data.xyz.shape[0],aa_data.xyz.shape[0],cmap.cutoff,cmap.scale))
+            for i in trange(aa_data.xyz.shape[0]):
+                #resgap = 4:CA-CA, 3:CA-CB, 3:CB-CB, 
+                gap=resgap-np.int_(bb_sc+bb_sc[i]>0) #aa2cg bbsc CA:0,CB:1
+                #resgap 1: P/B/S-P/S/B
+                gap=gap+(1-gap)*int(bb_sc[i]>=2) #aa2cg bbsc P:5,B:3,S:2
+
                 calculate = np.int_( (np.int_(rnum-gap>=rnum[i]) * \
                             np.int_(cid==cid[i]) + np.int_(cid>cid[i])) > 0 )
                 contact=np.where(np.int_(np.sum((aa_data.xyz-aa_data.xyz[i])**2,1)**0.5<=cutoff)*calculate==1)[0]
@@ -365,6 +365,7 @@ class Calculate:
             pairs = list(contacts_dict.keys()); pairs.sort()
             weights = np.float_([contacts_dict[x][1] for x in pairs])
             weights = weights*(weights.shape[0]/np.sum(weights))
+            if not cmap.W: weights = np.ones(weights.shape)
             cid = np.int_([contacts_dict[x][0] for x in pairs])
             pairs = np.int_(pairs)
             distances = self.__distances__(pairs=pairs)
@@ -373,16 +374,18 @@ class Calculate:
                 w,d = weights[x],distances[x]
                 fcg.write("%d %d %d %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
             faa.close();fcg.close()
-            if not cmap.W: weights = np.ones(weights.shape)
+
         elif cmap.type == 2:        # Calculating contacts from CG structure
-            cacasep=4;cacbsep=3;cbcbsep=3
+            cid = []
             if len(self.CA_atn) != 0:
+                cacasep=4;cacbsep=3;cbcbsep=3
                 for c1 in self.CA_atn:
                     pairs += [(self.CA_atn[c1][x],self.CA_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c1] if y-x>=cacasep]
                     if len(self.CB_atn) != 0:
                         pairs += [(self.CA_atn[c1][x],self.CB_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CA_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CB_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c1] if y-x>=cbcbsep]
+                    cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
                     for c2 in self.CA_atn:
                         if c2>c1: 
                             pairs += [(self.CA_atn[c1][x],self.CA_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c2]]
@@ -390,17 +393,49 @@ class Calculate:
                                 pairs += [(self.CA_atn[c1][x],self.CB_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CA_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CB_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c2]]
+                            cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+            if len(self.P_atn)!=0:
+                ppsep,ressep=1,1
+                if len(self.S_atn)==0:
+                    for c1 in self.P_atn:
+                        pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c1] if y-x>=ppsep]
+                        cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
+                        for c2 in self.P_atn: 
+                            if c2>c1:
+                                pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c2]]
+                                cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+                else:
+                    assert len(self.B_atn)!=0
+                    for c1 in self.S_atn:
+                        all_atn_c1 = list(self.P_atn[c1].items())+list(self.S_atn[c1].items())+list(self.B_atn[c1].items())
+                        pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c1 if ry-rx>=ressep]
+                        cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
+                        for c2 in self.S_atn:
+                            if c2>c1:
+                                all_atn_c2 = list(self.P_atn[c2].items())+list(self.S_atn[c2].items())+list(self.B_atn[c2].items())
+                                pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c2]
+                                cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+
             pairs = np.int_(pairs)
+            cid = np.int_(cid)
             cutoff = 0.1*cmap.cutoff
             distances = self.__distances__(pairs)
             contacts = np.where(np.int_(distances<=cutoff))[0]
             pairs = pairs[contacts]
+            cid = cid[contacts]
             distances = distances[contacts]
             check_dist = self.__distances__(pairs)
             for x in range(pairs.shape[0]): 
                 assert check_dist[x] == distances[x] and distances[x] < cutoff
             weights = np.ones(pairs.shape[0])
+            with  open(aa_data.pdbfile+".CGcont","w+") as fcg:
+                for x in range(pairs.shape[0]):
+                    c,a = cid[x]+1,pairs[x]+1
+                    w,d = weights[x],distances[x]
+                    fcg.write("%d %d %d %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+        
         self.contacts.append((pairs,distances,weights))
+        return
 
 class Topology:
     def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
@@ -437,7 +472,7 @@ class Topology:
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
 
-        if len(data.CA_atn) > 0:
+        if len(data.CA_atn) != 0:
             assert type<=2
             self.excl_volume["CA"] = 2*rad["CA"]
             C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
@@ -451,7 +486,7 @@ class Topology:
                     fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
             lego = False
             if lego: print ("WIP for lego")
-        if len(data.P_atn) > 0:
+        if len(data.P_atn) != 0:
             assert type in (1,3,5)
             self.excl_volume["P"] = 2*rad["P"]
             C12 = self.fconst.Kr_nucl*(2*rad["P"])**12.0
@@ -463,24 +498,15 @@ class Topology:
                 for c in data.S_atn:
                     assert c in data.B_atn
                     seq = "5"+seq_list[c]+"3"
-                    resorder = list(data.B_atn[c].keys());resorder.sort()
-                    resorder = ["5'"]+resorder+["3'"]
                     for i in range(1,len(seq)-1):
                         if codon_based: codon = seq[i-1].lower()+seq[i]+seq[i+1].lower()
                         else: codon = seq[i]
-                        r = resorder[i]
-                        for  x in range(len(data.S_atn[c][r])):
-                            bead = "S"+str(x)+codon
+                        for tag in ("S","B"):
+                            bead = tag+"0"+codon
                             if bead not in self.excl_volume:
-                                self.excl_volume[bead] = 2*rad["S"]
-                                C12 = self.fconst.Kr_prot*(2*rad["S"])**12.0
+                                self.excl_volume[bead] = 2*rad[tag+seq[i]]
+                                C12 = self.fconst.Kr_prot*(self.excl_volume[bead])**12.0
                                 fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"S"))
-                        for  x in range(len(data.B_atn[c][r])):
-                            bead = "B"+str(x)+codon
-                            if bead not in self.excl_volume:
-                                self.excl_volume[bead] = 2*rad["S"]
-                                C12 = self.fconst.Kr_prot*(2*rad["S"])**12.0
-                                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"B"))
         return
 
     def __write_nonbond_params__(self,fout,type,excl_rule,data):
@@ -695,16 +721,6 @@ class Topology:
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
         return 
 
-    def __write_protein_exclusions__(self,fout,data):
-        print (">> Writing exclusions section")
-        fout.write("\n%s\n"%("[ exclusions ]"))
-        fout.write("; %5s %5s\n"%("i","j"))
-        for pairs,dist,eps in data.contacts:
-            I,J = 1+np.transpose(pairs)
-            for x in range(pairs.shape[0]): 
-                fout.write(" %5d %5d\n"%(I[x],J[x]))
-        return
-
     def __write_nucleicacid_bonds__(self,fout,data,func):
         print (">> Writing bonds section")
         #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
@@ -779,8 +795,8 @@ class Topology:
     def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap
-        exit()
-        data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
+        data.Pairs(cmap=cmap,aa_data=self.allatomdata.nucl)
+
         fout.write("\n%s\n"%("[ pairs ]"))
         if cmap.func==1:
             print ("> Using LJ C6-C12 for contacts")
@@ -824,6 +840,16 @@ class Topology:
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
         return 
 
+    def __write_exclusions__(self,fout,data):
+        print (">> Writing exclusions section")
+        fout.write("\n%s\n"%("[ exclusions ]"))
+        fout.write("; %5s %5s\n"%("i","j"))
+        for pairs,dist,eps in data.contacts:
+            I,J = 1+np.transpose(pairs)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d\n"%(I[x],J[x]))
+        return
+
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
         if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
             cgpdb = PDB_IO()
@@ -843,7 +869,7 @@ class Topology:
                 self.__write_protein_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data)
                 self.__write_protein_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
-                self.__write_protein_exclusions__(fout=ftop,data=proc_data)
+                self.__write_exclusions__(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
 
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
@@ -863,6 +889,7 @@ class Topology:
                 self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data,func=bond_function)
                 self.__write_nucleicacid_angles__(fout=ftop, data=proc_data)
                 self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
+                self.__write_exclusions__(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
         table = Tables()
         if self.cmap.func == 2:
