@@ -298,14 +298,20 @@ class PDB_IO:
     def __readLnes__(self,infile):
         nucl_lines = list(); prot_lines = list()
         with open(infile) as fin:
+            prev_resname,prev_resnum = str(),0
             for line in fin:
                 if line.startswith(("ATOM","HETATM")):
-                    resname =  line[17:20].strip()
+                    resname,resnum =  line[17:20].strip(),hy36decode(4,line[22:26])
+                    if prev_resnum not in (resnum,resnum-1) and len(prev_resname)!=0:
+                        if prev_resname in self.prot.amino_acid_dict: prot_lines.append("TER\n")
+                        elif prev_resname in self.nucleotide_dict: nucl_lines.append("TER\n")
                     if resname in self.prot.amino_acid_dict: prot_lines.append("ATOM".ljust(6)+line[6:])
                     elif resname in self.nucleotide_dict: nucl_lines.append("ATOM".ljust(6)+line[6:])
+                    prev_resname,prev_resnum = resname,resnum
                 if line.startswith(("TER","END")):
                     if resname in self.prot.amino_acid_dict: prot_lines.append(line)
                     elif resname in self.nucleotide_dict: nucl_lines.append(line)
+                    prev_resname,prev_resnum = str(),0
             if len(nucl_lines) != 0:
                 nucl_lines = self.__fixNultiOcc__(pdb_lines=nucl_lines)
                 if not nucl_lines[-1].startswith(("TER","END")): nucl_lines.append("TER\n")
