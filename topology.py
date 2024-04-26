@@ -265,8 +265,7 @@ class Calculate:
                 quadruplets = np.int_(quadruplets)
                 T = self.__torsions__(quadruplets=quadruplets)
                 self.bb_dihedrals.append((quadruplets,T))
-            if len(self.CB_atn)!=0:
-                for c in self.CA_atn:
+                if len(self.CB_atn)!=0:
                     quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
                     quadruplets = np.int_(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
