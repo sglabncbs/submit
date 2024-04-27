@@ -103,7 +103,7 @@ class ModelDir:
 def main():
 	
 	""" loading arguments here """
-	parser = argparse.ArgumentParser(description="Generate GROMACS and OPTIM potential files for Protein + Nucleic Acids enhanced SBM models.")
+	parser = argparse.ArgumentParser(description="Generate GROMACS and OpenSMOG potential files for Protein + Nucleic Acids enhanced SBM models.")
 	
 	#Predefined Models
 	parser.add_argument("--clementi2000","-clementi2000","--calpha_go2000","-calpha_go2000",action="store_true",help="Clementi et. al. 2000 CA-only model")
