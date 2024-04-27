@@ -49,6 +49,10 @@ class Options(Dict):
 	interactions="interactions.dat"
 	hphobic=False
 	dsb=False
+	interface = False
+	custom_nuc = False
+	control_run = False
+
 
 class Constants(Dict):
 	Kb_prot = 200.0
@@ -228,15 +232,16 @@ def main():
 	args = parser.parse_args()
 
 	#defualt potoein-NA parameters
-	interface = False
-	custom_nuc = False
-	control_run = False
-
 	opt = Options()
 	fconst = Constants()
 	charge = Charge()
 	prot_contmap = ContactMap()
 	nucl_contmap = ContactMap()
+
+	opt.interface = False
+	opt.custom_nuc = False
+	opt.control_run = False
+
 	CGlevel = {"prot":2,"nucl":3}
 	rad = dict()	 
 
@@ -558,23 +563,23 @@ def main():
 			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
 
 	if args.control:	#Use Protein with DNA/RNA bound at natve site
-		control_run = True
+		opt.control_run = True
 		assert not args.custom_nuc, "Error: --custom_nuc cannot be used with --control"
-		custom_nuc = False
+		opt.custom_nuc = False
 	else:
-		control_run = False
-		custom_nuc = True
+		opt.custom_nuc = True
 		if args.custom_nuc:
 			custom_nucl_file = PDB_IO()
 			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True)
 			print (">> Note: Using RNA/DNA from",custom_nucl_file.nucl.pdbfile)
 			pdbdata.nucl = custom_nucl_file.nucl
-			del(custom_nucl_file)
 		else:
 			if pdbdata.nucl.pdbfile != "":
 				custom_nucl_file = pdbdata.nucl.pdbfile
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
-				pdbdata.coordinateTransform()
+		pdbdata.coordinateTransform()
+		del(custom_nucl_file)
+
 	#output grofiles
 	if args.pdbgro: grofile = str(args.pdbgro)
 	else: grofile = "gromacs.gro"

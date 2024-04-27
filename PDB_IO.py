@@ -458,6 +458,22 @@ class PDB_IO:
 
         return
 
+    def __combineGro__(self,outfile):
+        with open(outfile,"w+") as fout:
+            fout.write("CG file %s for GROMACS\n"%(outfile))
+            fnucl,fprot = open("nucl_"+outfile),open("prot_"+outfile)
+            nucl_natoms = int([fnucl.readline() for x in range(2)][-1])
+            prot_natoms = int([fprot.readline() for x in range(2)][-1])
+            fout.write("%d\n"%(nucl_natoms+prot_natoms))
+            for x in range(nucl_natoms): fout.write(fnucl.readline())
+            for x in range(prot_natoms):
+                line = fprot.readline()
+                line = line[:15]+hy36encode(5,nucl_natoms+int(line[15:20]))+line[20:]
+                fout.write(line)
+            fout.write(fnucl.readline())
+            fnucl.close();fprot.close()
+        return
+            
     def write_CG_protfile(self,CGlevel,CAcom,CBcom,CBfar,CBgly,nucl_pos,outgro):
         #writes coarse grain pdb and gro files
 
@@ -483,6 +499,7 @@ class PDB_IO:
                     fout.write(line+"\n")
                     line = str(res[1]).rjust(5)+res[-1].ljust(5)+"CA".center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.prot.CA[res])
                     fgro.write(line+"\n")
+                    
                     prev_chain = res[0]
                 fout.write("END\n")
                 fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
@@ -588,6 +605,10 @@ class PDB_IO:
                     fout.write("END\n")
                     fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
                     fgro.close()
+
+        if len(self.nucl.lines) != 0:
+            if len(self.prot.lines) != 0:
+                self.__combineGro__(outfile=outgro)
 
     def buildProtIDR(self,fasta,rad):
         #reading fasta and writing stretched IDR to pdb
