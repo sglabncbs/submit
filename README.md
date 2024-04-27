@@ -24,6 +24,7 @@ $ python esbm.py --pal2019 --aa_pdb <protein All-atom .pdb file> --Ka_prot 40</b
 $ python esbm.py --help</br>
 </br>
 </br>
+<pre>
 optional arguments:</br>
   -h, --help           show this help message and exit</br></br>
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000</br>
@@ -192,3 +193,4 @@ optional arguments:</br>
                         Use 1: Geometric mean. 2: Arithmatic mean</br></br>
   --Kr_prot KR_PROT     Krepulsion. Default=1.0</br></br>
   --Kr_nucl KR_NUCL     Krepulsion. Default=1.0</br></br>
+</pre>
