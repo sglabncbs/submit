@@ -1,21 +1,21 @@
-# Package to generate coarse-Grain structure and topology for using Enhanced Structure Based Models MD simulations on GROMACS and OpenSMOG (OpenMM based)
+# Package to generate Coarse-Grained Structure and Topology for using Enhanced Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based)
 # digvijaylp #
  
  
 <pre>
-# Model presets allows user to auto-select params based on prefedined models 
+# Model presets allows user to auto-select parameters based on predefined models 
  
-#CA-SBN (Clementi 2000) 
+#CA-SBM (Clementi 2000) 
 $ python esbm.py --clementi2000 --aa_pdb <All-atom .pdb file> 
  
 #CA-CB SOP-SC model (Reddy 2017) 
 $ python esbm.py --reddy2017 --aa_pdb <All-atom .pdb file> 
-$ python esbm.py --reddy2017 --cg_pdb <Coarse-grain .pdb file> 
+$ python esbm.py --reddy2017 --cg_pdb <Coarse-grained .pdb file> 
  
 #CA-CB SOP-SC-IDP model (Baidya 2000) 
 $ python esbm.py --baidya2017 --prot_seq <IDP sequence .fa file> 
  
-#CA-CB Protein+RNA/DNA model (Pal 2019) 
+#CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
 $ python esbm.py --pal2019 --aa_pdb <protein All-atom .pdb file> --custom_nuc <RNA/DNA all-atom .pdb file> 
  
 #For every model, predefined parameters can be customized. For example, for chanding angle force constant in Pal 2019 model 
