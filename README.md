@@ -12,8 +12,8 @@ $ python esbm.py --clementi2000 --aa_pdb <All-atom .pdb file>
 $ python esbm.py --reddy2017 --aa_pdb <All-atom .pdb file> 
 $ python esbm.py --reddy2017 --cg_pdb <Coarse-grained .pdb file> 
  
-#CA-CB SOP-SC-IDP model (Baidya 2000) 
-$ python esbm.py --baidya2017 --prot_seq <IDP sequence .fa file> 
+#CA-CB SOP-SC-IDP model (Baidya 2022) 
+$ python esbm.py --baidya2022 --prot_seq <IDP sequence .fa file> 
  
 #CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
 $ python esbm.py --pal2019 --aa_pdb <protein All-atom .pdb file> --custom_nuc <RNA/DNA all-atom .pdb file> 
