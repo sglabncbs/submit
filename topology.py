@@ -482,17 +482,31 @@ class MergeTop:
                     fsec.write("\n")
         return
 
-    def __write_nonbond_params__(self):
+    def __writeNonbondParams__(self,fsec):
         print ("> Writing user given custom nonbond_params:",self.interface)
+        if self.excl_rule == 2:
+            pairs = []
+            Krep = (self.fconst.Kr_prot+self.fconst.Kr_nucl)*0.5
+            for x in self.excl_volume:
+                if not x.startswith(("CA","CB")):
+                    for y in self.excl_volume:
+                        if y.startswith(("CA","CB")):
+                            C10,C12 = 0.0, Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                            p = [x,y]; p=tuple(p)
+                            if p not in pairs:
+                                fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                                pairs.append(p)
 
-    def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume):
+    def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst):
         self.interface = opt.interface
         self.excl_volume = excl_volume
+        self.excl_rule = excl_rule
+        self.fconst = fconst
         self.__merge__(Nprot=Nprot,Nnucl=Nnucl,topfile=topfile,opt=opt,excl_volume=excl_volume)
 
     def __merge__(self,Nprot,Nnucl,topfile,opt,excl_volume):
         #combining top file
-        outfile = "mergerd_"
+        outfile = "merged_"
         assert Nprot+Nnucl>1, "Error, cannot use combine with 1 molecule"
         prot_top,nucl_top={},{}
         if Nnucl>0:
@@ -512,19 +526,23 @@ class MergeTop:
                 prot_data,nucl_data = prot_top[header],nucl_top[header]
                 print ("> Writing",outfile+".top",header,"section.")
                 fout.write("\n[ "+header+" ]\n")
-                if header not in ["atoms","bonds","angles","pairs","dihedrals","exclusions"]:
-                    status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
-                    status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
-                    if header in ["nonbond_params"] and Nnucl:self.__write_nonbond_params__()
+                if header in ["nonbond_params","atomtypes"]:
+                    if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
+                    if Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
+                    if Nnucl>0 and Nprot>0: 
+                        if header == "nonbond_params": self.__writeNonbondParams__(fsec=fout)
                 elif header == "atoms":
                     natoms_nucl,off0= self.__writeAtomsSection__(fsec=fout,inp=nucl_data,nmol=Nnucl,tag=";RNA/DNA_")
                     natoms_prot,off1 = self.__writeAtomsSection__(fsec=fout,inp=prot_data,nmol=Nprot,tag=";Protein_",\
                                                                             prev_at_count=Nnucl*natoms_nucl)
-                else:
+                elif header in ["bonds","angles","pairs","dihedrals","exclusions"]:                
                     self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=nucl_data,nmol=Nnucl,\
                                         prev_at_count=0,atoms_in_mol=natoms_nucl,tag=";RNA/DNA_",atnum_offset=off0)
                     self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=prot_data,nmol=Nprot, \
                         prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
+                else:
+                    if Nprot>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
+                    elif Nnucl>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
 
 class Topology:
     def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
@@ -983,7 +1001,7 @@ class Topology:
 
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
             if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                merge=MergeTop(Nprot=1,Nnucl=1,topfile=outtop,opt=self.opt,excl_volume=self.excl_volume)
+                merge=MergeTop(Nprot=1,Nnucl=1,topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst)
 
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
