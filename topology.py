@@ -1274,12 +1274,13 @@ class Baidya2022(Reddy2017):
         eps[("CA","CB")] = self.eps_scsc
 
         with open("interactions.dat") as fin:
-            epsmat = {("CA","CA"):1.0}
-            for k,v in {line.split()[0]:float(line.split()[1]) for line in fin}.items():
-                epsmat[("CB"+k[0],"CB"+k[1])] = np.abs(0.7-v)
-                epsmat[("CB"+k[1],"CB"+k[0])] = np.abs(0.7-v)
-                epsmat[("CA","CB"+k[0])] = 1.0
-                epsmat[("CB"+k[0],"CA")] = 1.0
+            epsmat = {tuple(line.split()[:2]):float(line.split()[2]) \
+                for line in fin if not line.startswith(("#",";","@"))}
+            epsmat = {k:np.abs(0.7-epsmat[k]) for k in epsmat}
+            epsmat.update({(k[1],k[0]):epsmat[k] for k in epsmat})
+            epsmat.update({("CA",k[0]):1.0 for k in epsmat if "CA" not in k})
+            epsmat.update({(k[0],"CA"):1.0 for k in epsmat if "CA" not in k})
+            epsmat.update({("CA","CA"):1.0})
 
         for x in self.excl_volume:
             if x.startswith(("CA","CB")):
