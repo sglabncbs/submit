@@ -482,6 +482,24 @@ class MergeTop:
                     fsec.write("\n")
         return
 
+    def __writeSymPaIrs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset):
+        fsec.write(tag+"symmetrized_interactions_"+self.nPlaces(n=3,count2str=nmol)+"\n")
+        for y in inp:
+            if y.strip() == "": continue
+            elif y.strip().startswith(";"): fsec.write(y+"\n")
+            else:
+                line=y.strip() .split()
+                group = []
+                I = [atnum_offset + int(line[0]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+                J = [atnum_offset + int(line[1]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+                for i in range(len(I)):
+                    for j in range(len(J)): 
+                        if i!=j: 
+                            fsec.write(2*" %5d"%(I[i],J[j]))
+                            fsec.write(len(line[2:])*" %5s"%tuple(line[2:]))
+                            fsec.write("\n")
+        return
+
     def __writeNonbondParams__(self,fsec):
         print ("> Writing user given custom nonbond_params:",self.interface)
         
@@ -531,8 +549,6 @@ class MergeTop:
                         fsec.write(" %s %s\t%d\t%.3f %e %e %e\n"%(p[0].ljust(5),p[1].ljust(5),func,eps[p],sig[p],sd,C12))
         return
                             
-
-
     def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap):
         self.nucl_cmap = cmap["nucl"]
         self.prot_cmap = cmap["prot"]
@@ -578,15 +594,19 @@ class MergeTop:
                                         prev_at_count=0,atoms_in_mol=natoms_nucl,tag=";RNA/DNA_",atnum_offset=off0)
                     self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=prot_data,nmol=Nprot, \
                         prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
+                    if opt.intra_symmetrize and header in ["pairs","exclusions"]:
+                        self.__writeSymPaIrs__(fsec=fout,inp=prot_data,nmol=Nprot, \
+                            prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
                 else:
-                    if Nprot>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
-                    elif Nnucl>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
+                    if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
+                    elif Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
 
 class Topology:
-    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
+        self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
@@ -1039,9 +1059,11 @@ class Topology:
                 self.__write_exclusions__(fout=ftop,data=proc_data)
                 self.__write_footer__(fout=ftop)
 
-        if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
+        Nmol = self.Nmol
+        #if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
+        if Nmol["prot"]+Nmol["nucl"] > 1:
             if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                merge=MergeTop(Nprot=1,Nnucl=1,topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
+                merge=MergeTop(Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
@@ -1051,20 +1073,23 @@ class Topology:
         return
 
 class Clementi2000(Topology):
-    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
+        self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
         self.atomtypes = []
 
 class Pal2019(Topology):
-    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
+        self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
@@ -1108,11 +1133,12 @@ class Pal2019(Topology):
         return 
 
 class Reddy2017(Topology):
-    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.__check_H_atom__()
         self.fconst = fconst
         self.CGlevel = CGlevel
+        self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
@@ -1272,10 +1298,11 @@ class Reddy2017(Topology):
         return 
 
 class Baidya2022(Reddy2017):
-    def __init__(self,allatomdata,fconst,CGlevel,cmap,opt) -> None:
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
         self.CGlevel = CGlevel
+        self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
         self.opt = opt
         self.eps_bbbb = 0.12*self.fconst.caltoj 

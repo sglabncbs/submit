@@ -44,7 +44,8 @@ class Options(Dict):
 	btparams=False
 	mjmap=False
 	btmap=False
-	dswap=False
+	intra_symmetrize = False
+	inter_symmetrize = False
 	P_stretch=False
 	interactions="interactions.dat"
 	hphobic=False
@@ -243,6 +244,7 @@ def main():
 	opt.control_run = False
 
 	CGlevel = {"prot":2,"nucl":3}
+	Nmol = {"prot":1,"nucl":1}
 	rad = dict()	 
 
 	#Set default parameters for proteins
@@ -464,10 +466,11 @@ def main():
 	if args.CA_com:CA_com=True
 
 	if args.dswap:
-		dswap=True
-		print ('This one assumes both chains are identical.')
-		print ("Setting --all_chains True")
-		all_chains = True
+		opt.intra_symmetrize = True
+		Nmol["prot"]=2
+		if CGlevel["nucl"] != 0:
+			print ("--dwap not supported for RNA/DNA. Will only be applied to protein topology")
+		print ("--dswap assumes the input protein is a single unit. For adding 2 chains, use 'genbox' of 'gmx insert-molecules'")
 	
 	if args.CA_rad: rad["CA"]=float(args.CA_rad)
 	if args.CB_rad:
@@ -580,7 +583,8 @@ def main():
 			if pdbdata.nucl.pdbfile != "":
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
 				pdbdata.coordinateTransform()
-		
+	if len(pdbdata.prot.lines)==0: Nmol['prot'] = 0
+	if len(pdbdata.nucl.lines)==0: Nmol["nucl"] = 0
 
 	#output grofiles
 	if args.pdbgro: grofile = str(args.pdbgro)
@@ -596,19 +600,19 @@ def main():
 	else:topfile = 'gromacs.top'
 	
 	if args.clementi2000:
-		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.pal2019:
-		top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.reddy2017:
-		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.baidya2022:
-		top = Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	else:
-		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 
 if __name__ == '__main__':
