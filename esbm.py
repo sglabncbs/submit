@@ -603,7 +603,10 @@ def main():
 		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.pal2019:
-		top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		if nucl_contmap.type==-1: top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		if nucl_contmap.type>=0:
+			print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
+			top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.reddy2017:
 		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
