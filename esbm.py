@@ -313,8 +313,9 @@ def main():
 		charge.debye = True		# Use DH-electrostatics
 		charge.dielec = 70		# dielectric constant
 		charge.iconc = 0.01		# concentration
+		opt.interface = True
 		opt.P_stretch = True	# set P_P_P_P dihed to 180
-		ModelDir("pal2019/levy.stackparams.dat").copy2("stackparams.dat")
+		ModelDir("pal2019/levy.stackparams.dat").copy2("interactions.dat")
 	
 
 	if args.azia2009:
@@ -388,7 +389,7 @@ def main():
 		elif CGlevel["nucl"] == 3: print (">>> Using 3-bead P-S-B model for RNA/DNA.")
 		elif CGlevel["nucl"] == 5: print (">>> Using 2-bead P-S and 3 beads per Base for RNA/DNA.")
 
-	if args.interface: interface = True
+	if args.interface: opt.interface = True
 	if args.Kb_prot:fconst.Kb_prot=float(args.Kb_prot)
 	if args.Ka_prot:fconst.Ka_prot=float(args.Ka_prot)
 	if args.Kd_bb_prot:fconst.Kd_prot["bb"]=float(args.Kd_bb_prot)
@@ -573,12 +574,13 @@ def main():
 			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True)
 			print (">> Note: Using RNA/DNA from",custom_nucl_file.nucl.pdbfile)
 			pdbdata.nucl = custom_nucl_file.nucl
+			del(custom_nucl_file)
+			pdbdata.coordinateTransform()
 		else:
 			if pdbdata.nucl.pdbfile != "":
-				custom_nucl_file = pdbdata.nucl.pdbfile
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
-		pdbdata.coordinateTransform()
-		del(custom_nucl_file)
+				pdbdata.coordinateTransform()
+		
 
 	#output grofiles
 	if args.pdbgro: grofile = str(args.pdbgro)
