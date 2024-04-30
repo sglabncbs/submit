@@ -485,20 +485,17 @@ class MergeTop:
     def __writeNonbondParams__(self,fsec):
         print ("> Writing user given custom nonbond_params:",self.interface)
         
-        if not self.interface:
+        eps,sig = {},{}
+        if self.interface:
             with open("interactions.dat") as fin:
-                epsmat,stack = {},{}
                 for line in fin:
                     if line.startswith(("#",";","@")): continue
-                    k0,k1 = line.split()[0][:]
-                    if k0 in "AGCUT" and k1 in "AGCUT":
-                        epsmat[k0+k1] = float(line.split()[1])
-                        epsmat[k1+k0] = epsmat[k0+k1]
-                        stack[k0+k1] = 0.1*float(line.split()[2])
-                        stack[k1+k0] = 0.1*float(line.split()[2])
+                    k0,k1 = line.split()[:2]
+                    eps[(k0,k1)] = float(line.split()[2])
+                    eps[(k1,k0)] = eps[(k0,k1)]
+                    sig[(k0,k1)] = 0.1*float(line.split()[3])
+                    sig[(k1,k0)] = sig[(k0,k1)]
 
-
-        
         if self.excl_rule == 2:
             pairs = []
             Krep = (self.fconst.Kr_prot+self.fconst.Kr_nucl)*0.5
@@ -508,11 +505,37 @@ class MergeTop:
                         if y.startswith(("CA","CB")):
                             C10,C12 = 0.0, Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
                             p = [x,y]; p=tuple(p)
-                            if p not in pairs:
+                            if p not in pairs and p not in eps:
                                 fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
                                 pairs.append(p)
+        if len(eps)>0:
+            fsec.write("; Custom Protein-RNA/DNA interactions\n")
+            if self.nucl_cmap.func in (5,6):
+                fsec.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
+            for x,y in eps:
+                if y.startswith(("CA","CB")) and not x.startswith(("CA","CB")):
+                    if x not in self.excl_volume or y not in self.excl_volume: continue
+                    p = (x,y)
+                    if self.nucl_cmap.func==1: #6-12
+                        C06 = 2*eps[p]*((sig[p])**6)
+                        C12 = 1*eps[p]*((sig[p])**12)
+                        fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
+                    elif self.nucl_cmap.func==2:
+                        C10 = 6*eps[p]*((sig[p])**10)
+                        C12 = 5*eps[p]*((sig[p])**12)
+                        fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                    elif self.nucl_cmap.func in (5,6):
+                        func,sd = 6,0.05
+                        if self.excl_rule==1: c12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                        elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                        fsec.write(" %s %s\t%d\t%.3f %e %e %e\n"%(p[0].ljust(5),p[1].ljust(5),func,eps[p],sig[p],sd,C12))
+        return
+                            
 
-    def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst):
+
+    def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap):
+        self.nucl_cmap = cmap["nucl"]
+        self.prot_cmap = cmap["prot"]
         self.interface = opt.interface
         self.excl_volume = excl_volume
         self.excl_rule = excl_rule
@@ -1018,7 +1041,7 @@ class Topology:
 
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
             if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                merge=MergeTop(Nprot=1,Nnucl=1,topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst)
+                merge=MergeTop(Nprot=1,Nnucl=1,topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
