@@ -148,6 +148,13 @@ def main():
 	parser.add_argument("--cmap_n","-cmap_n",help="User defined RNA/DNA cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_n","-scaling_n", help="User RNA/DNA defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#inter Protein-RNA/DNA
+	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5A")
+	parser.add_argument("--cutofftype_i","-cutofftype_i",type=int,help="For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
+	parser.add_argument("--W_cont_i","-W_cont_i",action="store_true",help="Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts")
+	parser.add_argument("--cmap_i","-cmap_i",help="User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
+	parser.add_argument("--scaling_i","-scaling_i", help="User Protein RNA/DNA interface defined scaling for mapping to all-atom contact-map.")
+	parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 
 	#atom type 1: CA only. 2: Ca+Cb
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -238,6 +245,7 @@ def main():
 	charge = Charge()
 	prot_contmap = ContactMap()
 	nucl_contmap = ContactMap()
+	inter_contmap = ContactMap()
 
 	opt.interface = False
 	opt.custom_nuc = False
@@ -312,6 +320,7 @@ def main():
 		prot_contmap.type = 1		# Calculate from all-atom structure
 		prot_contmap.func = 2		# Use LJ 10-12 pairs
 		nucl_contmap.type = -1		# Do not calculate
+		inter_contmap.type = -1		# Do not calculate
 		charge.debye = True		# Use DH-electrostatics
 		charge.dielec = 70		# dielectric constant
 		charge.iconc = 0.01		# concentration
@@ -350,26 +359,25 @@ def main():
 
 	if args.baidya2022:
 		print (">>> Using Reddy SOP-SCP-IDP model.")
-		args.prot_cg = 2
-		args.nuck_cg = 0
-		args.bfunc = 8
-		args.cutoff = 8.0
-		args.cutofftype = -1
-		args.contfunc = 1
-		args.excl_rule = 2
-		args.btparams = True
+		CGlevel["prot"] = 2
+		CGlevel["uncl"] = 0
+		bond_function = 8
+		prot_contmap.cutoff = 8.0
+		prot_contmap.type = -1
+		prot_contmap.func = 1
+		prot_contmap.scsc_custom = True
+		excl_rule = 2
+		opt.btparams = True
 		opt.sopsc = True
-		args.CA_rad = 1.9 #A
-		args.CB_radii = True
-		args.CB_charge = True
-		args.CB_radii = True
-		args.CB_gly = True
-		args.CB_charge = True
-		args.Kb_prot = 20.0*fconst.caltoj
-		args.Kr_prot = 1.0*fconst.caltoj
-		args.debye = True
-		args.dielec = 78
-		args.iconc = 0.15	#M
+		rad["CA"] = 1.9 #A
+		CB_radii = True
+		charge.CB = True
+		CB_gly = True
+		fconst.Kb_prot = 20.0*fconst.caltoj
+		fconst.Kr_prot = 1.0*fconst.caltoj
+		charge.debye = True
+		charge.dielec = 78
+		charge.iconc = 0.15	#M
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 
@@ -403,31 +411,42 @@ def main():
 	if args.cutoff:
 		prot_contmap.cutoff=float(args.cutoff)
 		nucl_contmap.cutoff=float(args.cutoff)
+		inter_contmap=float(args.cutoff)
 	if args.cutoff_p: prot_contmap.cutoff=float(args.cutoff_p)
 	if args.cutoff_n: nucl_contmap.cutoff=float(args.cutoff_n)
+	if args.cutoff_i: inter_contmap.cutoff=float(args.cutoff_n)
 	if args.cmap: 
 		prot_contmap.type,prot_contmap.file = 0,args.cmap
 		nucl_contmap.type,nucl_contmap.file = 0,args.cmap
+		inter_contmap.type,inter_contmap.file = 0,args.cmap
 	if args.cmap_p: prot_contmap.type,prot_contmap.file = 0,args.cmap_p
 	if args.cmap_n: nucl_contmap.type,nucl_contmap.file = 0,args.cmap_n
+	if args.cmap_i: inter_contmap.type,inter_contmap.file = 0,args.cmap_i
 	if args.cutofftype:
 		prot_contmap.type = int(args.cutofftype)
 		nucl_contmap.type = int(args.cutofftype)
+		inter_contmap.type = int(args.cutofftype)
 	if args.cutofftype_p: prot_contmap.type = int(args.cutofftype_p)
 	if args.cutofftype_n: nucl_contmap.type = int(args.cutofftype_n)
+	if args.cutofftype_i: inter_contmap.type = int(args.cutofftype_i)
 	if len(prot_contmap.file) > 0: assert prot_contmap.type == 0, "Error, Use type 0 if giving cmap file"
 	if len(nucl_contmap.file) > 0: assert nucl_contmap.type == 0, "Error, Use type 0 if giving cmap file"
+	if len(inter_contmap.file) > 0: assert inter_contmap.type == 0, "Error, Use type 0 if giving cmap file"
 	if args.W_cont: prot_contmap.W,nucl_contmap.W = True,True
 	if args.W_cont_p: prot_contmap.W = True
 	if args.W_cont_n: nucl_contmap.W = True
+	if args.W_cont_i: inter_contmap.W = True
 	if args.scaling: prot_contmap.scale,nucl_contmap.scale = float(args.scaling),float(args.scaling)
 	if args.scaling_p: prot_contmap.scale = float(args.scaling_p)
 	if args.scaling_n: nucl_contmap.scale = float(args.scaling_n)
+	if args.scaling_i: inter_contmap.scale = float(args.scaling_i)
 	if args.contfunc: prot_contmap.func,nucl_contmap.func = int(args.contfunc),int(args.contfunc)
 	if args.contfunc_p: prot_contmap.func = int(args.contfunc_p)
 	if args.contfunc_n: nucl_contmap.func = int(args.contfunc_n)
+	if args.contfunc_i: inter_contmap.func = int(args.contfunc_i)
 	assert (prot_contmap.func in range(0,5))
 	assert (nucl_contmap.func in range(0,5))
+	assert (inter_contmap.func in range(0,5))
 
 	if args.bfunc: 
 		bond_function = int(args.bfunc)
@@ -600,22 +619,22 @@ def main():
 	else:topfile = 'gromacs.top'
 	
 	if args.clementi2000:
-		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.pal2019:
-		if nucl_contmap.type==-1: top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		if nucl_contmap.type==-1: top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		if nucl_contmap.type>=0:
 			print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
-			top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+			top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.reddy2017:
-		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.baidya2022:
-		top = Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	else:
-		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap),opt=opt)
+		top = Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 
 if __name__ == '__main__':
