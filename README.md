@@ -100,6 +100,20 @@ optional arguments:
                         RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss . Default: 2  
   --prot_cg PROT_CG, -prot_cg PROT_CG 
                         Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)  
+  --cutoff_i CUTOFF_I, -cutoff_i CUTOFF_I
+                        User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5A
+  --cutofftype_i CUTOFFTYPE_I, -cutofftype_i CUTOFFTYPE_I
+                        For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain .
+                        Default: 1
+  --W_cont_i, -W_cont_i
+                        Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts
+  --cmap_i CMAP_I, -cmap_i CMAP_I
+                        User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)
+  --scaling_i SCALING_I, -scaling_i SCALING_I
+                        User Protein RNA/DNA interface defined scaling for mapping to all-atom contact-map.
+  --contfunc_i CONTFUNC_I, -contfunc_i CONTFUNC_I
+                        Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi
+                        Gauss . Default: 2
   --CB_com, -CB_com     Put C-beta at side-chain COM (no hydrogens). Default: False  
   --CB_far, -CB_far     Place C-beta on farthest non-hydrogen atom. Default: False  
   --dsb, -dsb           Use desolvation barrier potential for contacts. Default: False  
