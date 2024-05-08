@@ -551,7 +551,7 @@ class PDB_IO:
                     self.nucl.P_atn[res] = atcount
                     atcount+=1
                     if res[0]!=prev_chain: fout.write("TER\n")
-                    line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
+                    line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.nucl.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
                     fout.write(line+"\n")
                     line = str(res[1]).rjust(5)+res[-1].ljust(5)+"P".center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.P[res])
                     fgro.write(line+"\n")
@@ -583,21 +583,21 @@ class PDB_IO:
                         if res[0]!=prev_chain: fout.write("TER\n")
                         self.nucl.P_atn[res] = atcount
                         atcount+=1
-                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
+                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+"P".center(4)+" "+res[-1].rjust(3)+" "+self.nucl.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.P[res])
                         fout.write(line+"\n")
                         line = str(res[1]).rjust(5)+res[-1].ljust(5)+"P".center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.P[res])
                         fgro.write(line+"\n")
                         if res not in self.nucl.S_atn: self.nucl.S_atn[res],self.nucl.B_atn[res] = [],[]
                         self.nucl.S_atn[res].append(atcount)
                         atcount+=1
-                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("C0'").center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.S[res])
+                        line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("C0'").center(4)+" "+res[-1].rjust(3)+" "+self.nucl.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.S[res])
                         fout.write(line+"\n")
                         line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("C0'").center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.S[res])
                         fgro.write(line+"\n")
                         for x in range(len(self.nucl.B[res])):
                             self.nucl.B_atn[res].append(atcount)
                             atcount+=1
-                            line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("N"+str(x)).center(4)+" "+res[-1].rjust(3)+" "+self.prot.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.B[res][x])
+                            line = "ATOM".ljust(6)+hy36encode(5,atcount)+" "+str("N"+str(x)).center(4)+" "+res[-1].rjust(3)+" "+self.nucl.cid[res[0]]+hy36encode(4,res[1])+4*" "+3*"%8.3f"%tuple(self.nucl.B[res][x])
                             fout.write(line+"\n")
                             line = str(res[1]).rjust(5)+res[-1].ljust(5)+str("N"+str(x)).center(5)+hy36encode(5,atcount).rjust(5)+3*"%8.3f"%tuple(0.1*self.nucl.B[res][x])
                             fgro.write(line+"\n")
