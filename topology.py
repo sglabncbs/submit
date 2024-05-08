@@ -110,8 +110,10 @@ class Tables:
         return
     
 class Calculate:
-    def __init__(self,pdb) -> None:
-        self.pdb = pdb
+    def __init__(self,aa_pdb) -> None:
+        self.allatpdb = aa_pdb
+        self.cgpdb = Prot_Data
+        self.cgpdb_n,self.cgpdb_p = self.cgpdb,self.cgpdb
         self.CA_atn = dict()
         self.CB_atn = dict()
         self.P_atn = dict()
@@ -120,16 +122,17 @@ class Calculate:
         self.bonds,self.angles,self.bb_dihedrals,self.sc_dihedrals = [],[],[],[]
         self.contacts = []
 
-    def __distances__(self,pairs):
+    def __distances__(self,pairs,xyz0=None,xyz1=None):
         #takes pairs, retuns array of distances in nm
         i,j = np.transpose(pairs)
-        xyz = self.pdb.xyz
-        return 0.1*np.sum((xyz[j]-xyz[i])**2,1)**0.5
+        if xyz0 is None: xyz0 = self.cgpdb.xyz
+        if xyz1 is None: xyz1 = self.cgpdb.xyz
+        return 0.1*np.sum((xyz1[j]-xyz0[i])**2,1)**0.5
 
     def __angles__(self,triplets):
         #takes list triplets, retuns array of angles (0-180) in deg
         i,j,k = np.transpose(triplets)
-        xyz = self.pdb.xyz
+        xyz = self.cgpdb.xyz
         n1 = xyz[i]-xyz[j]; n2 = xyz[k]-xyz[j]
         n1n2 = (np.sum((n1**2),1)**0.5)*(np.sum((n2**2),1)**0.5)
         return np.arccos(np.sum(n1*n2,1)/n1n2)*180/np.pi
@@ -137,7 +140,7 @@ class Calculate:
     def __torsions__(self,quadruplets):
         #takes list of quadruplets, retuns array of torsion angles (0-360) in deg
         i,j,k,l = np.transpose(quadruplets)
-        xyz = self.pdb.xyz
+        xyz = self.cgpdb.xyz
         BA,BC = xyz[i]-xyz[j],xyz[k]-xyz[j]
         CD=xyz[l]-xyz[k];CB=BC
         n1 = np.cross(BA,BC)
@@ -153,6 +156,7 @@ class Calculate:
 
     def processData(self,data):
         #converts list type data in to dict of [chain][resnum] = atom number
+        self.cgpdb=data
         if len(data.lines)>0:
             for x in range(len(data.res)):
                 chain,rnum,rname,aname = data.res[x]
@@ -292,11 +296,17 @@ class Calculate:
         
         return
     
-    def Pairs(self,cmap,aa_data):
+    def Pairs(self,cmap,group="all"):
         # Getting Non-bonded contact pairs info from the pre-supplied data
-        temp_p,temp_w,temp_d = [],[],[]
-        pairs,weights,distances = [],[],[]
-        
+        temp_p,temp_c,temp_w,temp_d = [],[],[],[]
+        pairs,chains,weights,distances = [],[],[],[]
+
+        #identify what group to determine contacts for
+        if group.lower() in ("p","prot","protein"): tagforfile,group="prot","prot"
+        elif group.lower() in ("n","nucl","nucleic","rna","dna"): tagforfile,group="nucl","nucl"
+        elif group.lower() == ("a","all"): tagforfile,group="all","all"
+        elif group.lower() in ("i","inter"): tagforfile,group="interProtNucl","inter"
+
         if cmap.type == -1: return  # Generating top without pairs 
 
         elif cmap.type == 0:        # Use pairs from user input in format cid_i, atnum_i, cid_j, atnum_j, weight_ij (opt), dist_ij (opt)
@@ -305,36 +315,56 @@ class Calculate:
             with open(cmap.file) as fin:
                 for line in fin:
                     line = line.split()
-                    c1,a1,c2,a2 = np.int_(line[:4])-1
+                    c1,a1,c2,a2 = line[:4]
+                    a1,a2 = np.int_([a1,a2])-1
+                    if c1!=c2 and c2.startswith("nucl"):
+                        c1,a1,c2,a2 = c2,a2,c1,a1
                     if len(line) < 6:
                         w,d = 1.0,0.0
                         if len(line)==5: w = np.float(line[4])
-                        temp_p.append((a1,a2));temp_w.append(w)
+                        temp_p.append((a1,a2));temp_w.append(w);temp_c.append((c1,c2))
                     elif len(line)==6: 
                         w,d = np.float_(line[4:])
-                        pairs.append((a1,a2));weights.append(w);distances.append(d)
-            if len(temp_p)!=0: temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
-            pairs += temp_p; weights += temp_w; distances += temp_d
+                        pairs.append((a1,a2));chains.append((c1,c2))
+                        weights.append(w);distances.append(d)
+            if len(temp_p)!=0: 
+                if group!="inter": temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
+                elif group=="inter": 
+                    temp_d = list(self.__distances__(pairs=np.int_(temp_p),xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz))
+            pairs += temp_p; chains += temp_c; weights += temp_w; distances += temp_d
             pairs = np.int_(pairs); weights = np.float_(weights); distances = np.float_(distances)
 
         elif cmap.type == 1:        # Calculating contacts from all-atom structure and maping to CG structure
-            group = []
-            if len(self.CA_atn) != 0:
-                if len(self.CB_atn) == 0:   #0 for CA
-                    for r in aa_data.res: group.append(tuple(list(r[:2])+[0]))
-                else:                       #1 for CB
-                    for r in aa_data.res: group.append(tuple(list(r[:2])+[int(r[-1] not in ("N","C","CA","O"))]))
-            if len(self.P_atn) != 0:
-                if len(self.B_atn) == 0:    #2 or P
-                    for r in aa_data.res: group.append(tuple(list(r[:2])+[2]))
-                else:                       # 3 for S #5 for B
-                    for r in aa_data.res: 
-                        group.append(tuple(list(r[:2])+[3+2*int("P" in r[-1])-1*int("'" in r[-1])]))
+            if group == "prot":
+                aa_data_res,aa_data_xyz = self.allatpdb.prot.res.copy(),self.allatpdb.prot.xyz.copy()
+            elif group == "nucl": 
+                aa_data_res,aa_data_xyz = self.allatpdb.nucl.res.copy(),self.allatpdb.nucl.xyz.copy()
+            elif group in ("all","inter"):
+                aa_data_res = list(self.allatpdb.nucl.res.copy())+list(self.allatpdb.prot.res.copy())
+                aa_data_xyz = np.float_(list(self.allatpdb.nucl.xyz.copy())+list(self.allatpdb.prot.xyz.copy()))
+            
+            atomgroup,mol_id = [],[]
+            for r in aa_data_res:
+                if len(r[2])==3:
+                    mol_id.append(1)
+                    if len(self.CA_atn) != 0:
+                        if len(self.CB_atn) == 0:   #0 for CA
+                            atomgroup.append(tuple(list(r[:2])+[0]))
+                        else:                       #1 for CB
+                            atomgroup.append(tuple(list(r[:2])+[int(r[-1] not in ("N","C","CA","O"))]))
+                if len(r[2])<=2:
+                    mol_id.append(0)
+                    if len(self.P_atn) != 0:
+                        if len(self.B_atn) == 0:    #2 or P
+                            atomgroup.append(tuple(list(r[:2])+[2]))
+                        else:                       # 3 for S #5 for B
+                            atomgroup.append(tuple(list(r[:2])+[3+2*int("P" in r[-1])-1*int("'" in r[-1])]))
 
-            faa = open(aa_data.pdbfile+".AAcont","w+")
-            fcg = open(aa_data.pdbfile+".CGcont","w+")
-            cid,rnum,bb_sc = np.transpose(np.array(group))
-            del (group)
+            faa = open(tagforfile+".AAcont","w+")
+            fcg = open(tagforfile+".CGcont","w+")
+            cid,rnum,bb_sc = np.transpose(np.array(atomgroup))
+            del (atomgroup)
+
             aa2cg = {0:self.CA_atn,1:self.CB_atn,\
                      5:self.P_atn,2:self.S_atn,3:self.B_atn}
             
@@ -342,21 +372,41 @@ class Calculate:
             resgap = 4 
             contacts_dict = dict()
             
-            print ("> Determining contacts for %d*%d atom pairs using %.2f A cutoff and %.2f scaling-factor"%(aa_data.xyz.shape[0],aa_data.xyz.shape[0],cmap.cutoff,cmap.scale))
-            for i in trange(aa_data.xyz.shape[0]):
-                #resgap = 4:CA-CA, 3:CA-CB, 3:CB-CB, 
-                gap=resgap-np.int_(bb_sc+bb_sc[i]>0) #aa2cg bbsc CA:0,CB:1
-                #resgap 1: P/B/S-P/S/B
-                gap=gap+(1-gap)*int(bb_sc[i]>=2) #aa2cg bbsc P:5,B:3,S:2
+            mol_id = np.int_(mol_id)
+            str_cid  = np.array([["nucl_","prot_"][mol_id[x]]+str(cid[x]+1) for x in range(mol_id.shape[0])])
 
-                calculate = np.int_( (np.int_(rnum-gap>=rnum[i]) * \
-                            np.int_(cid==cid[i]) + np.int_(cid>cid[i])) > 0 )
-                contact=np.where(np.int_(np.sum((aa_data.xyz-aa_data.xyz[i])**2,1)**0.5<=cutoff)*calculate==1)[0]
+            if group != "inter":  #loop over all vs all atom pairs
+                bb_sc0,mol_id0,cid0,rnum0,aa_data_xyz0,str_cid0=bb_sc,mol_id,cid,rnum,aa_data_xyz,str_cid
+            else:                 #loop over inter atom pairs
+                p0,p1=np.where(mol_id==0)[0],np.where(mol_id==1)[0]
+                bb_sc0,mol_id0,cid0,rnum0,aa_data_xyz0,str_cid0=bb_sc[p0],mol_id[p0],cid[p0],rnum[p0],aa_data_xyz[p0],str_cid[p0]
+                bb_sc,mol_id,cid,rnum,aa_data_xyz,str_cid=bb_sc[p1],mol_id[p1],cid[p1],rnum[p1],aa_data_xyz[p1],str_cid[p1]
+            
+            print ("> Determining contacts for %d*%d atom pairs using %.2f A cutoff and %.2f scaling-factor"%(aa_data_xyz0.shape[0],aa_data_xyz.shape[0],cmap.cutoff,cmap.scale))
+            for i in trange(aa_data_xyz0.shape[0]):
+                #resgap = 4:CA-CA, 3:CA-CB, 3:CB-CB, 
+                gap=resgap-np.int_(bb_sc+bb_sc0[i]>0) #aa2cg bbsc CA:0,CB:1
+                #resgap 1: P/B/S-P/S/B
+                gap=gap+(1-gap)*int(bb_sc0[i]>=2) #aa2cg bbsc P:5,B:3,S:2
+
+                if group in ("prot","nucl"): #calculate for intra molecule
+                    calculate = np.int_(mol_id==mol_id0[i])*\
+                                np.int_( (np.int_(rnum-gap>=rnum0[i])*np.int_(cid==cid0[i])\
+                                         + np.int_(cid>cid0[i])) > 0 )
+                elif group == "inter":      #calculate for inter molecule
+                    if mol_id0[i] == 1: continue
+                    calculate = np.int_(mol_id>mol_id0[i])
+                elif group == "all":        #calculate all
+                    calculate = np.int_( np.int_(mol_id!=mol_id0[i] + \
+                                         np.int_(rnum-gap>=rnum0[i])*np.int_(cid==cid0[i])\
+                                         + np.int_(cid>cid0[i])) > 0)
+                    
+                contact=np.where(np.int_(np.sum((aa_data_xyz-aa_data_xyz0[i])**2,1)**0.5<=cutoff)*calculate==1)[0]
                 for x in contact:
-                    faa.write("%d %d %d %d\n"%(cid[i]+1,i+1,cid[x]+1,x+1))
-                    cg_a1 = aa2cg[bb_sc[i]][cid[i]][rnum[i]]
+                    faa.write("%s %d %s %d\n"%(str_cid0[i],i+1,str_cid[x],x+1))
+                    cg_a1 = aa2cg[bb_sc0[i]][cid0[i]][rnum0[i]]
                     cg_a2 = aa2cg[bb_sc[x]][cid[x]][rnum[x]]
-                    set = (cid[i],cid[x]),(cg_a1,cg_a2)
+                    set = (str_cid0[i],str_cid[x]),(cg_a1,cg_a2)
                     if set not in contacts_dict: contacts_dict[set] = 0
                     contacts_dict[set] += 1
             contacts_dict = {y:(x,contacts_dict[(x,y)]) for x,y in contacts_dict}
@@ -364,13 +414,15 @@ class Calculate:
             weights = np.float_([contacts_dict[x][1] for x in pairs])
             weights = weights*(weights.shape[0]/np.sum(weights))
             if not cmap.W: weights = np.ones(weights.shape)
-            cid = np.int_([contacts_dict[x][0] for x in pairs])
+            #cid = np.int_([contacts_dict[x][0] for x in pairs])
+            chains = [contacts_dict[x][0] for x in pairs]
             pairs = np.int_(pairs)
-            distances = self.__distances__(pairs=pairs)
+            if group!="inter": distances = self.__distances__(pairs=pairs)
+            elif group=="inter": distances = self.__distances__(pairs=pairs,xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz)
             for x in range(pairs.shape[0]):
-                c,a = cid[x]+1,pairs[x]+1
+                c,a = chains[x],pairs[x]+1
                 w,d = weights[x],distances[x]
-                fcg.write("%d %d %d %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+                fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
             faa.close();fcg.close()
 
         elif cmap.type == 2:        # Calculating contacts from CG structure
@@ -383,7 +435,7 @@ class Calculate:
                         pairs += [(self.CA_atn[c1][x],self.CB_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CA_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CB_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c1] if y-x>=cbcbsep]
-                    cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
+                    cid += [("prot_"+str(c1+1),"prot_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
                     for c2 in self.CA_atn:
                         if c2>c1: 
                             pairs += [(self.CA_atn[c1][x],self.CA_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c2]]
@@ -391,52 +443,63 @@ class Calculate:
                                 pairs += [(self.CA_atn[c1][x],self.CB_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CA_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CB_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c2]]
-                            cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+                            cid += [("prot_"+str(c1+1),"prot_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
             if len(self.P_atn)!=0:
                 ppsep,ressep=1,1
                 if len(self.S_atn)==0:
                     for c1 in self.P_atn:
                         pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c1] if y-x>=ppsep]
-                        cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
+                        cid += [("nucl_"+str(c1+1),"nucl_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
                         for c2 in self.P_atn: 
                             if c2>c1:
                                 pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c2]]
-                                cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+                                cid += [("nucl_"+str(c1+1),"nucl_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
                 else:
                     assert len(self.B_atn)!=0
                     for c1 in self.S_atn:
                         all_atn_c1 = list(self.P_atn[c1].items())+list(self.S_atn[c1].items())+list(self.B_atn[c1].items())
                         pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c1 if ry-rx>=ressep]
-                        cid += [(c1,c1) for x in range(len(pairs)-len(cid))]
+                        cid += [("nucl_"+str(c1+1),"nucl_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
                         for c2 in self.S_atn:
                             if c2>c1:
                                 all_atn_c2 = list(self.P_atn[c2].items())+list(self.S_atn[c2].items())+list(self.B_atn[c2].items())
                                 pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c2]
-                                cid += [(c1,c2) for x in range(len(pairs)-len(cid))]
+                                cid += [("nucl_"+str(c1+1),"nucl_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
 
             pairs = np.int_(pairs)
-            cid = np.int_(cid)
+            cid = np.array(cid)
             cutoff = 0.1*cmap.cutoff
             distances = self.__distances__(pairs)
             contacts = np.where(np.int_(distances<=cutoff))[0]
             pairs = pairs[contacts]
-            cid = cid[contacts]
+            chains = cid[contacts]
             distances = distances[contacts]
             check_dist = self.__distances__(pairs)
             for x in range(pairs.shape[0]): 
                 assert check_dist[x] == distances[x] and distances[x] < cutoff
             weights = np.ones(pairs.shape[0])
-            with  open(aa_data.pdbfile+".CGcont","w+") as fcg:
+            with  open(tagforfile+".CGcont","w+") as fcg:
                 for x in range(pairs.shape[0]):
-                    c,a = cid[x]+1,pairs[x]+1
+                    c,a = chains[x],pairs[x]+1
                     w,d = weights[x],distances[x]
-                    fcg.write("%d %d %d %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+                    fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
         
-        self.contacts.append((pairs,distances,weights))
+        self.contacts.append((pairs,chains,distances,weights))
         return
 
 class MergeTop:
-    
+
+    def __init__(self,proc_data,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap):
+        self.data = proc_data
+        self.nucl_cmap = cmap["nucl"]
+        self.prot_cmap = cmap["prot"]
+        self.inter_cmap= cmap["inter"]
+        self.interface = opt.interface
+        self.excl_volume = excl_volume
+        self.excl_rule = excl_rule
+        self.fconst = fconst
+        self.__merge__(Nprot=Nprot,Nnucl=Nnucl,topfile=topfile,opt=opt,excl_volume=excl_volume)
+
     def __topParse__(self,topfile):
         print ("> Parsing",topfile)
         top = {x.split("]")[0].strip():x.split("]")[1].strip().split("\n") for x in open(topfile).read().split("[") if len(x.split("]"))==2}
@@ -500,6 +563,41 @@ class MergeTop:
                             fsec.write("\n")
         return
 
+    def __writeInterPairs__(self,fsec,nmol,atoms_in_mol,tag,atnum_offset,sym):
+        print ("> Determining Inter pairs")
+        cmap = self.inter_cmap
+        data=self.data
+        inp=self.data.contacts
+        if not sym: assert nmol[0]==1 and nmol[1]==1, "Multplte units not supported if not symmeterized"
+        prev_at_count = [0,nmol[0]*atoms_in_mol[0]]
+
+
+        for x0 in range(nmol[0]):
+            fsec.write(tag[0]+self.nPlaces(n=3,count2str=x0+1)+"|") 
+            for x1 in range(nmol[1]):
+                fsec.write(tag[1]+self.nPlaces(n=3,count2str=x1+1)+"\n")    
+                for pairs,chains,dist,eps in data.contacts:
+                    I,J = np.transpose(pairs)
+                    func = 1
+                    if cmap.func==1: values = 2*eps*(dist**6.0),eps*(dist**12.0)
+                    elif cmap.func==2: values = 6*eps*(dist**10.0),5*eps*(dist**12.0)
+                    elif cmap.func==3:
+                        func,sd = 6,0.05
+                        I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
+                        J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
+                        if self.excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
+                        elif self.excl_rule == 2: c12 = ((I+J)/2.0)**12.0
+                        values = eps,dist,sd,c12
+                    I = 1 + I + atnum_offset[0] + prev_at_count[0] + x0*atoms_in_mol[0]
+                    J = 1 + J + atnum_offset[1] + prev_at_count[1] + x1*atoms_in_mol[1]
+                    values = np.transpose(values)                    
+                    for x in range(pairs.shape[0]): 
+                        fsec.write(" %5d %5d %5d"%(I[x],J[x],func))
+                        fsec.write(len(values[x])*" %e"%tuple(values[x]))
+                        fsec.write("\n")
+        return
+
+
     def __writeNonbondParams__(self,fsec):
         print ("> Writing user given custom nonbond_params:",self.interface)
         
@@ -549,15 +647,6 @@ class MergeTop:
                         fsec.write(" %s %s\t%d\t%.3f %e %e %e\n"%(p[0].ljust(5),p[1].ljust(5),func,eps[p],sig[p],sd,C12))
         return
                             
-    def __init__(self,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap):
-        self.nucl_cmap = cmap["nucl"]
-        self.prot_cmap = cmap["prot"]
-        self.interface = opt.interface
-        self.excl_volume = excl_volume
-        self.excl_rule = excl_rule
-        self.fconst = fconst
-        self.__merge__(Nprot=Nprot,Nnucl=Nnucl,topfile=topfile,opt=opt,excl_volume=excl_volume)
-
     def __merge__(self,Nprot,Nnucl,topfile,opt,excl_volume):
         #combining top file
         outfile = "merged_"
@@ -569,6 +658,13 @@ class MergeTop:
         if Nprot>0: 
             prot_top,extras,order = self.__topParse__(topfile="prot_"+topfile)
             outfile += "prot"+self.nPlaces(3,Nprot)+"_"
+        if Nprot>0 and Nnucl>0:
+            if self.inter_cmap.type>=0: 
+                if not opt.control_run:
+                    assert self.inter_cmap.type == 0, \
+                        "Error, calculating inter Protein-RNA/DNA contacts only supported for --control runs. Provide custom file --cmap_i" 
+                self.data.Pairs(cmap=self.inter_cmap,group="inter")
+            
         outfile = outfile+topfile       
         if Nnucl==0: nucl_top = {k:[""] for k in prot_top}
         if Nprot==0: prot_top = {k:[""] for k in nucl_top}
@@ -594,9 +690,12 @@ class MergeTop:
                                         prev_at_count=0,atoms_in_mol=natoms_nucl,tag=";RNA/DNA_",atnum_offset=off0)
                     self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=prot_data,nmol=Nprot, \
                         prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
-                    if opt.intra_symmetrize and header in ["pairs","exclusions"]:
-                        self.__writeSymPaIrs__(fsec=fout,inp=prot_data,nmol=Nprot, \
-                            prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
+                    if header in ["pairs","exclusions"]:
+                        if opt.intra_symmetrize: self.__writeSymPaIrs__(fsec=fout,inp=prot_data,nmol=Nprot, 
+                                prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
+                        if len(self.data.contacts)>0:
+                            self.__writeInterPairs__(fsec=fout,nmol=[Nnucl,Nprot],atoms_in_mol=[natoms_nucl,natoms_prot],\
+                                                     tag=[";Protein_","RNA/DNA_"],atnum_offset=[off0,off1],sym=opt.inter_symmetrize)
                 else:
                     if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
                     elif Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
@@ -607,7 +706,7 @@ class Topology:
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -815,7 +914,8 @@ class Topology:
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap["prot"]
-        data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
+        #data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
+        data.Pairs(cmap=cmap,group="prot")
         if cmap.scsc_custom:
             assert cmap.type in (1,2)
             with open("interactions.dat") as fin:
@@ -849,7 +949,7 @@ class Topology:
             print ("> Using LJ C6-C12 for contacts")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
             func = 1
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
                 c06 = 2*eps*(dist**6.0)
                 c12 = eps*(dist**12.0)
@@ -859,7 +959,7 @@ class Topology:
             print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
             func = 1
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
                 c10 = 6*eps*(dist**10.0)
                 c12 = 5*eps*(dist**12.0)
@@ -870,13 +970,13 @@ class Topology:
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C12(Att)","C18(Rep)"))
             func = 3
             assert func!=3, "Error, func 3 not encoded yes. WIP"
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
         elif cmap.func in (5,6):
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = np.transpose(pairs)
                 I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
@@ -961,14 +1061,15 @@ class Topology:
     def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap["nucl"]
-        data.Pairs(cmap=cmap,aa_data=self.allatomdata.nucl)
+        #data.Pairs(cmap=cmap,aa_data=self.allatomdata.nucl)
+        data.Pairs(cmap=cmap,group="nucl")
 
         fout.write("\n%s\n"%("[ pairs ]"))
         if cmap.func==1:
             print ("> Using LJ C6-C12 for contacts")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
             func = 1
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
                 c06 = 2*eps*(dist**6.0)
                 c12 = eps*(dist**12.0)
@@ -978,7 +1079,7 @@ class Topology:
             print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
             func = 1
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
                 c10 = 6*eps*(dist**10.0)
                 c12 = 5*eps*(dist**12.0)
@@ -989,13 +1090,13 @@ class Topology:
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C12(Att)","C18(Rep)"))
             func = 3
             assert func!=3, "Error, func 3 not encoded yes. WIP"
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
         elif cmap.func in (5,6):
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
-            for pairs,dist,eps in data.contacts:
+            for pairs,chains,dist,eps in data.contacts:
                 I,J = np.transpose(pairs)
                 I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
@@ -1010,7 +1111,7 @@ class Topology:
         print (">> Writing exclusions section")
         fout.write("\n%s\n"%("[ exclusions ]"))
         fout.write("; %5s %5s\n"%("i","j"))
-        for pairs,dist,eps in data.contacts:
+        for pairs,chains,dist,eps in data.contacts:
             I,J = 1+np.transpose(pairs)
             for x in range(pairs.shape[0]): 
                 fout.write(" %5d %5d\n"%(I[x],J[x]))
@@ -1019,24 +1120,25 @@ class Topology:
     def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
 
         cgpdb = PDB_IO()
+        Data = Calculate(aa_pdb=self.allatomdata)
         if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
             if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata.prot.bb_file,refine=False)
             elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata.prot.sc_file,refine=False)
             prot_topfile = "prot_"+outtop
             with open(prot_topfile,"w+") as ftop:
                 print (">>> writing Protein GROMACS toptology", prot_topfile)
-                proc_data = Calculate(pdb=cgpdb.prot)
-                proc_data.processData(data=cgpdb.prot)
+                proc_data_p = Calculate(aa_pdb=self.allatomdata)
+                proc_data_p.processData(data=cgpdb.prot)
                 self.__write_header__(fout=ftop,combrule=excl)
-                self.__write_atomtypes__(fout=ftop,data=proc_data,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
-                self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["prot"],excl_rule=excl)
+                self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
+                self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
                 self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=(charge.CA or charge.CB))
-                self.__write_protein_pairs__(fout=ftop, data=proc_data,excl_rule=excl,charge=charge)
-                self.__write_protein_bonds__(fout=ftop, data=proc_data,func=bond_function)
-                self.__write_protein_angles__(fout=ftop, data=proc_data)
-                self.__write_protein_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
-                self.__write_exclusions__(fout=ftop,data=proc_data)
+                self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
+                self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
+                self.__write_protein_angles__(fout=ftop, data=proc_data_p)
+                self.__write_protein_dihedrals__(fout=ftop, data=proc_data_p,chiral=CBchiral)
+                self.__write_exclusions__(fout=ftop,data=proc_data_p)
                 self.__write_footer__(fout=ftop)
 
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
@@ -1045,25 +1147,33 @@ class Topology:
             nucl_topfile = "nucl_"+outtop
             with open(nucl_topfile,"w+") as ftop:
                 print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
-                proc_data = Calculate(pdb=cgpdb.nucl)
-                proc_data.processData(data=cgpdb.nucl)
+                proc_data_n = Calculate(aa_pdb=self.allatomdata)
+                proc_data_n.processData(data=cgpdb.nucl)
                 self.__write_header__(fout=ftop,combrule=excl)
-                self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data,seq=cgpdb.nucl.seq,rad=rad)
-                self.__write_nonbond_params__(fout=ftop,data=proc_data,type=self.CGlevel["nucl"],excl_rule=excl)
+                self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
+                self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
                 self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.P)
-                self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data,excl_rule=excl,charge=charge)
-                self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data,func=bond_function)
-                self.__write_nucleicacid_angles__(fout=ftop, data=proc_data)
-                self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data,chiral=CBchiral)
-                self.__write_exclusions__(fout=ftop,data=proc_data)
+                self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
+                self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
+                self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
+                self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data_n,chiral=CBchiral)
+                self.__write_exclusions__(fout=ftop,data=proc_data_n)
                 self.__write_footer__(fout=ftop)
 
         Nmol = self.Nmol
         #if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
         if Nmol["prot"]+Nmol["nucl"] > 1:
+            if Nmol["prot"]>0 and len(proc_data_p.CA_atn) != 0:
+                Data.CA_atn,Data.CB_atn = proc_data_p.CA_atn,proc_data_p.CB_atn
+                Data.cgpdb_p = proc_data_p.cgpdb
+                assert len(proc_data_p.P_atn) == 0
+            if Nmol["nucl"]>0 and len(proc_data_n.P_atn) != 0: 
+                Data.P_atn,Data.S_atn,Data.B_atn = proc_data_n.P_atn,proc_data_n.S_atn,proc_data_n.B_atn
+                Data.cgpdb_n = proc_data_n.cgpdb
+                assert len(proc_data_n.CA_atn) == 0
             if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                merge=MergeTop(Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
+                merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
@@ -1078,7 +1188,7 @@ class Clementi2000(Topology):
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -1090,7 +1200,7 @@ class Pal2019(Topology):
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -1124,7 +1234,8 @@ class Pal2019(Topology):
             I,J = np.transpose(pairs)
             eps = np.float_([epsmat[B_atn[I[x]][-1]+B_atn[J[x]][-1]] for x in range(I.shape[0])])
             dist = np.float_([stack[B_atn[I[x]][-1]+B_atn[J[x]][-1]] for x in range(I.shape[0])])
-            data.contacts.append((pairs,dist,eps))
+            chains = [tuple(["nucl_"+str(c+1)]*2) for x in range(I.shape[0])]
+            data.contacts.append((pairs,chains,dist,eps))
             I,J = 1+np.transpose(pairs)
             c10 = 6*eps*(dist**10.0)
             c12 = 5*eps*(dist**12.0)
@@ -1139,7 +1250,7 @@ class Reddy2017(Topology):
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume = dict()
@@ -1229,7 +1340,7 @@ class Reddy2017(Topology):
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap["prot"]
-        data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
+        data.Pairs(cmap=cmap,group="prot")
         assert cmap.scsc_custom and cmap.type in (-1,0,2) and cmap.func==1
         
         with open("interactions.dat") as fin:
@@ -1245,7 +1356,7 @@ class Reddy2017(Topology):
         eps_bbsc = 0.5*self.fconst.caltoj
         Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
         for index in range(len(data.contacts)):
-            pairs,dist,eps = data.contacts[index]
+            pairs,chains,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
             interaction_type = np.int_(\
                 np.int_([x in CB_atn for x in I])+ \
@@ -1258,13 +1369,13 @@ class Reddy2017(Topology):
             eps = eps_bbbb*np.int_(interaction_type==0) \
                 + eps_bbsc*np.int_(interaction_type==1) \
                 + eps_scsc*np.int_(interaction_type==2) 
-            data.contacts[index] = pairs,dist,eps
+            data.contacts[index] = pairs,chains,dist,eps
 
         fout.write("\n%s\n"%("[ pairs ]"))
         print ("> Using LJ C6-C12 for contacts")
         fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
         func = 1
-        for pairs,dist,eps in data.contacts:
+        for pairs,chains,dist,eps in data.contacts:
             I,J = 1+np.transpose(pairs)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
@@ -1291,7 +1402,7 @@ class Reddy2017(Topology):
             c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
                 + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
             pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
-            data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
             I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
@@ -1303,7 +1414,7 @@ class Baidya2022(Reddy2017):
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1]}
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.eps_bbbb = 0.12*self.fconst.caltoj 
         self.eps_bbsc = 0.24*self.fconst.caltoj 
@@ -1378,7 +1489,7 @@ class Baidya2022(Reddy2017):
             + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
             + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
-        data.contacts.append((pairs,np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         I,K = I+1,K+1
         for x in range(len(pairs)): 
             fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
