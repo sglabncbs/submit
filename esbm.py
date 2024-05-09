@@ -44,15 +44,16 @@ class Options(Dict):
 	btparams=False
 	mjmap=False
 	btmap=False
-	intra_symmetrize = False
-	inter_symmetrize = False
+	intra_symmetrize=False
+	inter_symmetrize=False
 	P_stretch=False
+	codon_pairs=False
 	interactions="interactions.dat"
 	hphobic=False
 	dsb=False
-	interface = False
-	custom_nuc = False
-	control_run = False
+	interface=False
+	custom_nuc=False
+	control_run=False
 
 
 class Constants(Dict):
@@ -112,6 +113,8 @@ def main():
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
 	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy. 2017 SOP-SC CA-CB")
 	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp","-sopsc_idp",action="store_true",help="SOP-SC-IDP CA-CB")
+	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight)")
+
 	#input options for protein
 	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius for C-alpha (same for all beads) in Angstrom. Default: 4.0A")
 	parser.add_argument("--CA_com","-CA_com",action='store_true',help="Place C-alpha at COM of backbone. Default: False")
@@ -302,6 +305,10 @@ def main():
 		prot_contmap.cutofftype = 1	# all-atom contacts mapped to CG
 		prot_contmap.contfunc = 2	# LJ 10-12
 
+	if args.dlprakash:
+		args.pal2019=True
+		opt.codon_pairs=True
+
 	if args.pal2019:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
@@ -328,7 +335,6 @@ def main():
 		opt.P_stretch = True	# set P_P_P_P dihed to 180
 		ModelDir("pal2019/levy.stackparams.dat").copy2("interactions.dat")
 	
-
 	if args.azia2009:
 		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
 		uniqtype = True
@@ -599,7 +605,7 @@ def main():
 			del(custom_nucl_file)
 			pdbdata.coordinateTransform()
 		else:
-			if pdbdata.nucl.pdbfile != "":
+			if pdbdata.prot.pdbfile!="" and  pdbdata.nucl.pdbfile != "":
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
 				pdbdata.coordinateTransform()
 	if len(pdbdata.prot.lines)==0: Nmol['prot'] = 0

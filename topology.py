@@ -494,7 +494,7 @@ class MergeTop:
         self.nucl_cmap = cmap["nucl"]
         self.prot_cmap = cmap["prot"]
         self.inter_cmap= cmap["inter"]
-        self.interface = opt.interface
+        self.opt = opt
         self.excl_volume = excl_volume
         self.excl_rule = excl_rule
         self.fconst = fconst
@@ -581,7 +581,8 @@ class MergeTop:
                     func = 1
                     if cmap.func==1: values = 2*eps*(dist**6.0),eps*(dist**12.0)
                     elif cmap.func==2: values = 6*eps*(dist**10.0),5*eps*(dist**12.0)
-                    elif cmap.func==3:
+                    elif cmap.func==3: assert cmap.func!=3,"Error 18-12 not supported yet"
+                    elif cmap.func==6:
                         func,sd = 6,0.05
                         I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
                         J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
@@ -597,12 +598,11 @@ class MergeTop:
                         fsec.write("\n")
         return
 
-
     def __writeNonbondParams__(self,fsec):
-        print ("> Writing user given custom nonbond_params:",self.interface)
+        print ("> Writing user given custom nonbond_params:",self.opt.interface)
         
         eps,sig = {},{}
-        if self.interface:
+        if self.opt.interface:
             with open("interactions.dat") as fin:
                 for line in fin:
                     if line.startswith(("#",";","@")): continue
@@ -628,24 +628,29 @@ class MergeTop:
             fsec.write("; Custom Protein-RNA/DNA interactions\n")
             if self.nucl_cmap.func in (5,6):
                 fsec.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
-            for x,y in eps:
-                if y.startswith(("CA","CB")) and not x.startswith(("CA","CB")):
-                    if x not in self.excl_volume or y not in self.excl_volume: continue
-                    p = (x,y)
-                    if self.nucl_cmap.func==1: #6-12
-                        C06 = 2*eps[p]*((sig[p])**6)
-                        C12 = 1*eps[p]*((sig[p])**12)
-                        fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
-                    elif self.nucl_cmap.func==2:
-                        C10 = 6*eps[p]*((sig[p])**10)
-                        C12 = 5*eps[p]*((sig[p])**12)
-                        fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
-                    elif self.nucl_cmap.func in (5,6):
-                        func,sd = 6,0.05
-                        if self.excl_rule==1: c12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
-                        elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                        fsec.write(" %s %s\t%d\t%.3f %e %e %e\n"%(p[0].ljust(5),p[1].ljust(5),func,eps[p],sig[p],sd,C12))
-        return
+            for x in self.excl_volume:
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB")) and not x.startswith(("CA","CB")):
+                        p=[x,y]
+                        if self.opt.codon_pairs: 
+                            if len(x)==5: p[0]=x[:2]+x[3]
+                            if len(y)==5: p[1]=y[:2]+y[3]
+                        p=tuple(p)
+                        if p not in eps: continue
+                        if self.nucl_cmap.func==1: #6-12
+                            C06 = 2*eps[p]*((sig[p])**6)
+                            C12 = 1*eps[p]*((sig[p])**12)
+                            fsec.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
+                        elif self.nucl_cmap.func==2:
+                            C10 = 6*eps[p]*((sig[p])**10)
+                            C12 = 5*eps[p]*((sig[p])**12)
+                            fsec.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C10,C12))
+                        elif self.nucl_cmap.func in (5,6):
+                            func,sd = 6,0.05
+                            if self.excl_rule==1: c12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                            elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                            fsec.write(" %s %s\t%d\t%.3f %e %e %e\n"%(x.ljust(5),y.ljust(5),func,eps[p],sig[p],sd,C12))
+            return
                             
     def __merge__(self,Nprot,Nnucl,topfile,opt,excl_volume):
         #combining top file
@@ -756,14 +761,13 @@ class Topology:
             C12 = self.fconst.Kr_nucl*(2*rad["P"])**12.0
             fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("P".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"P"))
             if type > 1:
-                codon_based = False
                 seq_list = seq.split()
                 assert len(seq_list) == len(data.S_atn)
                 for c in data.S_atn:
                     assert c in data.B_atn
                     seq = "5"+seq_list[c]+"3"
                     for i in range(1,len(seq)-1):
-                        if codon_based: codon = seq[i-1].lower()+seq[i]+seq[i+1].lower()
+                        if self.opt.codon_pairs: codon = seq[i-1].lower()+seq[i]+seq[i+1].lower()
                         else: codon = seq[i]
                         for tag in ("S","B"):
                             bead = tag+"0"+codon
@@ -803,7 +807,6 @@ class Topology:
                                 if p not in pairs:
                                     fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
                                     pairs.append(p)
-
         return 0
 
     def __write_moleculetype__(self,fout):
@@ -812,17 +815,18 @@ class Topology:
         fout.write("%s\n"%("; name            nrexcl"))
         fout.write("%s\n"%("  Macromolecule   3"))
 
-    def __write_atoms__(self,fout,type,data,inc_charge):
+    def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
         print (">> Writing atoms section")
-        cgfile = data.pdbfile
-        #if type==1: cgfile = data.prot.bb_file
-        #else: cgfile = data.prot.sc_file
         fout.write("\n%s\n"%("[ atoms ]"))
         fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
         Q = dict()
         if inc_charge: 
             Q.update({x:1 for x in ["CBK","CBR","CBH"]})
             Q.update({x:-1 for x in ["CBD","CBE","P"]})
+
+        prev_resnum,seqcount,rescount="",0,0
+        if ".nucl." in cgfile: seq=["5%s3"%x for x in seq.split()]
+        elif ".prot." in cgfile: seq=["_%s_"%x for x in seq.split()]
         with open(cgfile) as fin:
             for line in fin:
                 if line.startswith("ATOM"):
@@ -831,15 +835,20 @@ class Topology:
                     resname=line[17:20].strip()
                     resnum=hy36decode(4,line[22:26])
                     atype=atname
-                    if atype=="CB": atype+=data.prot.amino_acid_dict[resname]
-                    elif atype.endswith("'"): atype="S"+atype[1]+resname[-1]
-                    elif atype.startswith("N"): atype="B"+atype[1]+resname[-1]
+                    if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
+                    if resnum<=2 and atype!="P":
+                        if self.opt.codon_pairs: 
+                            codon=atype[1]+seq[seqcount][rescount-1].lower()\
+                                 +seq[seqcount][rescount]+seq[seqcount][rescount+1].lower()
+                        else: codon=atype[1]+seq[seqcount][rescount]
+                    if atype=="CB": atype+=seq[seqcount][rescount]
+                    elif atype.endswith("'"): atype="S"+codon
+                    elif atype.startswith("N"): atype="B"+codon
                     if atype not in Q: Q[atype] = 0
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
                     self.atomtypes.append(atype)
-        dswap = False
-        if dswap: print ("WIP")
-        return 
+                elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
+        return
 
     def __write_protein_bonds__(self,fout,data,func):
         print (">> Writing bonds section")
@@ -1133,7 +1142,7 @@ class Topology:
                 self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
                 self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=(charge.CA or charge.CB))
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB))
                 self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
                 self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data_p)
@@ -1153,7 +1162,7 @@ class Topology:
                 self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
                 self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"], data=cgpdb,inc_charge=charge.P)
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P)
                 self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
                 self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
                 self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
@@ -1195,16 +1204,6 @@ class Clementi2000(Topology):
         self.atomtypes = []
 
 class Pal2019(Topology):
-    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
-        self.allatomdata = allatomdata
-        self.fconst = fconst
-        self.CGlevel = CGlevel
-        self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
-        self.opt = opt
-        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
-        self.excl_volume = dict()
-        self.atomtypes = []
 
     def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
@@ -1242,6 +1241,72 @@ class Pal2019(Topology):
             for x in range(pairs.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c10[x],c12[x]))
         return 
+
+    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+        print (">> Writing nonbond_params section")
+        ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
+        fout.write("\n%s\n"%("[ nonbond_params ]"))
+        fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+        if type == 1 or excl_rule == 1: return
+        if len(data.CA_atn) > 0:
+            if excl_rule == 2 and type == 2:
+                pairs = []
+                for x in self.excl_volume:
+                    if x.startswith(("CA","CB")):
+                        for y in self.excl_volume:
+                            if y.startswith(("CA","CB")):
+                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                                p = [x,y]; p.sort(); p=tuple(p)
+                                if p not in pairs:
+                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                                    pairs.append(p)
+        if len(data.P_atn) > 0:
+            if type in (3,5):
+                pairs=[]
+                cmap_func=self.cmap["nucl"].func
+                if self.opt.codon_pairs:
+                    fout.write(";Writing codon duplex based base-pairs\n")
+                    if cmap_func in (5,6):
+                        fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
+                    complement={"A":["U","T"],"G":["C"],"C":["G"],"U":["A"],"T":["A"],"5":["3"],"3":["5"]}
+                    for x in self.excl_volume:
+                        if x.startswith(("S","B")):
+                            for y in self.excl_volume:
+                                if y.startswith(("S","B")):
+                                    if x[0]=="S" and y[0]=="S": continue
+                                    if "S" in (x[0],y[0]): dist = 1.0 #nm
+                                    else: dist = 0.6 #nm
+                                    codon1,codon2=x[2:].upper(),y[2:].upper()
+                                    codon_eps = np.int_([codon2[i] in complement[codon1[-1+3-i]] for i in range(3)])
+                                    if codon_eps[1]==1 and np.sum(codon_eps)>=2:
+                                        func=1; codon_eps=np.sum(codon_eps)
+                                        p=[x,y]; p.sort(); p=tuple(p)
+                                        if p not in pairs:
+                                            if cmap_func==1: values = 2*codon_eps*(dist**6.0),codon_eps*(dist**12.0)
+                                            elif cmap_func==2: values = 6*codon_eps*(dist**10.0),5*codon_eps*(dist**12.0)
+                                            elif cmap_func in (5,6):
+                                                func,sd = 6,0.05
+                                                if self.excl_rule==1:
+                                                    C12 = self.fconst.Kr_prot*((self.excl_volume[x]**12.0)+(self.excl_volume[y])**12)**0.5
+                                                elif self.excl_rule==2:
+                                                    C12 = self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                                                values = codon_eps,dist,sd,C12
+                                            fout.write(" %5s %5s\t%d\t"%(p[0],p[1],func))
+                                            fout.write(len(values)*" %e"%tuple(values))
+                                            fout.write("\n")
+                                            pairs.append(p)
+                    fout.write(";Writing Non-base-pairs\n")       
+            if excl_rule == 2 and type in (3,5):
+                for x in self.excl_volume:
+                    if x.startswith(("P","S","B")):
+                        for y in self.excl_volume:
+                            if y.startswith(("P","S","B")):
+                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                                p = [x,y]; p.sort(); p=tuple(p)
+                                if p not in pairs:
+                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
+                                    pairs.append(p)
+        return 0
 
 class Reddy2017(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
