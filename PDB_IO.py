@@ -105,7 +105,7 @@ class CoarseGrain:
             if resname == "GLY":
                 if atname == "CA": gly_count += 1
                 if inc_gly:
-                    if atname == "HA3":
+                    if atname=="CB" or atname == "HA3":
                         CB[(chain,resnum,resname)]=XYZ[x]
                         CB_for_H += 1
         if inc_gly: assert CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"

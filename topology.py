@@ -1476,6 +1476,7 @@ class Baidya2022(Reddy2017):
                         p = [x[:2],y[:2]]; p.sort(); p = tuple(p)
                         C06 = 2*eps[p]*epsmat[(x,y)]*(sig)**6
                         C12 = 1*eps[p]*epsmat[(x,y)]*(sig)**12
+                        p = [x,y]; p.sort(); p = tuple(p)
                         if p not in pairs:
                             fout.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
                             pairs.append(p)
