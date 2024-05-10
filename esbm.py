@@ -50,8 +50,9 @@ class Options(Dict):
 	codon_pairs=False
 	interactions="interactions.dat"
 	hphobic=False
-	dsb=False
+	nonbond=False
 	interface=False
+	dsb=False
 	custom_nuc=False
 	control_run=False
 
@@ -76,7 +77,7 @@ class ContactMap(Dict):
 	func = 2 		# LJ 10-12
 	W = False 		#Equal weights 
 	file = str()	# no cmap file
-	scsc_custom=False
+	custom_pairs=False
 
 class Charge(Dict):
 	CA = False
@@ -250,6 +251,7 @@ def main():
 	nucl_contmap = ContactMap()
 	inter_contmap = ContactMap()
 
+	opt.nonbond=False
 	opt.interface = False
 	opt.custom_nuc = False
 	opt.control_run = False
@@ -305,10 +307,6 @@ def main():
 		prot_contmap.cutofftype = 1	# all-atom contacts mapped to CG
 		prot_contmap.contfunc = 2	# LJ 10-12
 
-	if args.dlprakash:
-		args.pal2019=True
-		opt.codon_pairs=True
-
 	if args.pal2019:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
@@ -333,8 +331,39 @@ def main():
 		charge.iconc = 0.01		# concentration
 		opt.interface = True
 		opt.P_stretch = True	# set P_P_P_P dihed to 180
-		ModelDir("pal2019/levy.stackparams.dat").copy2("interactions.dat")
-	
+		ModelDir("pal2019/adj_nbnb.stackparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("pal2019/inter_nbcb.stackparams.dat").copy2("interactions.interface.dat")
+
+	if args.dlprakash:
+		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb."
+		CGlevel["prot"] = 2		# CB-CA
+		CGlevel["nucl"] = 3		# P-S-B
+		rad["CA"] = 1.9			# 3.8 A excl vol rad
+		rad["CB"] = 1.5			# 3.0 A excl vol rad
+		CB_far = True			# CB at farthest SC atom 
+		CB_chiral = True		# improp dihed for CAi-1 CAi+1 CAi CBi
+		charge.CB = True		# Charge on CB
+		charge.P = True			#charge on P
+		excl_rule = 2			# Excl volume Arith. Mean
+		fconst.Kd_prot["mf"] = 1.0	#factor to divide 3 multiplicity dihed term
+		prot_contmap.W = False			# contact weight
+		prot_contmap.cutoff = 4.5	# cutoff
+		prot_contmap.type = 1		# Calculate from all-atom structure
+		prot_contmap.func = 2		# Use LJ 10-12 pairs
+		nucl_contmap.type = -1		# Do not calculate
+		inter_contmap.type = -1		# Do not calculate
+		charge.debye = True		# Use DH-electrostatics
+		charge.dielec = 78		# dielectric constant
+		charge.iconc = 0.1		# concentration
+		opt.nonbond = True	#write custom nonbond from file
+		opt.interface = True
+		opt.P_stretch = False	# set P_P_P_P dihed to 180
+		ModelDir("dlprakash/adj_nbnb.stackparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("dlprakash/inter_nbcb.stackparams.dat").copy2("interactions.interface.dat")
+		ModelDir("dlprakash/codonduplex.bpairparams.dat").copy2("interactions.nonbond.dat")
+		opt.codon_pairs=True
+
 	if args.azia2009:
 		print (">>> Using Azia & Levy 2009 CA-CB model. 10.1006/jmbi.2000.3693")
 		uniqtype = True
@@ -348,7 +377,7 @@ def main():
 		prot_contmap.cutoff = 8.0
 		prot_contmap.type = 2
 		prot_contmap.func = 1
-		prot_contmap.scsc_custom = True
+		prot_contmap.custom_pairs = True
 		excl_rule = 2
 		opt.btparams = True
 		opt.sopsc = True
@@ -361,7 +390,7 @@ def main():
 		charge.dielec = 10
 		charge.iconc = 0.01		# M
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
 	if args.baidya2022:
 		print (">>> Using Reddy SOP-SCP-IDP model.")
@@ -371,7 +400,7 @@ def main():
 		prot_contmap.cutoff = 8.0
 		prot_contmap.type = -1
 		prot_contmap.func = 1
-		prot_contmap.scsc_custom = True
+		prot_contmap.custom_pairs = True
 		excl_rule = 2
 		opt.btparams = True
 		opt.sopsc = True
@@ -384,8 +413,9 @@ def main():
 		charge.debye = True
 		charge.dielec = 78
 		charge.iconc = 0.15	#M
+		opt.nonbond = True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	""" presets end here """
 
@@ -458,15 +488,15 @@ def main():
 		bond_function = int(args.bfunc)
 		assert bond_function in (1,7,8), "Only Harmonic (1) and FENE (7) are supported bond length potentials"
 
-	if args.interaction: prot_contmap.scsc_custom = True
+	if args.interaction: prot_contmap.custom_pairs = True
 	if args.btparams:
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
 		opt.btparams=True
-		prot_contmap.scsc_custom=True
+		prot_contmap.custom_pairs=True
 	if args.mjparams:
 		ModelDir("reddy2017/sopsc.mjparams.dat").copy2("interactions.dat")
 		opt.mjparams = True
-		prot_contmap.scsc_custom=True
+		prot_contmap.custom_pairs=True
 	
 	if args.CB_radii:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -627,7 +657,7 @@ def main():
 	if args.clementi2000:
 		top = Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata = top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.pal2019:
+	elif args.pal2019 or args.dlprakash:
 		if nucl_contmap.type==-1: top = Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		if nucl_contmap.type>=0:
 			print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
