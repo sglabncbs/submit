@@ -619,30 +619,41 @@ class PDB_IO:
                 line = line.strip()
                 if len(line) == 0: continue
                 elif line.startswith(">"):
-                    tag = line.strip().strip(">")
+                    tag = line.strip().strip(">").split(":")
+                    tag = tag[:len(tag)]+[chr(65+len(chains)),1][len(tag)-1:]
+                    tag=tuple(tag)
                     chains[tag] = str()
                 else: chains[tag] += line.strip()
-        
+
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
             ca_xyz = np.float_([0,0,0])
             offset = 0
-            for c in chains:
-                for x in range(len(chains[c])):
-                    res = chains[c][x]
+            for tag in chains:
+                if len(tag)==3: 
+                    name,c=tag[:-1]
+                    r0=int(tag[-1])
+                    r1=r0+len(chains[tag])
+                else:
+                    name,c=tag[:2]
+                    r0,r1=np.int_(tag[2:])
+                    assert r1-r0==len(chains[tag]),\
+                        "Error, chain length and resnum mismatch in %s"%fasta
+                resnum = list(range(r0,r1+1))
+                for x in range(len(chains[tag])):
+                    res = chains[tag][x]
                     Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
                     line = "ATOM".ljust(6)+hy36encode(5,2*x+1)+" "+"CA".center(4)\
-                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,x+1+offset)\
+                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(ca_xyz+50)
                     fout.write(line+"\n")
                     cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
                     line = "ATOM".ljust(6)+hy36encode(5,2*x+2)+" "+"CB".center(4)\
-                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,x+1+offset)\
+                         +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(cb_xyz+50.0)
                     fout.write(line+"\n")
                     ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
                 fout.write("TER\n")
-                offset = x+1
         self.pdbfile=self.__refinePDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb

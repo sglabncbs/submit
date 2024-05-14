@@ -1520,3 +1520,299 @@ class Baidya2022(Reddy2017):
         for x in range(len(pairs)): 
             fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
+
+class Baratam2024(Reddy2017):
+    def __init__(self,allatomdata,idrdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
+        self.allatomdata = allatomdata
+        self.idrdata=idrdata
+        self.ordered=self.allatomdata.prot
+        self.__check_H_atom__()
+        self.fconst = fconst
+        self.CGlevel = CGlevel
+        self.Nmol = Nmol
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
+        self.opt = opt
+        self.eps_idr_bbbb = 0.12*self.fconst.caltoj 
+        self.eps_idr_bbsc = 0.24*self.fconst.caltoj 
+        self.eps_idr_scsc = 0.18*self.fconst.caltoj 
+        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+        self.excl_volume = dict()
+        self.atomtypes = []
+
+    def __write_unfolded_cgpdb__(self,rad):
+        print ("> Writing unfolded CG-PDB file")
+        residues=set(self.idrdata.res+self.ordered.res)
+        residues = [x for x in residues if "CA" in x]        
+        residues.sort()
+        chain,prev_rnum="",0
+        outfasta=self.ordered.pdbfile+".fa"
+        with open(outfasta,"w+") as fout:
+            for cnum,rnum,rname,atname in residues:
+                assert atname=="CA"
+                if cnum!=chain or rnum-prev_rnum not in (0,1):
+                    fout.write("\n\n>chain:%s:%s\n"%(cnum,rnum))
+                fout.write(self.idrdata.amino_acid_dict[rname])
+                chain = cnum
+                prev_rnum=rnum
+        residues.sort()
+        #get unfolded CG-pdb
+        unfolded = PDB_IO()
+        unfolded.buildProtIDR(fasta=outfasta,rad=rad)
+        self.unfolded_cgpdb=unfolded.prot
+        #get unfolded CG-pdb processed data
+        unfolded = Calculate(aa_pdb=self.allatomdata)
+        unfolded.processData(data=self.unfolded_cgpdb)
+        self.unfolded_data=unfolded
+        return 0
+
+    def __write_atomtypes__(self,fout,type,rad,seq,data):
+        print (">> Writing atomtypes section")
+        self.__write_unfolded_cgpdb__(rad=rad)
+        #1:CA model or 2:CA+CB model
+        fout.write('%s\n'%("[ atomtypes ]"))
+        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
+
+        assert len(data.CA_atn)!=0 and type==2
+        self.excl_volume["CA"] = 2*rad["CA"]
+        self.excl_volume["iCA"] = self.excl_volume["CA"]
+        C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
+        fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+        for s in seq:
+            bead = "CB"+s
+            if bead in self.excl_volume or s == " ": continue
+            C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
+            self.excl_volume[bead] = 2*rad[bead]
+            fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+            if s in self.idrdata.seq:
+                self.excl_volume["i"+bead]=self.excl_volume[bead]
+                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("i"+bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+        
+        return 0
+
+    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+        print (">> Writing nonbond_params section")
+        ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
+        fout.write("\n%s\n"%("[ nonbond_params ]"))
+        fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+        fout.write(";C6 based repulsion term\n")
+        assert type==2 and excl_rule == 2
+        pairs = []
+        for x in self.excl_volume:
+            if x.startswith(("CA","CB")):
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB")):
+                        C06 = -1*self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**6
+                        C12 = 0.0
+                        p = [x,y]; p.sort(); p=tuple(p)
+                        if p not in pairs:
+                            fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
+                            pairs.append(p)
+
+        fout.write(";IDR C6-C12 interactions\n")
+        pairs = []
+        eps = dict()
+        eps[("CA","CA")] = self.eps_idr_bbbb
+        eps[("CB","CB")] = self.eps_idr_bbsc
+        eps[("CA","CB")] = self.eps_idr_scsc
+
+        epsmat,sigmat=data.Interactions(nonbond=True)
+        assert len(epsmat)!=0 and len(sigmat)==0
+        epsmat = {k:np.abs(0.7-epsmat[k]) for k in epsmat}
+        epsmat.update({("CA",k[0]):1.0 for k in epsmat if "CA" not in k})
+        epsmat.update({(k[0],"CA"):1.0 for k in epsmat if "CA" not in k})
+        epsmat.update({("CA","CA"):1.0})
+
+        for x in self.excl_volume:
+            if x.startswith(("iCA","iCB")):
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB","iCA","iCB")):
+                        sig = (self.excl_volume[x]+self.excl_volume[y])/2.0
+                        if y.startswith("C"): p = [x[1:3],y[:2]]; p.sort(); p = tuple(p)
+                        elif y.startswith("iC"): p = [x[1:3],y[1:3]]; p.sort(); p = tuple(p)
+                        q=(x.strip("i"),y.strip("i"))
+                        C06 = 2*eps[p]*epsmat[q]*(sig)**6
+                        C12 = 1*eps[p]*epsmat[q]*(sig)**12
+                        p = [x,y]; p.sort(); p = tuple(p)
+                        if p not in pairs:
+                            fout.write(" %s %s\t1\t%e %e "%(x.ljust(5),y.ljust(5),C06,C12))
+                            if y.startswith("i"): fout.write("; IDR-IDR\n")
+                            else: fout.write("; OR-IDR\n")
+                            pairs.append(p)
+        return 0  
+
+    def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
+        print (">> Writing atoms section")
+        fout.write("\n%s\n"%("[ atoms ]"))
+        fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
+        Q = dict()
+        if inc_charge: 
+            Q.update({x:1 for x in ["CBK","CBR","CBH"]})
+            Q.update({x:-1 for x in ["CBD","CBE","P"]})
+        
+        assert cgfile==self.ordered.sc_file
+        cgfile=self.unfolded_cgpdb.pdbfile
+        seq=self.unfolded_cgpdb.seq
+        prev_resnum,seqcount,rescount="",0,0
+        #if ".nucl." in cgfile: seq=["5%s3"%x for x in seq.split()]
+        assert ".prot." in cgfile
+        seq=["_%s_"%x for x in seq.split()]
+        self.atomtypes=[]
+        with open(cgfile) as fin:
+            for line in fin:
+                if line.startswith("ATOM"):
+                    atnum=hy36decode(5,line[6:11])
+                    atname=line[12:16].strip()
+                    resname=line[17:20].strip()
+                    resnum=hy36decode(4,line[22:26])
+                    atinfo = (seqcount,resnum,resname,atname)
+                    atype=atname
+                    if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
+                    if atype=="CB": atype+=seq[seqcount][rescount]
+                    if atype not in Q: Q[atype] = 0
+                    if atinfo in self.idrdata.res:
+                        Q["i"+atype]=Q[atype]
+                        atype="i"+atype
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
+                    self.atomtypes.append(atype)
+                elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
+        return
+
+    def __get_idr_bonds__(self,data):
+        unfolded=self.unfolded_data
+        new_atn = {unfolded.CA_atn[c][r]:data.CA_atn[c][r] \
+                    for c in unfolded.CA_atn for r in unfolded.CA_atn[c] \
+                            if c in data.CA_atn and r in data.CA_atn[c]}
+        new_atn.update({unfolded.CB_atn[c][r]:data.CB_atn[c][r] \
+                        for c in unfolded.CB_atn for r in unfolded.CB_atn[c] \
+                        if c in data.CB_atn and r in data.CB_atn[c]})
+
+        unfolded.Bonds()
+        dist_dict = {tuple(pairs[y]):dist[y] \
+                        for pairs,dist in data.bonds \
+                        for y in range(dist.shape[0]) }
+
+        for x in range(len(unfolded.bonds)):
+            pairs,dist = unfolded.bonds[x]
+            for y in range(dist.shape[0]):
+                p=pairs[y]
+                if p[0] in new_atn and p[1] in new_atn:
+                    p = (new_atn[p[0]],new_atn[p[1]])
+                    dist[y]=dist_dict[p]
+            unfolded.bonds[x]=pairs,dist
+        
+        self.new_atn = new_atn
+        return unfolded
+
+    def __write_protein_bonds__(self,fout,data,func):
+        print (">> Writing SOP-SC bonds section")
+        print ("Note: Function not supported by GROMACS. Use table files or enable --opensmog")
+
+        #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
+        #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
+        K = float(self.fconst.Kb_prot)*100.0
+
+        #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
+        #if dsb: func = 9
+        assert func == 8
+        R = 0.2
+
+        # V = - (K/2)*R^2*ln(1-((r-r0)/R)^2)
+        # V_1 = dV/dr = -K*0.5*R^2*(1/(1-((r-r0)/R)^2))*(-2*(r-r0)/R^2)
+        #             = -K*0.5*(-2)(r-r0)/(1-((r-r0)/R)^2)
+        #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
+
+        fout.write("\n%s\n"%("[ bonds ]"))
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
+
+        data.Bonds()
+        adjusted_data=self.__get_idr_bonds__(data=data)
+
+        table_idx = dict()
+        for pairs,dist in adjusted_data.bonds:
+            I,J = 1+np.transpose(pairs) 
+            for i in range(pairs.shape[0]): 
+                r0 = np.round(dist[i],3)
+                if r0 not in table_idx: table_idx[r0]=len(table_idx)
+                r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
+                #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
+                V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
+                Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
+                fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
+        return 
+
+    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
+        print (">> Writing SOP-SC pairs section")
+        cmap = self.cmap["prot"]
+        data.Pairs(cmap=cmap,group="prot")
+        assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
+        scscmat,sigmat=data.Interactions(pairs=cmap.custom_pairs)
+        assert len(sigmat)==0
+        CA_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CA_atn.items()}
+        CB_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CB_atn.items()}
+        all_atn = CA_atn.copy()
+        all_atn.update(CB_atn.copy())
+        eps_bbbb = 0.5*self.fconst.caltoj
+        eps_bbsc = 0.5*self.fconst.caltoj
+        Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
+        
+        new_atn = {data.CA_atn[c][r]:self.unfolded_data.CA_atn[c][r] \
+            for c in self.unfolded_data.CA_atn for r in self.unfolded_data.CA_atn[c] \
+            if c in data.CA_atn and r in data.CA_atn[c]}
+        new_atn.update({data.CB_atn[c][r]:self.unfolded_data.CB_atn[c][r] \
+            for c in self.unfolded_data.CB_atn for r in self.unfolded_data.CB_atn[c] \
+            if c in data.CB_atn and r in data.CB_atn[c]})
+       
+        for index in range(len(data.contacts)):
+            pairs,chains,dist,eps = data.contacts[index]
+            I,J = np.transpose(pairs)
+            interaction_type = np.int_(\
+                np.int_([x in CB_atn for x in I])+ \
+                np.int_([x in CB_atn for x in J]))
+
+            scscmat.update({(all_atn[I[x]],all_atn[J[x]]):0.0 for x in range(I.shape[0]) if (all_atn[I[x]],all_atn[J[x]]) not in scscmat})
+            eps_scsc = np.float_([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
+            eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz
+            eps = np.float_(eps)
+            eps = eps_bbbb*np.int_(interaction_type==0) \
+                + eps_bbsc*np.int_(interaction_type==1) \
+                + eps_scsc*np.int_(interaction_type==2) 
+            pais = [(new_atn[x],new_atn[y]) for x,y in pairs]
+            data.contacts[index] = pairs,chains,dist,eps
+
+        fout.write("\n%s\n"%("[ pairs ]"))
+        print ("> Using LJ C6-C12 for contacts")
+        fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
+        func = 1
+        for pairs,chains,dist,eps in data.contacts:
+            I,J = 1+np.transpose(pairs)
+            c06 = 2*eps*(dist**6.0)
+            c12 = eps*(dist**12.0)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
+
+        print ("> Using -C6 repulsion for local beads")
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        data.Angles()
+        diam = self.excl_volume.copy()
+        diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
+        eps_bbbb = 1.0*self.fconst.caltoj
+        eps_bbsc = 1.0*self.fconst.caltoj
+        
+        for index in range(len(data.angles)):
+            triplets,angles = data.angles[index]
+            I,J,K = np.transpose(triplets)
+            interaction_type = np.int_(\
+                np.int_([x in CB_atn for x in I])+ \
+                np.int_([x in CB_atn for x in K]))
+            sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+            sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+            assert 2 not in interaction_type
+            c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
+                + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
+            pairs = np.int_([(new_atn[I[x]],new_atn[K[x]]) for x in range(I.shape[0])])
+            data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            I,K = 1+np.transpose(pairs)
+            for x in range(triplets.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        return 
