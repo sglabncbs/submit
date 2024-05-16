@@ -642,7 +642,7 @@ def main():
 		if args.idp_seq:
 			assert args.baidya2022 or args.baratam2024, "Error, building CG PDB using idp_seq only supported with --baidya2022 or --baratam2024"
 			assert args.idp_seq.endswith((".fa",".fasta"))
-			pdbdata.buildProtIDR(fasta=args.idp_seq,rad=rad)
+			pdbdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
 		else: 
 			if args.baidya2022: assert args.idp_seq, "Provide --aa_pdb, --cg_pdb or --idp_seq"
 			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
@@ -699,10 +699,13 @@ def main():
 		assert args.aa_pdb or args.cg_pdb, "Error, SOP-MULTI needs input structure"
 		assert args.idp_seq, "Error, SOP-MULTI needs sequence and residue range for IDR"
 		idrdata=PDB_IO()
-		idrdata.buildProtIDR(fasta=args.idp_seq,rad=rad)
+		idrdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
 		idrdata=idrdata.prot
 		top=Baratam2024(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt,idrdata=idrdata)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		unfolded=PDB_IO()
+		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=True)
+		unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 	else:
 		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)

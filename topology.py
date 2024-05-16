@@ -7,13 +7,13 @@ class Tables:
     def __init__(self) -> None:
         pass
 
-    def __pad__(self,X):
+    def __prePad__(self,X):
         step = 0.001 #nm
         return np.int_(range(0,int(X[0]*1000)))*0.001
 
     def __write_bond_table__(self,index,X,V,V_1):
         with open("table_b"+str(index)+".xvg","w+") as fout:
-            for x in self.__pad__(X):           
+            for x in self.__prePad__(X):           
                 fout.write("%e %e %e\n"%(x,V[0],0))
             for i in range(X.shape[0]):
                 fout.write("%e %e %e\n"%(X[i],V[i],-V_1[i]))
@@ -75,7 +75,7 @@ class Tables:
     def __write_pair_table__(self,ljtype,elec):
         #writing pairs table file
 
-        r = np.int_(range(0,50000))*0.002 #100 nm
+        r = np.int_(range(0,100000))*0.002 #100 nm
         cutoff = np.int_(r>=0.01)
         r[0]=10E-9  #buffer to avoid division by zero
 
@@ -1226,11 +1226,12 @@ class Topology:
                 merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
         table = Tables()
-        if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2:
+        if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
             table.__write_pair_table__(elec=charge,ljtype=2)
-        elif self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1:
+        if self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1 or self.cmap["inter"].func == 1:
             if charge.debye: table.__write_pair_table__(elec=charge,ljtype=1)
-        return
+        
+        return 
 
 class Clementi2000(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
@@ -1347,12 +1348,13 @@ class Reddy2017(Topology):
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)
-                r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                if r0-R>0:r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                else: r=0.001*np.int_(range(int(1000*(0+0.001)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
                 Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
-                fout.write(" %5d %5d %5d %5d %e\n"%(I[i],J[i],func,table_idx[r0],K))
+                fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
         return 
 
     def __write_protein_angles__(self,fout,data):
@@ -1545,7 +1547,7 @@ class Baratam2024(Reddy2017):
         residues = [x for x in residues if "CA" in x]        
         residues.sort()
         chain,prev_rnum="",0
-        outfasta=self.ordered.pdbfile+".fa"
+        outfasta="unfolded.fa"
         with open(outfasta,"w+") as fout:
             for cnum,rnum,rname,atname in residues:
                 assert atname=="CA"
@@ -1570,14 +1572,15 @@ class Baratam2024(Reddy2017):
         self.__write_unfolded_cgpdb__(rad=rad)
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
-        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
+        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12\n"))
 
         assert len(data.CA_atn)!=0 and type==2
         self.excl_volume["CA"] = 2*rad["CA"]
         self.excl_volume["iCA"] = self.excl_volume["CA"]
         C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
-        fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-        for s in seq:
+        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("iCA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+        for s in seq+self.idrdata.seq:
             bead = "CB"+s
             if bead in self.excl_volume or s == " ": continue
             C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
@@ -1679,10 +1682,10 @@ class Baratam2024(Reddy2017):
 
     def __get_idr_bonds__(self,data):
         unfolded=self.unfolded_data
-        new_atn = {unfolded.CA_atn[c][r]:data.CA_atn[c][r] \
+        new2old_atn = {unfolded.CA_atn[c][r]:data.CA_atn[c][r] \
                     for c in unfolded.CA_atn for r in unfolded.CA_atn[c] \
                             if c in data.CA_atn and r in data.CA_atn[c]}
-        new_atn.update({unfolded.CB_atn[c][r]:data.CB_atn[c][r] \
+        new2old_atn.update({unfolded.CB_atn[c][r]:data.CB_atn[c][r] \
                         for c in unfolded.CB_atn for r in unfolded.CB_atn[c] \
                         if c in data.CB_atn and r in data.CB_atn[c]})
 
@@ -1695,12 +1698,12 @@ class Baratam2024(Reddy2017):
             pairs,dist = unfolded.bonds[x]
             for y in range(dist.shape[0]):
                 p=pairs[y]
-                if p[0] in new_atn and p[1] in new_atn:
-                    p = (new_atn[p[0]],new_atn[p[1]])
+                if p[0] in new2old_atn and p[1] in new2old_atn:
+                    p = (new2old_atn[p[0]],new2old_atn[p[1]])
+                    #print ("%.3f %.3f"%(dist[y],dist_dict[p]))
                     dist[y]=dist_dict[p]
             unfolded.bonds[x]=pairs,dist
-        
-        self.new_atn = new_atn
+
         return unfolded
 
     def __write_protein_bonds__(self,fout,data,func):
@@ -1733,7 +1736,10 @@ class Baratam2024(Reddy2017):
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)
-                r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                if r0-R>0:
+                    r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                else:
+                    r=0.001*np.int_(range(int(1000*(0+0.001)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
@@ -1756,10 +1762,10 @@ class Baratam2024(Reddy2017):
         eps_bbsc = 0.5*self.fconst.caltoj
         Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
         
-        new_atn = {data.CA_atn[c][r]:self.unfolded_data.CA_atn[c][r] \
+        old2new_atn = {data.CA_atn[c][r]:self.unfolded_data.CA_atn[c][r] \
             for c in self.unfolded_data.CA_atn for r in self.unfolded_data.CA_atn[c] \
             if c in data.CA_atn and r in data.CA_atn[c]}
-        new_atn.update({data.CB_atn[c][r]:self.unfolded_data.CB_atn[c][r] \
+        old2new_atn.update({data.CB_atn[c][r]:self.unfolded_data.CB_atn[c][r] \
             for c in self.unfolded_data.CB_atn for r in self.unfolded_data.CB_atn[c] \
             if c in data.CB_atn and r in data.CB_atn[c]})
        
@@ -1777,7 +1783,7 @@ class Baratam2024(Reddy2017):
             eps = eps_bbbb*np.int_(interaction_type==0) \
                 + eps_bbsc*np.int_(interaction_type==1) \
                 + eps_scsc*np.int_(interaction_type==2) 
-            pais = [(new_atn[x],new_atn[y]) for x,y in pairs]
+            pairs = np.int_([(old2new_atn[x],old2new_atn[y]) for x,y in pairs])
             data.contacts[index] = pairs,chains,dist,eps
 
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -1793,26 +1799,68 @@ class Baratam2024(Reddy2017):
 
         print ("> Using -C6 repulsion for local beads")
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        func=1
         data.Angles()
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
+        eps_scsc = 1.0*self.fconst.caltoj
+
+        new2old_atn={v:k for k,v in old2new_atn.items()}
         
-        for index in range(len(data.angles)):
-            triplets,angles = data.angles[index]
-            I,J,K = np.transpose(triplets)
-            interaction_type = np.int_(\
-                np.int_([x in CB_atn for x in I])+ \
-                np.int_([x in CB_atn for x in K]))
-            sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-            sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
-            assert 2 not in interaction_type
-            c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-                + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
-            pairs = np.int_([(new_atn[I[x]],new_atn[K[x]]) for x in range(I.shape[0])])
-            data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
-            I,K = 1+np.transpose(pairs)
-            for x in range(triplets.shape[0]): 
-                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        u_data=self.unfolded_data
+        pairs,idr_pairs=[],[]
+        for c in self.unfolded_data.CA_atn:
+            resnum = list(u_data.CA_atn[c].keys())
+            resnum.sort()
+            for x in resnum:
+                if u_data.CA_atn[c][x] in new2old_atn:
+                    if x+2 in u_data.CA_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
+                    if x+1 in u_data.CB_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CB_atn[c][x+1]))
+                    if x+1 in u_data.CA_atn[c]:pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][x+1]))
+                else:
+                    if x+2 in u_data.CA_atn[c]:idr_pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
+                    for y in (x+1,x+2):
+                        if y in u_data.CB_atn[c]:idr_pairs.append((u_data.CA_atn[c][x],u_data.CB_atn[c][y]))
+                        if x in u_data.CB_atn[c]:
+                            if y in u_data.CA_atn:
+                                idr_pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][y]))
+                            if y in u_data.CB_atn:
+                                idr_pairs.append((u_data.CB_atn[c][x],u_data.CB_atn[c][y]))
+        pairs,idr_pairs=np.int_(pairs),np.int_(idr_pairs)
+
+        CA_atn = {u_data.CA_atn[c][r]:self.atomtypes[u_data.CA_atn[c][r]] for c in u_data.CA_atn for r in u_data.CA_atn[c]}
+        CB_atn = {u_data.CB_atn[c][r]:self.atomtypes[u_data.CB_atn[c][r]] for c in u_data.CB_atn for r in u_data.CB_atn[c]}
+        all_atn = CA_atn.copy()
+        all_atn.update(CB_atn.copy())
+        I,K = np.transpose(pairs)   
+        interaction_type = np.int_(np.int_([x in CB_atn for x in I])+ np.int_([x in CB_atn for x in K]))
+        sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+        assert 2 not in interaction_type
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
+            + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
+        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        I,K = 1+np.transpose(pairs)
+        for x in range(pairs.shape[0]): 
+            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+
+        print ("> Using -C6 repulsion for IDR local beads")
+        fout.write(";IDR angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+
+        I,K = np.transpose(idr_pairs)
+        interaction_type = np.int_(\
+            np.int_([x in CB_atn for x in I])+ \
+            np.int_([x in CB_atn for x in K]))
+        sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
+            + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
+            + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
+        pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        I,K = 1+np.transpose(idr_pairs)
+        for x in range(len(pairs)): 
+            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 

@@ -610,7 +610,7 @@ class PDB_IO:
             if len(self.prot.lines) != 0:
                 self.__combineGro__(outfile=outgro)
 
-    def buildProtIDR(self,fasta,rad):
+    def buildProtIDR(self,fasta,rad,topbonds=False,CBgly=True):
         #reading fasta and writing stretched IDR to pdb
         outpdb = fasta+".pdb"
         chains = dict()
@@ -625,10 +625,24 @@ class PDB_IO:
                     chains[tag] = str()
                 else: chains[tag] += line.strip()
 
+        if topbonds:
+            bonds={x.split("]")[0].strip():x.split("]")[1].strip() \
+                   for x in open("prot_gromacs.top").read().split("[") \
+                    if len(x.split("]"))==2 }["bonds"].split("\n")
+            dist=dict()
+            for x in bonds:
+                if x.strip().startswith(";") or x.strip()=="": continue
+                x=x.split()
+                if int(x[2]) in (1,2): dist[tuple(np.int_(x[:2]))]=10*float(x[3])
+                elif int(x[2]) in (7,8,9): 
+                    assert "d=" in x[-1]
+                    dist[tuple(np.int_(x[:2]))]=10*float(x[-1].split("=")[-1])
+        else: assert len(rad)>0
+
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
             ca_xyz = np.float_([0,0,0])
-            offset = 0
+            offset,atnum = 0,0
             for tag in chains:
                 if len(tag)==3: 
                     name,c=tag[:-1]
@@ -642,17 +656,25 @@ class PDB_IO:
                 resnum = list(range(r0,r1+1))
                 for x in range(len(chains[tag])):
                     res = chains[tag][x]
+                    atnum+=1
                     Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
-                    line = "ATOM".ljust(6)+hy36encode(5,2*x+1)+" "+"CA".center(4)\
+                    if atnum !=1:
+                        if topbonds: ca_xyz = ca_xyz + np.float_([dist[(prev_ca,atnum)],0,0])
+                        else: ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
+                    line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CA".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(ca_xyz+50)
                     fout.write(line+"\n")
-                    cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
-                    line = "ATOM".ljust(6)+hy36encode(5,2*x+2)+" "+"CB".center(4)\
+                    prev_ca=atnum
+                    if not CBgly and res=="G":continue
+                    atnum+=1
+                    if topbonds: cb_xyz = ca_xyz + np.float_([0,0,dist[(prev_ca,atnum)]])*[-1,+1][x%2]
+                    else: cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
+                    line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CB".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(cb_xyz+50.0)
                     fout.write(line+"\n")
-                    ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
+                    prev_cb=atnum
                 fout.write("TER\n")
         self.pdbfile=self.__refinePDB__(infile=outpdb)
         self.__readPDB__()
