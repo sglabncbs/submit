@@ -1,4 +1,5 @@
-# Package to generate Coarse-Grained Structure and Topology for using Enhanced Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based)
+## SuBMIT: Structure Based Model(s) input Topology ##
+# Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Enhanced Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) #
 # digvijaylp #
  
  
@@ -6,23 +7,26 @@
 # Model presets allows user to auto-select parameters based on predefined models 
  
 #CA-SBM (Clementi 2000) 
-$ python esbm.py --clementi2000 --aa_pdb [All-atom .pdb file] 
+$ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file] 
  
 #CA-CB SOP-SC model (Reddy 2017) 
-$ python esbm.py --reddy2017 --aa_pdb [All-atom .pdb file]
-$ python esbm.py --reddy2017 --cg_pdb [Coarse-grained .pdb file]
+$ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file]
+$ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file]
  
 #CA-CB SOP-SC-IDP model (Baidya 2022) 
-$ python esbm.py --baidya2022 --prot_seq [IDP sequence .fa file]
+$ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file] --baidya2022 --idp_seq [IDP sequence .fa file]
  
+#CA-CB SOP-SC-MULTI model (Baratam 2024) 
+$ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)]
+
 #CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
-$ python esbm.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
+$ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
  
 #For every model, predefined parameters can be customized. For example, for chanding angle force constant in Pal 2019 model 
-$ python esbm.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
+$ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
  
 #For testing your own model or tweaking predefined ones, refer to options in --help 
-$ python esbm.py --help 
+$ python submit.py --help 
  
  
 optional arguments:
