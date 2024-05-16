@@ -642,7 +642,7 @@ class PDB_IO:
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
             ca_xyz = np.float_([0,0,0])
-            offset,atnum,prev_ca = 0,0,0
+            offset,chain_count,atnum,prev_ca = 0,0,0,0
             for tag in chains:
                 if len(tag)==3: 
                     name,c=tag[:-1]
@@ -655,13 +655,14 @@ class PDB_IO:
                         "Error, chain length and resnum mismatch in %s"%fasta
                 resnum = list(range(r0,r1+1))
                 prev_ca = 0
+                ca_xyz = ca_xyz + np.float_([4*(2*10*rad["CA"]),0,0])
                 for x in range(len(chains[tag])):
                     res = chains[tag][x]
                     atnum+=1
                     Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
                     if prev_ca !=0:
-                        if topbonds: ca_xyz = ca_xyz + np.float_([dist[(prev_ca,atnum)],0,0])
-                        else: ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
+                        if topbonds: ca_xyz = ca_xyz + np.float_([0,dist[(prev_ca,atnum)],0])*[1,-1][chain_count%2]
+                        else: ca_xyz = ca_xyz + np.float_([0,Arad+Arad,0])*[1,-1][chain_count%2]
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CA".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(ca_xyz+50)
@@ -677,6 +678,7 @@ class PDB_IO:
                     fout.write(line+"\n")
                     prev_cb=atnum
                 fout.write("TER\n")
+                chain_count+=1
         self.pdbfile=self.__refinePDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb
