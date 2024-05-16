@@ -642,7 +642,7 @@ class PDB_IO:
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
             ca_xyz = np.float_([0,0,0])
-            offset,atnum = 0,0
+            offset,atnum,prev_ca = 0,0,0
             for tag in chains:
                 if len(tag)==3: 
                     name,c=tag[:-1]
@@ -654,11 +654,12 @@ class PDB_IO:
                     assert r1-r0==len(chains[tag]),\
                         "Error, chain length and resnum mismatch in %s"%fasta
                 resnum = list(range(r0,r1+1))
+                prev_ca = 0
                 for x in range(len(chains[tag])):
                     res = chains[tag][x]
                     atnum+=1
                     Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
-                    if atnum !=1:
+                    if prev_ca !=0:
                         if topbonds: ca_xyz = ca_xyz + np.float_([dist[(prev_ca,atnum)],0,0])
                         else: ca_xyz = ca_xyz + np.float_([Arad+Arad,0,0])
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CA".center(4)\
