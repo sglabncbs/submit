@@ -431,7 +431,7 @@ def main():
 		opt.btparams=True
 		opt.sopsc=True
 		charge.CB=True
-		CB_gly=True
+		CB_gly=False
 		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj

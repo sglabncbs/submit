@@ -1818,15 +1818,16 @@ class Baratam2024(Reddy2017):
                 if u_data.CA_atn[c][x] in new2old_atn:
                     if x+2 in u_data.CA_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
                     if x+1 in u_data.CB_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CB_atn[c][x+1]))
-                    if x+1 in u_data.CA_atn[c]:pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][x+1]))
+                    if x in data.CB_atn[c] and x+1 in u_data.CA_atn[c]:
+                        pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][x+1]))
                 else:
                     if x+2 in u_data.CA_atn[c]:idr_pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
                     for y in (x+1,x+2):
                         if y in u_data.CB_atn[c]:idr_pairs.append((u_data.CA_atn[c][x],u_data.CB_atn[c][y]))
                         if x in u_data.CB_atn[c]:
-                            if y in u_data.CA_atn:
+                            if y in u_data.CA_atn[c]:
                                 idr_pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][y]))
-                            if y in u_data.CB_atn:
+                            if x in u_data.CB_atn[c] and y in u_data.CB_atn[c]:
                                 idr_pairs.append((u_data.CB_atn[c][x],u_data.CB_atn[c][y]))
         pairs,idr_pairs=np.int_(pairs),np.int_(idr_pairs)
 

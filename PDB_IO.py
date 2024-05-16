@@ -610,7 +610,7 @@ class PDB_IO:
             if len(self.prot.lines) != 0:
                 self.__combineGro__(outfile=outgro)
 
-    def buildProtIDR(self,fasta,rad,topbonds=False,CBgly=True):
+    def buildProtIDR(self,fasta,rad,topbonds=False,CBgly=False):
         #reading fasta and writing stretched IDR to pdb
         outpdb = fasta+".pdb"
         chains = dict()
