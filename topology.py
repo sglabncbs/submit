@@ -977,8 +977,8 @@ class Topology:
         data.Pairs(cmap=cmap,group="prot")
         if cmap.custom_pairs:
             epsmat,sigmat=data.Interactions(pairs=cmap.custom_pairs)
-            CA_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CA_atn.items()}
-            CB_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CB_atn.items()}
+            CA_atn = {data.CA_atn[c][r]:self.atomtypes[data.CA_atn[c][r]] for c in data.CA_atn for r in data.CA_atn[c]}
+            CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
             all_atn = CA_atn.copy()
             all_atn.update(CB_atn.copy())
             for index in range(len(data.contacts)):
@@ -1277,7 +1277,7 @@ class Pal2019(Topology):
 class Reddy2017(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
-        self.__check_H_atom__()
+        #self.__check_H_atom__()
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
@@ -1376,8 +1376,9 @@ class Reddy2017(Topology):
         assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
         scscmat,sigmat=data.Interactions(pairs=cmap.custom_pairs)
         assert len(sigmat)==0
-        CA_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CA_atn.items()}
-        CB_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CB_atn.items()}
+
+        CA_atn = {data.CA_atn[c][r]:self.atomtypes[data.CA_atn[c][r]] for c in data.CA_atn for r in data.CA_atn[c]}
+        CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
         eps_bbbb = 0.5*self.fconst.caltoj
@@ -1489,8 +1490,8 @@ class Baidya2022(Reddy2017):
         cmap = self.cmap["prot"]
         assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
 
-        CA_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CA_atn.items()}
-        CB_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CB_atn.items()}
+        CA_atn = {data.CA_atn[c][r]:self.atomtypes[data.CA_atn[c][r]] for c in data.CA_atn for r in data.CA_atn[c]}
+        CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
 
@@ -1528,7 +1529,6 @@ class Baratam2024(Reddy2017):
         self.allatomdata = allatomdata
         self.idrdata=idrdata
         self.ordered=self.allatomdata.prot
-        self.__check_H_atom__()
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
@@ -1754,8 +1754,9 @@ class Baratam2024(Reddy2017):
         assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
         scscmat,sigmat=data.Interactions(pairs=cmap.custom_pairs)
         assert len(sigmat)==0
-        CA_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CA_atn.items()}
-        CB_atn = {v:self.atomtypes[v] for k,v in self.allatomdata.prot.CB_atn.items()}
+
+        CA_atn = {data.CA_atn[c][r]:self.atomtypes[data.CA_atn[c][r]] for c in data.CA_atn for r in data.CA_atn[c]}
+        CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
         eps_bbbb = 0.5*self.fconst.caltoj
