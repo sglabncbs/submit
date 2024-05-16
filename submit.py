@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-	Enhanced SBN (esbm)
+	SuBMIT: Structure Based Model(s) Input Topology
 	Copyright (C) <2024>  <Digvijay Lalwani Prakash>
 
 	A toolkit for generating input files for performing Molecular Dynamics
@@ -16,7 +16,7 @@
 	To add a new model, 1) add a new class (to a new .py file or to topology.py)
 	and inherit Topology from topology.py. 2) See available functions in Class 
 	Topology and re-write those which require changes based on your model.
-	3) Predefine available arguments in (esbm.py).
+	3) Predefine available arguments in (submit.py).
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,7 +27,7 @@
     A copy of the GNU General Public License is included along with
 	this program.
 
-usage: python esbm.py --help
+usage: python submit.py --help
 (Author: Digvijay L. Prakash)
 """
 
