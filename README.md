@@ -1,4 +1,4 @@
-# SuBMIT: Structure Based Model(s) input Topology #
+# SuBMIT: Structure Based Model(s) Input Topology #
 ## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Enhanced Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) ##
 ### digvijaylp ###
  
