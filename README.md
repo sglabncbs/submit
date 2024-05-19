@@ -14,7 +14,8 @@ $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file]
 $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file]
  
 #CA-CB SOP-SC-IDP model (Baidya 2022) 
-$ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file] --baidya2022 --idp_seq [IDP sequence .fa file]
+$ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file] 
+$ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file]
  
 #CA-CB SOP-SC-MULTI model (Baratam 2024) 
 $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)]

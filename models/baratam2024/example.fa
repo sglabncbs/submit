@@ -1,0 +1,8 @@
+# format includes 
+#"> name_tag(not used):chain_id(default 0):start_resid(default 1):end_resid(default taken from chain length)
+#"sequence of the IDP/IDR
+>chain:A:90:95
+QQQQQ
+>chain:A:105:108
+RRR
+>chain:B:90:95
