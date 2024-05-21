@@ -626,17 +626,7 @@ class PDB_IO:
                 else: chains[tag] += line.strip()
 
         if topbonds:
-            bonds={x.split("]")[0].strip():x.split("]")[1].strip() \
-                   for x in open("prot_gromacs.top").read().split("[") \
-                    if len(x.split("]"))==2 }["bonds"].split("\n")
-            dist=dict()
-            for x in bonds:
-                if x.strip().startswith(";") or x.strip()=="": continue
-                x=x.split()
-                if int(x[2]) in (1,2): dist[tuple(np.int_(x[:2]))]=10*float(x[3])
-                elif int(x[2]) in (7,8,9): 
-                    assert "d=" in x[-1]
-                    dist[tuple(np.int_(x[:2]))]=10*float(x[-1].split("=")[-1])
+            dist={tuple(1+pairs[x]):10*dist[x] for pairs,dist in topbonds for x in range(pairs.shape[0])}                
         else: assert len(rad)>0
 
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
