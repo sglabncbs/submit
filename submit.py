@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-	SuBMIT: Structure Based Model(s) Input Topology
+	SuBMIT: Structure Based Model(s) Input Toolkit
 	Copyright (C) <2024>  <Digvijay Lalwani Prakash>
 
 	A toolkit for generating input files for performing Molecular Dynamics
