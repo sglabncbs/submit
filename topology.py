@@ -182,7 +182,7 @@ class Calculate:
         return
 
     def Interactions(self,interface=False,nonbond=False,pairs=False):
-        assert int(interface)+int(pairs)+int(nonbond)==1,\
+        assert int(interface)+int(pairs)+int(nonbond) in (0,1),\
             "Error, only one of interfae, pairs, nonbond can be True"
         eps,sig = {},{}
         if interface: infile="interactions.interface.dat"
@@ -720,6 +720,46 @@ class MergeTop:
                     if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
                     elif Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
 
+class OpenSMOGXML:
+    def __init__(self,xmlfile) -> None:
+        self.fxml=open(xmlfile,"w+")
+        self.fxml.write('<OpenSMOGforces>\n')
+        self.nb_count,self.pairs_count=0,0
+
+    def write_nonbond_xml(self,pairs=[],expression='Krep*((C/r)^12)',params={}):
+        self.fxml.write(' <nonbond>\n')
+        self.fxml.write('  <nonbond_bytype>\n')
+        self.fxml.write('   <expression expr="%s"/>\n'%expression)
+        for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
+        for x in range(len(pairs)):
+            self.fxml.write('   <nonbond_param type1="%s" type2="%s"'%tuple(pairs[x]))
+            for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
+            self.fxml.write('/>\n')
+        self.fxml.write('  </nonbond_bytype>\n')
+        self.fxml.write(' </nonbond>\n') 
+        self.nb_count+=1
+        return
+
+    def write_pairs_xml(self,pairs=[],params={},name="contacts_LJ-10-12",\
+                            expression="eps*( 5*((sig/r)^12) - 6*((sig/r)^10) )"):
+        if self.pairs_count==0: self.fxml.write(' <contacts>\n')
+        self.fxml.write('  <contacts_type name="%s">\n'%name)
+        self.fxml.write('   <expression expr="%s"/>\n'%expression)
+        for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
+        I,J = 1+np.transpose(pairs)
+        for x in range(pairs.shape[0]): 
+            self.fxml.write('   <interaction i="%d" j="%d"'%(I[x],J[x]))
+            for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
+            self.fxml.write('/>\n')
+        self.fxml.write('  </contacts_type>\n')
+        self.pairs_count+=1
+        return
+
+    def __del__(self):
+        if self.pairs_count>0:self.fxml.write(' </contacts>\n')
+        self.fxml.write('</OpenSMOGforces>\n')
+        self.fxml.close()
+
 class Topology:
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
@@ -799,10 +839,10 @@ class Topology:
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
 
         eps,sig = data.Interactions(nonbond=self.opt.nonbond)
+        pairs,repul_C12 = [],[]
         if len(data.CA_atn) > 0:
             cmap_func=self.cmap["prot"].func
             if excl_rule == 2 and type == 2:
-                pairs = []
                 for x in self.excl_volume:
                     if x.startswith(("CA","CB")):
                         for y in self.excl_volume:
@@ -810,13 +850,14 @@ class Topology:
                                 C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
                                 p = [x,y]; p.sort(); p=tuple(p)
                                 if p not in pairs:
-                                    pairs.append(p)
                                     if p in eps: continue
+                                    pairs.append(p)
+                                    repul_C12.append(C12) 
+                                    if self.opt.opensmog: continue
                                     fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))                            
         if len(data.P_atn) > 0:
             cmap_func=self.cmap["nucl"].func
             if excl_rule == 2 and type in (3,5):
-                pairs = []
                 for x in self.excl_volume:
                     if x.startswith(("P","S","B")):
                         for y in self.excl_volume:
@@ -824,11 +865,12 @@ class Topology:
                                 C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
                                 p = [x,y]; p.sort(); p=tuple(p)
                                 if p not in pairs:
-                                    pairs.append(p)
                                     if p in eps: continue
+                                    pairs.append(p)
+                                    repul_C12.append(C12) 
+                                    if self.opt.opensmog: continue
                                     fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
         if len(eps)>0:
-            pairs=[]
             fout.write("; Custom Nnobond interactions\n")
             if cmap_func in (5,6):
                 fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
@@ -852,10 +894,31 @@ class Topology:
                     if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = eps[p],sig[p],sd,C12
+                repul_C12.append(values[-1])
+                if self.opt.opensmog: continue
                 fout.write(" %5s %5s\t%d\t"%(p[0],p[1],func))
                 fout.write(len(values)*" %e"%tuple(values))
                 fout.write("\n")
 
+        if self.opt.opensmog:
+            if len(eps)==0: 
+                expression,params="C12/(r^12)",{"C12":repul_C12}
+            else:
+                params={"eps_att":[],"sig":[],"C12":repul_C12}
+                for p in pairs: 
+                    if p in eps: params["eps_att"].append(eps[p])
+                    else: params["eps_att"].append(1)
+                    if p in sig: params["sig"].append(sig[p])
+                    else: params["sig"].appen(0)
+                assert len(params["eps_att"])==len(params["C12"])
+                if cmap_func==1: expression="C12/(r^12) - 2*eps_att*(sig/r)^6"
+                elif cmap_func==2: expression="C12/(r^12) - 6*eps_att*(sig/r)^10"
+                elif cmap_func in (5,6): 
+                    expression="eps_att*( (1+C12/(r^12))*(1-exp(((r-sig)^2)/(2*(sd^2))) - 1); sd=%e"%sd
+            if len(data.CA_atn)!=0: self.prot_xmlfile.write_nonbond_xml(pairs=pairs,\
+                                        expression=expression,params=params)
+            if len(data.P_atn)!=0: self.nucl_xmlfile.write_nonbond_xml(pairs=pairs,\
+                                        expression=expression,params=params)
         return 0
 
     def __write_moleculetype__(self,fout):
@@ -1000,7 +1063,14 @@ class Topology:
             print ("> Using LJ C6-C12 for contacts")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
             func = 1
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
+                if self.opt.opensmog:
+                    self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                    continue
                 I,J = 1+np.transpose(pairs)
                 c06 = 2*eps*(dist**6.0)
                 c12 = eps*(dist**12.0)
@@ -1010,7 +1080,14 @@ class Topology:
             print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
             func = 1
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
+                if self.opt.opensmog:
+                    self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-10-12"%c,\
+                            expression="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )")
+                    continue
                 I,J = 1+np.transpose(pairs)
                 c10 = 6*eps*(dist**10.0)
                 c12 = 5*eps*(dist**12.0)
@@ -1027,12 +1104,18 @@ class Topology:
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
                 I,J = np.transpose(pairs)
                 I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
+                if self.opt.opensmog:
+                    self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
+                            name="contacts%d_Gaussian-12"%c,\
+                            expression="eps*( (1+C12/(r^12))*(1-exp(((r-r0)^2)/(2*(sd^2))) - 1); sd=%e"%sd)
                 I,J = 1+np.transpose(pairs)
                 for x in range(pairs.shape[0]): 
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
@@ -1120,7 +1203,14 @@ class Topology:
             print ("> Using LJ C6-C12 for contacts")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
             func = 1
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
+                if self.opt.opensmog:
+                    self.nucl_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                    continue
                 I,J = 1+np.transpose(pairs)
                 c06 = 2*eps*(dist**6.0)
                 c12 = eps*(dist**12.0)
@@ -1130,7 +1220,14 @@ class Topology:
             print ("> Using LJ C10-C12 for contacts. Note: Require Table file(s)")
             fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C10(Att)","C12(Rep)"))
             func = 1
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
+                if self.opt.opensmog:
+                    self.nucl_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-10-12"%c,\
+                            expression="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )")
+                    continue
                 I,J = 1+np.transpose(pairs)
                 c10 = 6*eps*(dist**10.0)
                 c12 = 5*eps*(dist**12.0)
@@ -1147,12 +1244,18 @@ class Topology:
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
-            for pairs,chains,dist,eps in data.contacts:
+            for c in range(len(data.contacts)):
+                pairs,chains,dist,eps=data.contacts[c]
                 I,J = np.transpose(pairs)
                 I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
+                if self.opt.opensmog:
+                    self.nucl_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
+                            name="contacts%d_Gaussian-12"%c,\
+                            expression="eps*( (1+C12/(r^12))*(1-exp(((r-r0)^2)/(2*(sd^2))) - 1); sd=%e"%sd)
                 I,J = 1+np.transpose(pairs)
                 for x in range(pairs.shape[0]): 
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
@@ -1175,6 +1278,7 @@ class Topology:
             if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata.prot.bb_file,refine=False)
             elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata.prot.sc_file,refine=False)
             prot_topfile = "prot_"+outtop
+            if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot_"+self.opt.xmlfile)
             with open(prot_topfile,"w+") as ftop:
                 print (">>> writing Protein GROMACS toptology", prot_topfile)
                 proc_data_p = Calculate(aa_pdb=self.allatomdata)
@@ -1183,18 +1287,20 @@ class Topology:
                 self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
                 self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB))
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB)*(not self.opt.opensmog))
                 self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
                 self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
                 self.__write_protein_angles__(fout=ftop, data=proc_data_p)
                 self.__write_protein_dihedrals__(fout=ftop, data=proc_data_p,chiral=CBchiral)
                 self.__write_exclusions__(fout=ftop,data=proc_data_p)
                 self.__write_footer__(fout=ftop)
-
+                self.proc_data_p = proc_data_p
+            if self.opt.opensmog: del self.prot_xmlfile
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
             if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata.nucl.bb_file,refine=False)
             elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
             nucl_topfile = "nucl_"+outtop
+            if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl_"+self.opt.xmlfile)
             with open(nucl_topfile,"w+") as ftop:
                 print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
                 proc_data_n = Calculate(aa_pdb=self.allatomdata)
@@ -1203,13 +1309,15 @@ class Topology:
                 self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
                 self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
                 self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P)
+                self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P*(not self.opt.opensmog))
                 self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
                 self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
                 self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
                 self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data_n,chiral=CBchiral)
                 self.__write_exclusions__(fout=ftop,data=proc_data_n)
                 self.__write_footer__(fout=ftop)
+                self.prot_data_n = proc_data_n
+            if self.opt.opensmog: del nucl_xmlfile
 
         Nmol = self.Nmol
         #if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
@@ -1225,6 +1333,7 @@ class Topology:
             if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
                 merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
+        if self.opt.opensmog: return #don't write table
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
             table.__write_pair_table__(elec=charge,ljtype=2)
@@ -1267,6 +1376,12 @@ class Pal2019(Topology):
             dist = np.float_([stack[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
             chains = [tuple(["nucl_"+str(c+1)]*2) for x in range(I.shape[0])]
             data.contacts.append((pairs,chains,dist,eps))
+            if self.opt.opensmog:
+                self.nucl_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="base-stacking%d_LJ-10-12"%c,\
+                            expression="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )")
+                continue
             I,J = 1+np.transpose(pairs)
             c10 = 6*eps*(dist**10.0)
             c12 = 5*eps*(dist**12.0)
@@ -1307,7 +1422,7 @@ class Reddy2017(Topology):
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
         assert type==2 and excl_rule == 2
-        pairs = []
+        pairs,excl_rad1,excl_rad2 = [],[],[]
         for x in self.excl_volume:
             if x.startswith(("CA","CB")):
                 for y in self.excl_volume:
@@ -1316,8 +1431,15 @@ class Reddy2017(Topology):
                         C12 = 0.0
                         p = [x,y]; p.sort(); p=tuple(p)
                         if p not in pairs:
-                            fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
                             pairs.append(p)
+                            excl_rad1.append(self.excl_volume[p[0]])
+                            excl_rad2.append(self.excl_volume[p[1]])
+                            if self.opt.opensmog: continue
+                            fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
+        
+        if self.opt.opensmog: 
+            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"excl_r1":excl_rad1,"excl_r2":excl_rad2},\
+                    expression='Krep*(sig/r)^6;sig=0.5*(excl_r1(type1,type2)+excl_r2(type1,type2));Krep=%e'%self.fconst.Kr_prot)
         return 0
 
     def __write_protein_bonds__(self,fout,data,func):
@@ -1334,7 +1456,7 @@ class Reddy2017(Topology):
         assert func == 8
         R = 0.2
 
-        # V = - (K/2)*R^2*ln(1-((r-r0)/R)^2)
+        # V = -(K/2)*R^2*ln(1-((r-r0)/R)^2)
         # V_1 = dV/dr = -K*0.5*R^2*(1/(1-((r-r0)/R)^2))*(-2*(r-r0)/R^2)
         #             = -K*0.5*(-2)(r-r0)/(1-((r-r0)/R)^2)
         #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
@@ -1343,7 +1465,15 @@ class Reddy2017(Topology):
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
         data.Bonds()
         table_idx = dict()
-        for pairs,dist in data.bonds:
+        for c in range(len(data.bonds)):
+            pairs,dist=data.bonds[c]
+            if self.opt.opensmog:
+                print (">Writing chain %d Bonds as OpenSMOG contacts"%c)
+                self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
+                            name="FENE_bonds%d_R=0.2"%c,\
+                            expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
+                data.contacts.append((pairs,c*np.ones(pairs.shape),dist,K*np.ones(dist.shape)))
+                continue
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
@@ -1404,7 +1534,13 @@ class Reddy2017(Topology):
         print ("> Using LJ C6-C12 for contacts")
         fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
         func = 1
-        for pairs,chains,dist,eps in data.contacts:
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            if self.opt.opensmog:
+                self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
             I,J = 1+np.transpose(pairs)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
@@ -1432,6 +1568,14 @@ class Reddy2017(Topology):
                 + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
             pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
             data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            if self.opt.opensmog:
+                self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
+                    params={"sig":sig[np.where(interaction_type==0)]},name="Local_backbone-backbone_rep%d"%c,\
+                    expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
+                self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
+                    params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
+                    expression="eps*((0.8*sig/r)^6);eps=%e"%eps_bbsc)
+                continue
             I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
@@ -1457,7 +1601,7 @@ class Baidya2022(Reddy2017):
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6  C12'))
         assert type==2 and excl_rule == 2
-        pairs = []
+        pairs, = [],
         eps = dict()
         eps[("CA","CA")] = self.eps_bbbb
         eps[("CB","CB")] = self.eps_bbsc
@@ -1481,8 +1625,16 @@ class Baidya2022(Reddy2017):
                         C12 = 1*eps[p]*epsmat[(x,y)]*(sig)**12
                         p = [x,y]; p.sort(); p = tuple(p)
                         if p not in pairs:
-                            fout.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
                             pairs.append(p)
+                            if self.opt.opensmog: continue
+                            fout.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
+        
+        if self.opt.opensmog:
+            excl_rad1,excl_rad2=np.transpose([(self.excl_volume[x],self.excl_volume[y]) for x,y in pairs])
+            epsmat=[epsmat[p] for p in pairs]
+            eps=[eps[(x[:2],y[:2])] for x,y in pairs]
+            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"eps":eps,"f":epsmat,"r1":excl_rad1,"r2":excl_rad2},\
+                                            expression='eps(type1,type2)*f(type1,type2)*((s/r)^12 - 2*(s/r)^6); s=0.5*(r1(type1,type2)+r2(type1,type2))')
         return 0  
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
@@ -1519,9 +1671,21 @@ class Baidya2022(Reddy2017):
             + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
         data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
-        I,K = I+1,K+1
-        for x in range(len(pairs)): 
-            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        if self.opt.opensmog:
+            c=0
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
+                params={"sig":sig[np.where(interaction_type==0)]},name="Local_backbone-backbone_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
+                params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_bbsc)
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==2)],\
+                params={"sig":sig[np.where(interaction_type==2)]},name="Local_sidechain-sidechain_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_scsc)
+        else:
+            I,K = I+1,K+1
+            for x in range(len(pairs)): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
 class Baratam2024(Reddy2017):
@@ -1599,7 +1763,7 @@ class Baratam2024(Reddy2017):
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
         fout.write(";C6 based repulsion term\n")
         assert type==2 and excl_rule == 2
-        pairs = []
+        pairs,values = [],[]
         for x in self.excl_volume:
             if x.startswith(("CA","CB")):
                 for y in self.excl_volume:
@@ -1608,19 +1772,25 @@ class Baratam2024(Reddy2017):
                         C12 = 0.0
                         p = [x,y]; p.sort(); p=tuple(p)
                         if p not in pairs:
-                            fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
                             pairs.append(p)
+                            values.append((C06,C12))
+                            if self.opt.opensmog: continue
+                            fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
+        
+
 
         fout.write(";IDR C6-C12 interactions\n")
-        pairs = []
         eps = dict()
         eps[("CA","CA")] = self.eps_idr_bbbb
-        eps[("CB","CB")] = self.eps_idr_bbsc
-        eps[("CA","CB")] = self.eps_idr_scsc
+        eps[("CB","CB")] = self.eps_idr_scsc
+        eps[("CA","CB")] = self.eps_idr_bbsc
+        eps[("CB","CA")] = self.eps_idr_bbsc
+        
 
         epsmat,sigmat=data.Interactions(nonbond=True)
         assert len(epsmat)!=0 and len(sigmat)==0
         epsmat = {k:np.abs(0.7-epsmat[k]) for k in epsmat}
+        epsmat.update({(k[1],k[0]):epsmat[k] for k in epsmat})
         epsmat.update({("CA",k[0]):1.0 for k in epsmat if "CA" not in k})
         epsmat.update({(k[0],"CA"):1.0 for k in epsmat if "CA" not in k})
         epsmat.update({("CA","CA"):1.0})
@@ -1637,10 +1807,16 @@ class Baratam2024(Reddy2017):
                         C12 = 1*eps[p]*epsmat[q]*(sig)**12
                         p = [x,y]; p.sort(); p = tuple(p)
                         if p not in pairs:
+                            pairs.append(p)
+                            values.append((C06,C12))
+                            if self.opt.opensmog: continue
                             fout.write(" %s %s\t1\t%e %e "%(x.ljust(5),y.ljust(5),C06,C12))
                             if y.startswith("i"): fout.write("; IDR-IDR\n")
                             else: fout.write("; OR-IDR\n")
-                            pairs.append(p)
+        if self.opt.opensmog:
+            C06,C12 = np.transpose(values)
+            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"C12":C12,"C6":C06},\
+                        expression='C12(type1,type2)/(r^12) - C6(type1,type2)/(r^6)')
         return 0  
 
     def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
@@ -1729,9 +1905,18 @@ class Baratam2024(Reddy2017):
 
         data.Bonds()
         adjusted_data=self.__get_idr_bonds__(data=data)
+        data.bonds=adjusted_data.bonds
 
         table_idx = dict()
-        for pairs,dist in adjusted_data.bonds:
+        for c in range(len(adjusted_data.bonds)):
+            pairs,dist=adjusted_data.bonds[c]
+            if self.opt.opensmog:
+                print (">Writing chain %d Bonds as OpenSMOG contacts"%c)
+                self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
+                            name="FENE_bonds%d_R=0.2"%c,\
+                            expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
+                data.contacts.append((pairs,c*np.ones(pairs.shape),dist,K*np.ones(dist.shape)))
+                continue
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
@@ -1791,7 +1976,14 @@ class Baratam2024(Reddy2017):
         print ("> Using LJ C6-C12 for contacts")
         fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
         func = 1
-        for pairs,chains,dist,eps in data.contacts:
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            if self.opt.opensmog:
+                self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                continue
             I,J = 1+np.transpose(pairs)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
@@ -1844,9 +2036,18 @@ class Baratam2024(Reddy2017):
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
             + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
         data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
-        I,K = 1+np.transpose(pairs)
-        for x in range(pairs.shape[0]): 
-            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        if self.opt.opensmog:
+            c=0
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
+                    params={"sig":sig[np.where(interaction_type==0)]},name="Local_backbone-backbone_rep%d"%c,\
+                    expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
+                    params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
+                    expression="eps*((0.8*sig/r)^6);eps=%e"%eps_bbsc)
+        else:
+            I,K = 1+np.transpose(pairs)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
 
         print ("> Using -C6 repulsion for IDR local beads")
         fout.write(";IDR angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
@@ -1862,7 +2063,19 @@ class Baratam2024(Reddy2017):
             + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
         data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
-        I,K = 1+np.transpose(idr_pairs)
-        for x in range(len(pairs)): 
-            fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
-        return 
+        if self.opt.opensmog:
+            c=0
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
+                params={"sig":sig[np.where(interaction_type==0)]},name="IDR_Local_backbone-backbone_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
+                params={"sig":sig[np.where(interaction_type==1)]},name="IDR_Local_backbone-sidechain_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_bbsc)
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==2)],\
+                params={"sig":sig[np.where(interaction_type==2)]},name="IDR_Local_sidechain-sidechain_rep%d"%c,\
+                expression="eps*((sig/r)^6);eps=%e"%eps_scsc)
+        else:
+            I,K = 1+np.transpose(idr_pairs)
+            for x in range(len(pairs)): 
+              fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+            return 

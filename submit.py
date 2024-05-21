@@ -39,7 +39,8 @@ from PDB_IO import PDB_IO,Nucl_Data,Prot_Data
 from topology import *
 
 class Options(Dict):
-	sopsc=False
+	opensmog=False
+	xmlfile=str()
 	uniqtype=False
 	btparams=False
 	mjmap=False
@@ -55,7 +56,6 @@ class Options(Dict):
 	dsb=False
 	custom_nuc=False
 	control_run=False
-
 
 class Constants(Dict):
 	Kb_prot=200.0
@@ -177,9 +177,9 @@ def main():
 	parser.add_argument("--cg_pdb","-cg_pdb", help='User input coarse grained pdbfile')
 
 	#output
-	parser.add_argument("--grotop","-grotop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.top')
-	parser.add_argument("--pdbgro","-pdbgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.gro')
-	parser.add_argument("--smogxml","-smogxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt file). Default: opensmog.xml (and opensmog.top)')
+	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.top')
+	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.gro')
+	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt file). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 
 	#file parameters
@@ -381,7 +381,6 @@ def main():
 		prot_contmap.custom_pairs=True
 		excl_rule=2
 		opt.btparams=True
-		opt.sopsc=True
 		charge.CB=True
 		CB_gly=True
 		fconst.Kb_prot=20.0*fconst.caltoj
@@ -404,7 +403,6 @@ def main():
 		prot_contmap.custom_pairs=True
 		excl_rule=2
 		opt.btparams=True
-		opt.sopsc=True
 		rad["CA"]=1.9 #A
 		CB_radii=True
 		charge.CB=True
@@ -429,7 +427,6 @@ def main():
 		prot_contmap.custom_pairs=True
 		excl_rule=2
 		opt.btparams=True
-		opt.sopsc=True
 		charge.CB=True
 		CB_gly=False
 		CB_atom=True
@@ -506,9 +503,9 @@ def main():
 	if args.contfunc_p: prot_contmap.func=int(args.contfunc_p)
 	if args.contfunc_n: nucl_contmap.func=int(args.contfunc_n)
 	if args.contfunc_i: inter_contmap.func=int(args.contfunc_i)
-	assert (prot_contmap.func in range(0,5))
-	assert (nucl_contmap.func in range(0,5))
-	assert (inter_contmap.func in range(0,5))
+	assert (prot_contmap.func in range(0,6+1))
+	assert (nucl_contmap.func in range(0,6+1))
+	assert (inter_contmap.func in range(0,6+1))
 
 	if args.bfunc: 
 		bond_function=int(args.bfunc)
@@ -668,18 +665,24 @@ def main():
 	if len(pdbdata.nucl.lines)==0: Nmol["nucl"]=0
 
 	#output grofiles
-	if args.pdbgro: grofile=str(args.pdbgro)
+	if args.outgro: grofile=str(args.outgro)
 	else: grofile="gromacs.gro"
-	
-	#defining individual group
 
+	#set GROMACS .top file
+	if args.outtop: topfile=str(args.outtop)
+	else:topfile='gromacs.top'
+	
+	#set OpenSMOG XML file
+	if args.opensmog:
+		opt.opensmog = True
+		if args.outxml: opt.xmlfile=str(args.outxml)
+		else: opt.xmlfile="openSMOG.xml"
+		if not args.outtop: topfile="openSMOG.top"
+		if not args.outgro: grofile="openSMOG.gro"
+		
 	#write CG file
 	pdbdata.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 
-	#write .top file
-	if args.grotop: ttopfile=str(args.grotop)
-	else:topfile='gromacs.top'
-	
 	if args.clementi2000:
 		top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
@@ -704,7 +707,7 @@ def main():
 		top=Baratam2024(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt,idrdata=idrdata)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		unfolded=PDB_IO()
-		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=True)
+		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.proc_data_p.bonds)
 		unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 	else:
 		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
