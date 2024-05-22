@@ -914,7 +914,7 @@ class Topology:
                 if cmap_func==1: expression="C12(type1,type2)/(r^12) - 2*eps_att(type1,type2)*(sig(type1,type2)/r)^6"
                 elif cmap_func==2: expression="C12(type1,type2)/(r^12) - 6*eps_att(type1,type2)*(sig(type1,type2)/r)^10"
                 elif cmap_func in (5,6): 
-                    expression="eps_att(type1,type2)*( (1+C12(type1,type2)/(r^12))*(1-exp(((r-sig(type1,type2))^2)/(2*(sd^2))) - 1); sd=%e"%sd
+                    expression="eps_att(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
             if len(data.CA_atn)!=0: self.prot_xmlfile.write_nonbond_xml(pairs=pairs,\
                                         expression=expression,params=params)
             if len(data.P_atn)!=0: self.nucl_xmlfile.write_nonbond_xml(pairs=pairs,\
@@ -1115,7 +1115,8 @@ class Topology:
                     self.prot_xmlfile.write_pairs_xml(
                             pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
                             name="contacts%d_Gaussian-12"%c,\
-                            expression="eps*( (1+C12/(r^12))*(1-exp(((r-r0)^2)/(2*(sd^2))) - 1); sd=%e"%sd)
+                            expression="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd)
+                    continue
                 I,J = 1+np.transpose(pairs)
                 for x in range(pairs.shape[0]): 
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
@@ -1255,7 +1256,7 @@ class Topology:
                     self.nucl_xmlfile.write_pairs_xml(
                             pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
                             name="contacts%d_Gaussian-12"%c,\
-                            expression="eps*( (1+C12/(r^12))*(1-exp(((r-r0)^2)/(2*(sd^2))) - 1); sd=%e"%sd)
+                            expression="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd)
                 I,J = 1+np.transpose(pairs)
                 for x in range(pairs.shape[0]): 
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
@@ -1296,6 +1297,9 @@ class Topology:
                 self.__write_footer__(fout=ftop)
                 self.proc_data_p = proc_data_p
             if self.opt.opensmog: del self.prot_xmlfile
+        else: 
+            self.CGlevel["prot"]=0
+            self.cmap["prot"].func=self.cmap["inter"].func=-1
         if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
             if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata.nucl.bb_file,refine=False)
             elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
@@ -1318,7 +1322,9 @@ class Topology:
                 self.__write_footer__(fout=ftop)
                 self.prot_data_n = proc_data_n
             if self.opt.opensmog: del nucl_xmlfile
-
+        else:
+            self.CGlevel["nucl"]=0
+            self.cmap["nucl"].func=self.cmap["inter"].func=-1
         Nmol = self.Nmol
         #if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
         if Nmol["prot"]+Nmol["nucl"] > 1:
