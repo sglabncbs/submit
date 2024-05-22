@@ -900,9 +900,9 @@ class Topology:
                 fout.write(len(values)*" %e"%tuple(values))
                 fout.write("\n")
 
-        if self.opt.opensmog:
+        if self.opt.opensmog and len(repul_C12)!=0:
             if len(eps)==0: 
-                expression,params="C12/(r^12)",{"C12":repul_C12}
+                expression,params="C12(type1,type2)/(r^12)",{"C12":repul_C12}
             else:
                 params={"eps_att":[],"sig":[],"C12":repul_C12}
                 for p in pairs: 
@@ -911,10 +911,10 @@ class Topology:
                     if p in sig: params["sig"].append(sig[p])
                     else: params["sig"].appen(0)
                 assert len(params["eps_att"])==len(params["C12"])
-                if cmap_func==1: expression="C12/(r^12) - 2*eps_att*(sig/r)^6"
-                elif cmap_func==2: expression="C12/(r^12) - 6*eps_att*(sig/r)^10"
+                if cmap_func==1: expression="C12(type1,type2)/(r^12) - 2*eps_att(type1,type2)*(sig(type1,type2)/r)^6"
+                elif cmap_func==2: expression="C12(type1,type2)/(r^12) - 6*eps_att(type1,type2)*(sig(type1,type2)/r)^10"
                 elif cmap_func in (5,6): 
-                    expression="eps_att*( (1+C12/(r^12))*(1-exp(((r-sig)^2)/(2*(sd^2))) - 1); sd=%e"%sd
+                    expression="eps_att(type1,type2)*( (1+C12(type1,type2)/(r^12))*(1-exp(((r-sig(type1,type2))^2)/(2*(sd^2))) - 1); sd=%e"%sd
             if len(data.CA_atn)!=0: self.prot_xmlfile.write_nonbond_xml(pairs=pairs,\
                                         expression=expression,params=params)
             if len(data.P_atn)!=0: self.nucl_xmlfile.write_nonbond_xml(pairs=pairs,\

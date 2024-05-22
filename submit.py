@@ -173,8 +173,8 @@ def main():
 	parser.add_argument("--native_ca","-native_ca", help='Native file with only C-alphas. Just grep pdb. ')
 	
 	#input
-	parser.add_argument("--aa_pdb","-aa_pdb", help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
-	parser.add_argument("--cg_pdb","-cg_pdb", help='User input coarse grained pdbfile')
+	parser.add_argument("--aa_pdb","-aa_pdb", nargs='+', help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
+	parser.add_argument("--cg_pdb","-cg_pdb", nargs='+', help='User input coarse grained pdbfile')
 
 	#output
 	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.top')
@@ -633,8 +633,8 @@ def main():
 	#input structure file
 	pdbdata=PDB_IO()
 	if prot_contmap.type == 1: assert args.aa_pdb, "Error. No all-atom pdb provided. --aa_pdb"
-	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb,refine=True)
-	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb,refine=True)
+	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb[0],refine=True)
+	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb[0],refine=True)
 	else:
 		if args.idp_seq:
 			assert args.baidya2022 or args.baratam2024, "Error, building CG PDB using idp_seq only supported with --baidya2022 or --baratam2024"
@@ -676,9 +676,9 @@ def main():
 	if args.opensmog:
 		opt.opensmog = True
 		if args.outxml: opt.xmlfile=str(args.outxml)
-		else: opt.xmlfile="openSMOG.xml"
-		if not args.outtop: topfile="openSMOG.top"
-		if not args.outgro: grofile="openSMOG.gro"
+		else: opt.xmlfile="opensmog.xml"
+		if not args.outtop: topfile="opensmog.top"
+		if not args.outgro: grofile="opensmog.gro"
 		
 	#write CG file
 	pdbdata.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
