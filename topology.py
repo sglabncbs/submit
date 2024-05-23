@@ -1468,18 +1468,25 @@ class Reddy2017(Topology):
         #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
 
         fout.write("\n%s\n"%("[ bonds ]"))
-        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
         data.Bonds()
         table_idx = dict()
-        for c in range(len(data.bonds)):
-            pairs,dist=data.bonds[c]
-            if self.opt.opensmog:
+        if self.opt.opensmog:
+            fout.write(";%5s %5s %5s %5s %5s; for excl\n"%("ai", "aj", "func", "r0", "Kb=0.0"))
+            for c in range(len(data.bonds)):
+                pairs,dist=data.bonds[c]
+                I,J = 1+np.transpose(pairs) 
                 print (">Writing chain %d Bonds as OpenSMOG contacts"%c)
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
                             name="FENE_bonds%d_R=0.2"%c,\
                             expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
-                data.contacts.append((pairs,c*np.ones(pairs.shape),dist,K*np.ones(dist.shape)))
-                continue
+                for i in range(pairs.shape[0]): 
+                    r0 = np.round(dist[i],3)
+                    fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
+            return
+        #else:
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
+        for c in range(len(data.bonds)):
+            pairs,dist=data.bonds[c]
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
@@ -1547,6 +1554,7 @@ class Reddy2017(Topology):
                             pairs=pairs,params={"r0":dist,"eps":eps},\
                             name="contacts%d_LJ-06-12"%c,\
                             expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                continue
             I,J = 1+np.transpose(pairs)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
@@ -1573,7 +1581,7 @@ class Reddy2017(Topology):
             c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
                 + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
             pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
-            data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
             if self.opt.opensmog:
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
                     params={"sig":sig[np.where(interaction_type==0)]},name="Local_backbone-backbone_rep%d"%c,\
@@ -1676,7 +1684,7 @@ class Baidya2022(Reddy2017):
             + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
             + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
-        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
             self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
@@ -2041,7 +2049,7 @@ class Baratam2024(Reddy2017):
         assert 2 not in interaction_type
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
             + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
-        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
             self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
