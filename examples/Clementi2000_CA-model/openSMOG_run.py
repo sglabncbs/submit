@@ -6,7 +6,7 @@ simul_prefix = "Output"
 dt = 0.0005 #ps
 collision_rate = 1.0 #ps-1
 r_cutoff = 3.0 #nm 
-T_in_K =300 #K
+T_in_K =120 #K
 T = float(T_in_K)*0.008314 #reduced units RT
 
 sbm_CA = SBM(name=simul_prefix, time_step=dt, collision_rate=collision_rate, r_cutoff=r_cutoff, temperature=T,pbc=True)
