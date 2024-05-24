@@ -83,15 +83,17 @@ class Charge(Dict):
 	CA=False
 	CB=False
 	P=False
+	inter=False
 	debye=False
 	dielec=78
-	iconc=0.1 #M L-1               
-	irad=1.4 #nm (for NaCl)
-	debye_temp=298  #K
+	iconc=0.1 				#M L-1               
+	irad=1.4 				#nm (for NaCl)
+	debye_temp=298  		#K
 	inv_dl=0
-	Kboltz=8.314462618E-3 #KJ mol-1 nm-1
-	caltoj=4.184 #kcal mol-1 A-2 to kcal mol-1 A-2
-	permol=6.022E+23          #n/mol  		#Avogadro's number
+	Kboltz=8.314462618E-3	#KJ mol-1 nm-1
+	caltoj=4.184			#kcal mol-1 A-2 to kcal mol-1 A-2
+	inv_4pieps=138.935485	#KJ mol-1 e-2
+	permol=6.022E+23		#n/mol  		#Avogadro's number
 
 class ModelDir:
 	def __init__(self,file) -> str:

@@ -19,11 +19,11 @@ class Tables:
                 fout.write("%e %e %e\n"%(X[i],V[i],-V_1[i]))
         return
     
-    def __electrostatics__(self,elec,r):
-        jtocal = 1/elec.caltoj		#0.239  #Cal/J #SMOG tut mentiones 1/5 = 0.2
-        D = elec.dielec
-        if elec.debye:
-            if elec.inv_dl == 0:
+    def __electrostatics__(self,coulomb,r):
+        jtocal = 1/coulomb.caltoj		#0.239  #Cal/J #SMOG tut mentiones 1/5 = 0.2
+        D = coulomb.dielec
+        if coulomb.debye:
+            if coulomb.inv_dl == 0:
                 """debye length
                                             e0*D*KB*T
                             dl**2 = -------------------------
@@ -33,14 +33,14 @@ class Tables:
                 """
                 pi = np.pi
                 inv_4pieps =  138.935485    #KJ mol-1 e-2
-                iconc = elec.iconc 		    #M L-1
-                irad = 0.1*elec.irad        #nm 
-                T = elec.debye_temp			#K				#Temperature
+                iconc = coulomb.iconc 		    #M L-1
+                irad = 0.1*coulomb.irad        #nm 
+                T = coulomb.debye_temp			#K				#Temperature
                 e0 = 8.854e-21 			#C2 J-1 nm-1	#permitivity: The value have been converted into C2 J-1 nm-1
                 NA = 6.022E+23          #n/mol  		#Avogadro's number
                 KB = 1.3807E-23 	    #J/K			#Boltzmann constant
-                #NA = elec.permol          
-                #KB = elec.Kboltz*1000.0/NA
+                #NA = coulomb.permol          
+                #KB = coulomb.Kboltz*1000.0/NA
                 el = 1.6e-19			#C/e				#charge on electron
                 l_to_nm3 = 1e-24		#L/nm3			#converting l to nm3
 
@@ -52,13 +52,15 @@ class Tables:
                 dl = (dl_N/dl_D)**0.5 #debye length [nm M^0.5 L^-0.5]
                 inv_dl = (iconc**0.5)/dl 		#nm-1
             else:
-                inv_dl = 10*elec.inv_dl #A-1 to -nm-1
+                inv_dl = 10*coulomb.inv_dl #A-1 to -nm-1
             Bk = np.exp(inv_dl*irad)/(1+inv_dl*irad)
             #K_debye = (jtocal*inv_4pieps/D)*Bk
         else:
             inv_dl = 0
             Bk = 1
         K_elec = jtocal*Bk/D #inv_4pieps*q1q2 is multiplied by gromacs
+        self.Bk,self.inv_dl=Bk,inv_dl
+        if len(r)==0: return
         V = K_elec*np.exp(-inv_dl*r)/r
         #(1/K_elecd) * V/dr = (1/r)*[d/dr (exp(-inv_dl*r)) ]
         #                       + exp(-inv_dl*r)*[d/dr (1/r)]
@@ -72,15 +74,15 @@ class Tables:
         V_1 = K_elec*(-inv_dl*r-1)*np.exp(-inv_dl*r)/r**2
         return V,V_1
         
-    def __write_pair_table__(self,ljtype,elec):
+    def __write_pair_table__(self,ljtype,coulomb):
         #writing pairs table file
 
-        r = np.int_(range(0,100000))*0.002 #100 nm
+        r = np.int_(range(0,250000))*0.002 #100 nm
         cutoff = np.int_(r>=0.01)
         r[0]=10E-9  #buffer to avoid division by zero
 
         if ljtype == 1: 
-            assert elec.debye, "Table file only needed if using Debye-Huckel Electrostatics."
+            assert coulomb.debye, "Table file only needed if using Debye-Huckel Electrostatics."
             print (">> Writing LJ 6-12 table file",'table_lj0612.xvg')
             suffix = "0612.xvg"
             A 	= -1.0/r**6*cutoff  # r6
@@ -94,12 +96,12 @@ class Tables:
         B     =   1/r**12*cutoff
         B_1	=  12/r**13*cutoff
 
-        if elec.CA or elec.CB or elec.P:
-            V,V_1 = self.__electrostatics__(elec=elec,r=r)
+        if coulomb.CA or coulomb.CB or coulomb.P:
+            V,V_1 = self.__electrostatics__(coulomb=coulomb,r=r)
             V = V*cutoff
             V_1 = -1*V_1*cutoff
             r = np.round(r,3)
-            with open("table_coul_lj"+suffix,"w+") as fout1:
+            with open("table_coulomb_lj"+suffix,"w+") as fout1:
                 for i in range(r.shape[0]):
                     fout1.write('%e %e %e %e %e %e %e\n' %(r[i],V[i],V_1[i],A[i],A_1[i],B[i],B_1[i]))
         r = np.round(r,3)
@@ -721,14 +723,39 @@ class MergeTop:
                     elif Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
 
 class OpenSMOGXML:
-    def __init__(self,xmlfile) -> None:
+    def __init__(self,xmlfile,coulomb) -> None:
         self.fxml=open(xmlfile,"w+")
         self.fxml.write('<OpenSMOGforces>\n')
         self.nb_count,self.pairs_count=0,0
-
+        self.add_electrostatics=False
+        self.coulomb=coulomb
+        if coulomb.P or coulomb.CA or coulomb.CB or coulomb.inter:
+            self.add_electrostatics=True
+            K_elec,D=coulomb.inv_4pieps/coulomb.caltoj,coulomb.dielec
+            T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float_([]))
+            self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
+            self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
+            
     def write_nonbond_xml(self,pairs=[],expression='Krep*((C/r)^12)',params={}):
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
+        if self.add_electrostatics:
+            expression="%s + %s ; %s"%(self.elec_expr,expression,self.elec_const)
+            params["q1q2"]=[]
+            neg,pos=[],[]
+            if self.coulomb.CB: neg,pos=["CBD","CBE"],["CBK","CBR","CBH"]
+            if self.coulomb.P:neg+=["P"]
+            neg,pos=tuple(neg),tuple(pos)
+            for p in pairs:
+                if p[0].endswith(neg) and "CBP" not in p[0]:
+                    if p[1].endswith(neg) and "CBP" not in p[1]: params["q1q2"].append(1)
+                    elif p[1].endswith(pos): params["q1q2"].append(-1)
+                    else: params["q1q2"].append(0)
+                elif p[0].endswith(pos):
+                    if p[1].endswith(pos): params["q1q2"].append(1)
+                    elif p[1].endswith(neg): params["q1q2"].append(-1)
+                    else: params["q1q2"].append(0)
+                else: params["q1q2"].append(0)
         self.fxml.write('   <expression expr="%s"/>\n'%expression)
         for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
         for x in range(len(pairs)):
@@ -1279,7 +1306,7 @@ class Topology:
             if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata.prot.bb_file,refine=False)
             elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata.prot.sc_file,refine=False)
             prot_topfile = "prot_"+outtop
-            if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot_"+self.opt.xmlfile)
+            if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot_"+self.opt.xmlfile,coulomb=charge)
             with open(prot_topfile,"w+") as ftop:
                 print (">>> writing Protein GROMACS toptology", prot_topfile)
                 proc_data_p = Calculate(aa_pdb=self.allatomdata)
@@ -1304,7 +1331,7 @@ class Topology:
             if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata.nucl.bb_file,refine=False)
             elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
             nucl_topfile = "nucl_"+outtop
-            if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl_"+self.opt.xmlfile)
+            if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl_"+self.opt.xmlfile,coulomb=charge)
             with open(nucl_topfile,"w+") as ftop:
                 print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
                 proc_data_n = Calculate(aa_pdb=self.allatomdata)
@@ -1342,9 +1369,9 @@ class Topology:
         if self.opt.opensmog: return #don't write table
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
-            table.__write_pair_table__(elec=charge,ljtype=2)
+            table.__write_pair_table__(coulomb=charge,ljtype=2)
         if self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1 or self.cmap["inter"].func == 1:
-            if charge.debye: table.__write_pair_table__(elec=charge,ljtype=1)
+            if charge.debye: table.__write_pair_table__(coulomb=charge,ljtype=1)
         
         return 
 
@@ -1915,22 +1942,29 @@ class Baratam2024(Reddy2017):
         #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
 
         fout.write("\n%s\n"%("[ bonds ]"))
-        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
 
         data.Bonds()
         adjusted_data=self.__get_idr_bonds__(data=data)
         data.bonds=adjusted_data.bonds
 
         table_idx = dict()
-        for c in range(len(adjusted_data.bonds)):
-            pairs,dist=adjusted_data.bonds[c]
-            if self.opt.opensmog:
+        if self.opt.opensmog:
+            fout.write(";%5s %5s %5s %5s %5s; for excl\n"%("ai", "aj", "func", "r0", "Kb=0.0"))
+            for c in range(len(adjusted_data.bonds)):
+                pairs,dist=adjusted_data.bonds[c]
                 print (">Writing chain %d Bonds as OpenSMOG contacts"%c)
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
                             name="FENE_bonds%d_R=0.2"%c,\
                             expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
-                data.contacts.append((pairs,c*np.ones(pairs.shape),dist,K*np.ones(dist.shape)))
-                continue
+                I,J = 1+np.transpose(pairs) 
+                for i in range(pairs.shape[0]): 
+                    r0 = np.round(dist[i],3)
+                    fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
+            return
+        #else:
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
+        for c in range(len(adjusted_data.bonds)):
+            pairs,dist=adjusted_data.bonds[c]
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
@@ -2076,7 +2110,7 @@ class Baratam2024(Reddy2017):
             + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
             + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
         pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
-        data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+        #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
             self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
