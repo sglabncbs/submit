@@ -623,7 +623,7 @@ class PDB_IO:
                     tag = tag[:len(tag)]+[chr(65+len(chains)),1][len(tag)-1:]
                     tag=tuple(tag)
                     chains[tag] = str()
-                else: chains[tag] += line.strip()
+                else: chains[tag] += line.strip().upper()
 
         if topbonds:
             dist={tuple(1+pairs[x]):10*dist[x] for pairs,dist in topbonds for x in range(pairs.shape[0])}                
@@ -641,11 +641,11 @@ class PDB_IO:
                 else:
                     name,c=tag[:2]
                     r0,r1=np.int_(tag[2:])
-                    assert r1-r0==len(chains[tag]),\
+                    assert 1+r1-r0==len(chains[tag]),\
                         "Error, chain length and resnum mismatch in %s"%fasta
                 resnum = list(range(r0,r1+1))
                 prev_ca = 0
-                ca_xyz = ca_xyz + np.float_([5*(2*10*rad["CA"]),0,0])
+                ca_xyz = ca_xyz + np.float_([50,0,0])
                 for x in range(len(chains[tag])):
                     res = chains[tag][x]
                     atnum+=1
