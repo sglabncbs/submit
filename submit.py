@@ -115,7 +115,8 @@ def main():
 	parser.add_argument("--azia2009","-azia2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model")
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
 	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB")
-	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp","-sopsc_idp",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
+	parser.add_argument("--baul2019","-baul2019","--sopsc_idp","-sopsc_idp",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB")
+	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp2","-sopsc_idp2",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baratam2024","-baratam2024","--sop-multi","-sop-multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB")
 	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
 
@@ -394,21 +395,22 @@ def main():
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
-	if args.baidya2022:
-		print (">>> Using Baidya & Reddy SOP-SCP-IDP model.")
+	if args.baul2019 or args.baidya2022:
+		args.baul2019=True
+		print (">>> Using Baul et. al. 2019 SOP-SCP-IDP model.")
 		CGlevel["prot"]=2
 		CGlevel["uncl"]=0
 		bond_function=8
-		prot_contmap.cutoff=8.0
-		prot_contmap.type=-1
-		prot_contmap.func=1
-		prot_contmap.custom_pairs=True
+		prot_contmap.cutoff=8.0 #will not be used
+		prot_contmap.type=-1	#contacts not used
+		prot_contmap.func=1		#Use LJ 6-11 for nonbond interactions
+		prot_contmap.custom_pairs=True	#use custom eps and/or signma values
 		excl_rule=2
 		opt.btparams=True
 		rad["CA"]=1.9 #A
 		CB_radii=True
 		charge.CB=True
-		CB_gly=True
+		CB_gly=False
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		charge.debye=True
@@ -639,11 +641,11 @@ def main():
 	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb[0],refine=True)
 	else:
 		if args.idp_seq:
-			assert args.baidya2022 or args.baratam2024, "Error, building CG PDB using idp_seq only supported with --baidya2022 or --baratam2024"
+			assert args.baul2019 or args.baratam2024, "Error, building CG PDB using idp_seq only supported with --baul2019 or --baratam2024"
 			assert args.idp_seq.endswith((".fa",".fasta"))
 			pdbdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
 		else: 
-			if args.baidya2022: assert args.idp_seq, "Provide --aa_pdb, --cg_pdb or --idp_seq"
+			if args.baul2019: assert args.idp_seq, "Provide --aa_pdb, --cg_pdb or --idp_seq"
 			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
 
 	if args.control:	#Use Protein with DNA/RNA bound at natve site
@@ -697,8 +699,8 @@ def main():
 	elif args.reddy2017:
 		top=Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.baidya2022:
-		top=Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+	elif args.baul2019:
+		top=Baul2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	elif args.baratam2024:
 		assert args.aa_pdb or args.cg_pdb, "Error, SOP-MULTI needs input structure"

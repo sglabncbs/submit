@@ -101,7 +101,7 @@ class Tables:
             V = V*cutoff
             V_1 = -1*V_1*cutoff
             r = np.round(r,3)
-            with open("table_coulomb_lj"+suffix,"w+") as fout1:
+            with open("table_coul_lj"+suffix,"w+") as fout1:
                 for i in range(r.shape[0]):
                     fout1.write('%e %e %e %e %e %e %e\n' %(r[i],V[i],V_1[i],A[i],A_1[i],B[i],B_1[i]))
         r = np.round(r,3)
@@ -1622,7 +1622,7 @@ class Reddy2017(Topology):
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
-class Baidya2022(Reddy2017):
+class Baul2019(Reddy2017):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
