@@ -1,0 +1,6 @@
+#FOR GROMACS 4.5.4
+cp ../prot_gromacs.* .
+editconf -f prot_gromacs.gro -o prot_gromacs.gro -c -box 250 250 250
+grompp -f ../../../run_coulvdwtable.mdp  -c prot_gromacs.gro -p prot_gromacs.top -o Output -po Output
+mdrun -deffnm Output -v -pd -table ../table_coul_lj0612.xvg -tablep ../table_coul_lj0612.xvg -tableb ../table.xvg
+rm \#*
