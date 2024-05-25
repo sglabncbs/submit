@@ -1697,9 +1697,19 @@ class Baul2019(Reddy2017):
         eps_bbsc = 1.0*self.fconst.caltoj
         eps_scsc = 1.0*self.fconst.caltoj
     
-        pairs  = []
-        pairs += [(x,y) for x in CA_atn for y in range(x+3,x+6) if y in all_atn]
-        pairs += [(x,y) for x in CB_atn for y in range(x+1,x+5) if y in all_atn]
+        pairs=[]
+        for c in data.CA_atn:
+            resnum = list(data.CA_atn[c].keys())
+            resnum.sort()
+            for x in resnum:
+                if x+2 in data.CA_atn[c]:pairs.append((data.CA_atn[c][x],data.CA_atn[c][x+2]))
+                for y in (x+1,x+2):
+                    if y in data.CB_atn[c]:pairs.append((data.CA_atn[c][x],data.CB_atn[c][y]))
+                    if x in data.CB_atn[c]:
+                        if y in data.CA_atn[c]:
+                            pairs.append((data.CB_atn[c][x],data.CA_atn[c][y]))
+                        if x in data.CB_atn[c] and y in data.CB_atn[c]:
+                            pairs.append((data.CB_atn[c][x],data.CB_atn[c][y]))
 
         I,K = np.transpose(np.int_(pairs))
         interaction_type = np.int_(\
