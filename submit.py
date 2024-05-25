@@ -438,8 +438,8 @@ def main():
 		fconst.Kr_prot=1.0*fconst.caltoj
 		CB_radii=True
 		charge.debye=True
-		charge.dielec=10
-		charge.iconc=0.01		# M
+		charge.dielec=78
+		charge.iconc=0.15	#M
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")

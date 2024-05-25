@@ -613,7 +613,7 @@ class PDB_IO:
     def buildProtIDR(self,fasta,rad,topbonds=False,CBgly=False):
         #reading fasta and writing stretched IDR to pdb
         outpdb = fasta+".pdb"
-        chains = dict()
+        chains,chain_order = dict(),list()
         with open(fasta) as fin:
             for line in fin:
                 line = line.strip()
@@ -623,6 +623,7 @@ class PDB_IO:
                     tag = tag[:len(tag)]+[chr(65+len(chains)),1][len(tag)-1:]
                     tag=tuple(tag)
                     chains[tag] = str()
+                    chain_order.append(tag)
                 else: chains[tag] += line.strip().upper()
 
         if topbonds:
@@ -633,7 +634,7 @@ class PDB_IO:
         with open(outpdb,"w+") as fout:
             ca_xyz = np.float_([0,0,0])
             offset,chain_count,atnum,prev_ca = 0,0,0,0
-            for tag in chains:
+            for tag in chain_order:
                 if len(tag)==3: 
                     name,c=tag[:-1]
                     r0=int(tag[-1])

@@ -1751,17 +1751,28 @@ class Baratam2024(Reddy2017):
         residues=set(self.idrdata.res+self.ordered.res)
         residues = [x for x in residues if "CA" in x]        
         residues.sort()
-        chain,prev_rnum="",0
+        chain,prev_rnum=0,0
         outfasta="unfolded.fa"
+
+        if len(self.ordered.cid)>len(self.idrdata.cid):
+            CID=self.ordered.cid
+            assert tuple(CID[:len(self.idrdata.cid)])==tuple(self.idrdata.cid)
+        else:
+            CID=self.idrdata.cid
+            assert tuple(CID[:len(self.ordered.cid)])==tuple(self.ordered.cid)
+
+        self.new2old_res,ch_count=dict(),-1
         with open(outfasta,"w+") as fout:
-            for cnum,rnum,rname,atname in residues:
+            for x in range(len(residues)):
+                cnum,rnum,rname,atname = residues[x]
                 assert atname=="CA"
-                if cnum!=chain or rnum-prev_rnum not in (0,1):
-                    fout.write("\n\n>chain:%s:%s\n"%(cnum,rnum))
+                if x==0 or CID[cnum]!=CID[chain] or rnum-prev_rnum not in (0,1):
+                    fout.write("\n\n>chain:%s:%s\n"%(CID[cnum],rnum))
+                    ch_count+=1
                 fout.write(self.idrdata.amino_acid_dict[rname])
                 chain = cnum
+                self.new2old_res[(ch_count,rnum)]=cnum,rnum
                 prev_rnum=rnum
-        residues.sort()
         #get unfolded CG-pdb
         unfolded = PDB_IO()
         unfolded.buildProtIDR(fasta=outfasta,rad=rad)
@@ -1884,7 +1895,8 @@ class Baratam2024(Reddy2017):
                     atname=line[12:16].strip()
                     resname=line[17:20].strip()
                     resnum=hy36decode(4,line[22:26])
-                    atinfo = (seqcount,resnum,resname,atname)
+                    seqcount0,resnum0 = self.new2old_res[(seqcount,resnum)]
+                    atinfo = (seqcount0,resnum0,resname,atname)
                     atype=atname
                     if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
                     if atype=="CB": atype+=seq[seqcount][rescount]
@@ -1899,12 +1911,19 @@ class Baratam2024(Reddy2017):
 
     def __get_idr_bonds__(self,data):
         unfolded=self.unfolded_data
-        new2old_atn = {unfolded.CA_atn[c][r]:data.CA_atn[c][r] \
-                    for c in unfolded.CA_atn for r in unfolded.CA_atn[c] \
-                            if c in data.CA_atn and r in data.CA_atn[c]}
-        new2old_atn.update({unfolded.CB_atn[c][r]:data.CB_atn[c][r] \
-                        for c in unfolded.CB_atn for r in unfolded.CB_atn[c] \
-                        if c in data.CB_atn and r in data.CB_atn[c]})
+        new2old_atn={}
+        for c in unfolded.CA_atn:
+            for r in unfolded.CA_atn[c]:
+                c0,r0=self.new2old_res[(c,r)]
+                assert r0==r
+                if c0 in data.CA_atn and r0 in data.CA_atn[c0]:
+                    new2old_atn[unfolded.CA_atn[c][r]]=data.CA_atn[c0][r0] 
+        for c in unfolded.CB_atn:
+            for r in unfolded.CB_atn[c]:
+                c0,r0=self.new2old_res[(c,r)]
+                assert r0==r
+                if c0 in data.CB_atn and r0 in data.CB_atn[c0]:
+                    new2old_atn[unfolded.CB_atn[c][r]]=data.CB_atn[c0][r0]
 
         unfolded.Bonds()
         dist_dict = {tuple(pairs[y]):dist[y] \
@@ -1996,13 +2015,21 @@ class Baratam2024(Reddy2017):
         eps_bbsc = 0.5*self.fconst.caltoj
         Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
         
-        old2new_atn = {data.CA_atn[c][r]:self.unfolded_data.CA_atn[c][r] \
-            for c in self.unfolded_data.CA_atn for r in self.unfolded_data.CA_atn[c] \
-            if c in data.CA_atn and r in data.CA_atn[c]}
-        old2new_atn.update({data.CB_atn[c][r]:self.unfolded_data.CB_atn[c][r] \
-            for c in self.unfolded_data.CB_atn for r in self.unfolded_data.CB_atn[c] \
-            if c in data.CB_atn and r in data.CB_atn[c]})
-       
+        old2new_atn=dict()
+        for c in self.unfolded_data.CA_atn:
+            for r in self.unfolded_data.CA_atn[c]:
+                c0,r0=self.new2old_res[(c,r)]
+                assert r0==r
+                if c0 in data.CA_atn and r0 in data.CA_atn[c0]:
+                    old2new_atn[data.CA_atn[c0][r0]]=self.unfolded_data.CA_atn[c][r]
+        for c in self.unfolded_data.CB_atn:
+            for r in self.unfolded_data.CB_atn[c]:
+                c0,r0=self.new2old_res[(c,r)]
+                assert r0==r
+                if c0 in data.CB_atn and r0 in data.CB_atn[c0]:
+                    old2new_atn[data.CB_atn[c0][r0]]=self.unfolded_data.CB_atn[c][r]
+            
+
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
@@ -2059,7 +2086,7 @@ class Baratam2024(Reddy2017):
                 if u_data.CA_atn[c][x] in new2old_atn:
                     if x+2 in u_data.CA_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
                     if x+1 in u_data.CB_atn[c]:pairs.append((u_data.CA_atn[c][x],u_data.CB_atn[c][x+1]))
-                    if x in data.CB_atn[c] and x+1 in u_data.CA_atn[c]:
+                    if x in u_data.CB_atn[c] and x+1 in u_data.CA_atn[c]:
                         pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][x+1]))
                 else:
                     if x+2 in u_data.CA_atn[c]:idr_pairs.append((u_data.CA_atn[c][x],u_data.CA_atn[c][x+2]))
