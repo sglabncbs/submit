@@ -221,7 +221,8 @@ class CoarseGrain:
 
 class PDB_IO:
         
-    def __init__(self) -> None:
+    def __init__(self,fileindex=0,nfiles=1) -> None:
+        self.file_ndx=[str(fileindex),str()][int(nfiles==1)]
         self.nucleotide_dict = nucl_res = {x:x[-1] for x in ("A","G","T","U","C","DA","DG","DT","DC")}
         self.nucl = Nucl_Data()
         self.prot = Prot_Data()
@@ -480,7 +481,7 @@ class PDB_IO:
         det = CoarseGrain()
         
         if len(self.prot.lines) != 0:
-            prot_grofile = "prot_"+outgro
+            prot_grofile = "prot%s_%s"%(self.file_ndx,outgro)
             #default CA position: CA-atom
             if CAcom: self.prot.CA = det.get_CA_COM(reslist=self.prot.res,XYZ=self.prot.xyz)
             else: self.prot.CA = det.get_CA_atom(reslist=self.prot.res,XYZ=self.prot.xyz)
@@ -539,7 +540,7 @@ class PDB_IO:
                     fgro.close()
 
         if len(self.nucl.lines) != 0:   
-            nucl_grofile = "nucl_"+outgro
+            nucl_grofile = "nucl%s_%s"%(self.file_ndx,outgro)
             self.nucl.P = det.get_P_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["P"])
             self.nucl.bb_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P.pdb"])
             self.nucl.P_atn = dict()

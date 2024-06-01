@@ -118,6 +118,7 @@ def main():
 	parser.add_argument("--baul2019","-baul2019","--sopsc_idp","-sopsc_idp",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp2","-sopsc_idp2",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baratam2024","-baratam2024","--sop-multi","-sop-multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB")
+	parser.add_argument("--banerjee2023","-banerjee2023","--selfpeptide","-selfpeptide",action="store_true",help="Banerjee & Gosavi 2023 Self-Peptide model")
 	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
 
 	#input options for protein
@@ -148,21 +149,21 @@ def main():
 	parser.add_argument("--W_cont_p","-W_cont_p",action="store_true",help="Weight (and normalize) Protein CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_p","-cmap_p",help="User defined Protein cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_p","-scaling_p", help="User defined scaling for mapping to all-atom contact-map.")
-	parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for RNA/DNA
 	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype_n","-cutofftype_n",type=int,help="For RNA/DNA. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_n","-W_cont_n",action="store_true",help="Weight (and normalize) RNA/DNA CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_n","-cmap_n",help="User defined RNA/DNA cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_n","-scaling_n", help="User RNA/DNA defined scaling for mapping to all-atom contact-map.")
-	parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#inter Protein-RNA/DNA
 	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype_i","-cutofftype_i",type=int,help="For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_i","-W_cont_i",action="store_true",help="Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_i","-cmap_i",help="User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_i","-scaling_i", help="User Protein RNA/DNA interface defined scaling for mapping to all-atom contact-map.")
-	parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 
 	#atom type 1: CA only. 2: Ca+Cb
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -178,6 +179,7 @@ def main():
 	#input
 	parser.add_argument("--aa_pdb","-aa_pdb", nargs='+', help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
 	parser.add_argument("--cg_pdb","-cg_pdb", nargs='+', help='User input coarse grained pdbfile')
+	parser.add_argument("--nmol","-nmol", nargs='+', help="Include nmol number of molecules (1 pdbfile) in the topology")
 
 	#output
 	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.top')
@@ -261,7 +263,7 @@ def main():
 	opt.control_run=False
 
 	CGlevel={"prot":2,"nucl":3}
-	Nmol={"prot":1,"nucl":1}
+	Nmol={"prot":[1],"nucl":[1]}
 	rad=dict()	 
 
 	#Set default parameters for proteins
@@ -504,9 +506,9 @@ def main():
 	if args.scaling_n: nucl_contmap.scale=float(args.scaling_n)
 	if args.scaling_i: inter_contmap.scale=float(args.scaling_i)
 	if args.contfunc: prot_contmap.func,nucl_contmap.func=int(args.contfunc),int(args.contfunc)
-	if args.contfunc_p: prot_contmap.func=int(args.contfunc_p)
-	if args.contfunc_n: nucl_contmap.func=int(args.contfunc_n)
-	if args.contfunc_i: inter_contmap.func=int(args.contfunc_i)
+	#if args.contfunc_p: prot_contmap.func=int(args.contfunc_p)
+	#if args.contfunc_n: nucl_contmap.func=int(args.contfunc_n)
+	#if args.contfunc_i: inter_contmap.func=int(args.contfunc_i)
 	assert (prot_contmap.func in range(0,6+1))
 	assert (nucl_contmap.func in range(0,6+1))
 	assert (inter_contmap.func in range(0,6+1))
@@ -547,13 +549,6 @@ def main():
 
 	if args.CA_com:CA_com=True
 
-	if args.dswap:
-		opt.intra_symmetrize=True
-		Nmol["prot"]=2
-		if CGlevel["nucl"] != 0:
-			print ("--dwap not supported for RNA/DNA. Will only be applied to protein topology")
-		print ("--dswap assumes the input protein is a single unit. For adding 2 chains, use 'genbox' of 'gmx insert-molecules'")
-	
 	if args.CA_rad: rad["CA"]=float(args.CA_rad)
 	if args.CB_rad:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -635,15 +630,25 @@ def main():
 	if args.debye_length: charge.inv_dl=1.0/float(args.debye_length)
 
 	#input structure file
-	pdbdata=PDB_IO()
+	pdbdata=[]
 	if prot_contmap.type == 1: assert args.aa_pdb, "Error. No all-atom pdb provided. --aa_pdb"
-	if args.aa_pdb: pdbdata.loadfile(infile=args.aa_pdb[0],refine=True)
-	elif args.cg_pdb: pdbdata.loadfile(infile=args.cg_pdb[0],refine=True)
+	if args.aa_pdb: 
+		assert not args.cg_pdb, "Error, Cannot use all atom and CG pdb together"
+		nfiles=len(args.aa_pdb)
+		for i in range(nfiles):
+			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
+			pdbdata[-1].loadfile(infile=args.aa_pdb[i],refine=True)
+	elif args.cg_pdb: 
+		nfiles=len(args.cg_pdb)
+		for i in range(nfiles):
+			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
+			pdbdata[-1].loadfile(infile=args.cg_pdb[i],refine=True)
 	else:
+		pdbdata=[PDB_IO()]
 		if args.idp_seq:
 			assert args.baul2019 or args.baratam2024, "Error, building CG PDB using idp_seq only supported with --baul2019 or --baratam2024"
 			assert args.idp_seq.endswith((".fa",".fasta"))
-			pdbdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
+			pdbdata[0].buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
 		else: 
 			if args.baul2019: assert args.idp_seq, "Provide --aa_pdb, --cg_pdb or --idp_seq"
 			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
@@ -657,16 +662,37 @@ def main():
 		if args.custom_nuc:
 			custom_nucl_file=PDB_IO()
 			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True)
+			assert len(pdbdata)==1, \
+				"Error: --custom_nuc file is only supported with single --aa_pdb/--cg_pdb. \
+				Give your RNA/DNA file directly to --aa_pdb/--cc_pdb."
 			print (">> Note: Using RNA/DNA from",custom_nucl_file.nucl.pdbfile)
-			pdbdata.nucl=custom_nucl_file.nucl
+			pdbdata[0].nucl=custom_nucl_file.nucl
 			del(custom_nucl_file)
-			pdbdata.coordinateTransform()
+			pdbdata[0].coordinateTransform()
 		else:
-			if pdbdata.prot.pdbfile!="" and  pdbdata.nucl.pdbfile != "":
+			if pdbdata[0].prot.pdbfile!="" and  pdbdata[0].nucl.pdbfile != "":
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
-				pdbdata.coordinateTransform()
-	if len(pdbdata.prot.lines)==0: Nmol['prot']=0
-	if len(pdbdata.nucl.lines)==0: Nmol["nucl"]=0
+				pdbdata[0].coordinateTransform()
+	
+	if args.nmol:
+		assert len(args.nmol)==len(pdbdata), "Error, number of values given to --nmol should be equal to values given to --aa_pdb/--cg_pdb"
+		args.nmol=np.int_(args.nmol)
+	else: args.nmol = np.ones(len(pdbdata),dtype=int)
+	Nmol['prot'],Nmol["nucl"]=list(args.nmol),list(args.nmol)
+	for i in range(len(pdbdata)):
+		if len(pdbdata[i].prot.lines)==0: Nmol["prot"][i]=0
+		if len(pdbdata[i].nucl.lines)==0: Nmol["nucl"][i]=0
+	if args.dswap:
+		opt.intra_symmetrize=True
+		for i in range(len(pdbdata)):
+			if Nmol["prot"][i]==1: Nmol["prot"][i]=2
+			if Nmol["nucl"][i]==1: Nmol["prot"][i]=2
+		#if CGlevel["nucl"] != 0:
+			#print ("--dwap not supported for RNA/DNA. Will only be applied to protein topology")
+		print ("--dswap assumes the input protein is a single unit. For adding 2 chains, use 'genbox' of 'gmx insert-molecules'")
+	assert len(Nmol["prot"])==len(Nmol["nucl"])
+	if len(Nmol["prot"])==1: 
+		if inter_contmap.type not in (-1,0): inter_contmap.type=-1
 
 	#output grofiles
 	if args.outgro: grofile=str(args.outgro)
@@ -685,7 +711,9 @@ def main():
 		if not args.outgro: grofile="opensmog.gro"
 		
 	#write CG file
-	pdbdata.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
+	nfiles=len(pdbdata)
+	for i in range(nfiles):
+		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 
 	if args.clementi2000:
 		top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
@@ -711,7 +739,7 @@ def main():
 		top=Baratam2024(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt,idrdata=idrdata)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		unfolded=PDB_IO()
-		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.proc_data_p.bonds)
+		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.bonds[0])
 		unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 	else:
 		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

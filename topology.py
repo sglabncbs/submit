@@ -112,7 +112,8 @@ class Tables:
         return
     
 class Calculate:
-    def __init__(self,aa_pdb) -> None:
+    def __init__(self,aa_pdb,pdbindex="") -> None:
+        self.file_ndx=str(pdbindex)
         self.allatpdb = aa_pdb
         self.cgpdb = Prot_Data
         self.cgpdb_n,self.cgpdb_p = self.cgpdb,self.cgpdb
@@ -328,6 +329,7 @@ class Calculate:
         elif group.lower() in ("n","nucl","nucleic","rna","dna"): tagforfile,group="nucl","nucl"
         elif group.lower() == ("a","all"): tagforfile,group="all","all"
         elif group.lower() in ("i","inter"): tagforfile,group="interProtNucl","inter"
+        tagforfile+=self.file_ndx
 
         if cmap.type == -1: return  # Generating top without pairs 
 
@@ -395,7 +397,8 @@ class Calculate:
             contacts_dict = dict()
             
             mol_id = np.int_(mol_id)
-            str_cid  = np.array([["nucl_","prot_"][mol_id[x]]+str(cid[x]+1) for x in range(mol_id.shape[0])])
+            str_cid  = np.array([["nucl%s_"%self.file_ndx,"prot%s_"%self.file_ndx][mol_id[x]]+\
+                                    str(cid[x]+1) for x in range(mol_id.shape[0])])
 
             if group != "inter":  #loop over all vs all atom pairs
                 bb_sc0,mol_id0,cid0,rnum0,aa_data_xyz0,str_cid0=bb_sc,mol_id,cid,rnum,aa_data_xyz,str_cid
@@ -450,6 +453,7 @@ class Calculate:
         elif cmap.type == 2:        # Calculating contacts from CG structure
             cid = []
             if len(self.CA_atn) != 0:
+                tag="prot%s_"%self.file_ndx
                 cacasep=4;cacbsep=3;cbcbsep=3
                 for c1 in self.CA_atn:
                     pairs += [(self.CA_atn[c1][x],self.CA_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c1] if y-x>=cacasep]
@@ -457,7 +461,7 @@ class Calculate:
                         pairs += [(self.CA_atn[c1][x],self.CB_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CA_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c1] if y-x>=cacbsep]
                         pairs += [(self.CB_atn[c1][x],self.CB_atn[c1][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c1] if y-x>=cbcbsep]
-                    cid += [("prot_"+str(c1+1),"prot_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
+                    cid += [(tag+str(c1+1),tag+str(c1+1)) for x in range(len(pairs)-len(cid))]
                     for c2 in self.CA_atn:
                         if c2>c1: 
                             pairs += [(self.CA_atn[c1][x],self.CA_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c2]]
@@ -465,28 +469,29 @@ class Calculate:
                                 pairs += [(self.CA_atn[c1][x],self.CB_atn[c2][y]) for x in self.CA_atn[c1] for y in self.CB_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CA_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CA_atn[c2]]
                                 pairs += [(self.CB_atn[c1][x],self.CB_atn[c2][y]) for x in self.CB_atn[c1] for y in self.CB_atn[c2]]
-                            cid += [("prot_"+str(c1+1),"prot_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
+                            cid += [(tag+str(c1+1),tag+str(c2+1)) for x in range(len(pairs)-len(cid))]
             if len(self.P_atn)!=0:
+                tag="nucl%s_"%self.file_ndx
                 ppsep,ressep=1,1
                 if len(self.S_atn)==0:
                     for c1 in self.P_atn:
                         pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c1] if y-x>=ppsep]
-                        cid += [("nucl_"+str(c1+1),"nucl_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
+                        cid += [(tag+str(c1+1),tag+str(c1+1)) for x in range(len(pairs)-len(cid))]
                         for c2 in self.P_atn: 
                             if c2>c1:
                                 pairs += [(self.P_atn[c1][x],self.P_atn[c1][y]) for x in self.P_atn[c1] for y in self.P_atn[c2]]
-                                cid += [("nucl_"+str(c1+1),"nucl_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
+                                cid += [(tag+str(c1+1),tag+str(c2+1)) for x in range(len(pairs)-len(cid))]
                 else:
                     assert len(self.B_atn)!=0
                     for c1 in self.S_atn:
                         all_atn_c1 = list(self.P_atn[c1].items())+list(self.S_atn[c1].items())+list(self.B_atn[c1].items())
                         pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c1 if ry-rx>=ressep]
-                        cid += [("nucl_"+str(c1+1),"nucl_"+str(c1+1)) for x in range(len(pairs)-len(cid))]
+                        cid += [(tag+str(c1+1),tag+str(c1+1)) for x in range(len(pairs)-len(cid))]
                         for c2 in self.S_atn:
                             if c2>c1:
                                 all_atn_c2 = list(self.P_atn[c2].items())+list(self.S_atn[c2].items())+list(self.B_atn[c2].items())
                                 pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c2]
-                                cid += [("nucl_"+str(c1+1),"nucl_"+str(c2+1)) for x in range(len(pairs)-len(cid))]
+                                cid += [(tag+str(c1+1),tag+str(c2+1)) for x in range(len(pairs)-len(cid))]
 
             pairs = np.int_(pairs)
             cid = np.array(cid)
@@ -510,135 +515,187 @@ class Calculate:
         return
 
 class MergeTop:
-
-    def __init__(self,proc_data,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap):
+    def __init__(self,proc_data,Nprot,Nnucl,topfile,opt,excl_volume,excl_rule,fconst,cmap,coul):
         self.data = proc_data
+        self.topfile=topfile
         self.nucl_cmap = cmap["nucl"]
         self.prot_cmap = cmap["prot"]
         self.inter_cmap= cmap["inter"]
         self.opt = opt
         self.excl_volume = excl_volume
+        self.atomtypes = {}
         self.excl_rule = excl_rule
         self.fconst = fconst
-        self.__merge__(Nprot=Nprot,Nnucl=Nnucl,topfile=topfile,opt=opt,excl_volume=excl_volume)
-
-    def __topParse__(self,topfile):
-        print ("> Parsing",topfile)
-        top = {x.split("]")[0].strip():x.split("]")[1].strip().split("\n") for x in open(topfile).read().split("[") if len(x.split("]"))==2}
-        extras = [x.split() for x in open(topfile).read().split("[") if len(x.split("]"))<2][0]
-        order = [x.split("]")[0].strip() for x in open(topfile).read().split("[") if len(x.split("]"))==2]
-        return top,extras,order
-
+        #hold data for functions
+        self.atoms_in_mol = list()
+        self.mol_surface_atoms = list()
+        self.old2new_atomtypes = {k:[k] for k in self.excl_volume}
+        self.molatnum2new_atomtypes = {}
+        self.atoms_section=str()
+        if self.opt.opensmog:
+            self.xmlfile=OpenSMOGXML(xmlfile=self.opt.xmlfile,coulomb=coul)
+        self.__merge__(Nprot=Nprot,Nnucl=Nnucl,opt=opt,excl_volume=excl_volume)
+        
     def nPlaces(self,n,count2str):
         return "0"*(n-len(str(count2str)))+str(count2str)
 
-    def __writeAtomsSection__(self,fsec,inp,nmol,tag,prev_at_count=0):
+    def __topParse__(self,topfile_tag):
+        topfile="%s_%s"%(topfile_tag,self.topfile)
+        print ("> Parsing",topfile)
+        top={x.split("]")[0].strip():x.split("]")[1].strip().split("\n") for x in open(topfile).read().split("[") if len(x.split("]"))==2}
+        extras=[x.split() for x in open(topfile).read().split("[") if len(x.split("]"))<2][0]
+        order=[x.split("]")[0].strip() for x in open(topfile).read().split("[") if len(x.split("]"))==2]
+        return top,extras,order
+
+    def __smogxmlParse__(self,xmlfile_tag):
+        xmlfile="%s_%s"%(xmlfile_tag,self.opt.xmlfile)
+        data=dict()
+        for line in open(xmlfile):
+            indent=len(line)-len(line.lstrip())
+            if indent==0: continue
+            elif indent==1: 
+                if "/" in line: continue
+                tag=line
+                if tag not in data: data[tag]={}
+            elif indent==2: 
+                if "/" in line: continue
+                subtag=line
+                if subtag not in data[tag]:
+                    data[tag][subtag]={"expr":str(),"params":list(),"data":list()}
+            elif indent==3:
+                if "expr" in line: data[tag][subtag]["expr"]=line
+                elif "parameter" in line: data[tag][subtag]["params"].append(line)
+                else: data[tag][subtag]["data"].append(line)
+        return data
+
+    def __getSurfaceAtoms__(self,contacts,tag):
+        for psirs,chains,eps,sig in contacts:
+            surface=list()
+            I,J = 1+np.transpose(psirs)
+            surface += [I[x] for x in range(I.shape[0]) if chains[x][0].split("_")[0]==tag]
+            surface += [J[x] for x in range(J.shape[0]) if chains[x][1].split("_")[0]==tag]
+        surface=list(set(surface))
+        surface.sort()
+        return surface
+
+    def __getAtomsSection__(self,inp,nmol,tag,prev_at_count=0,surface=[]):
         #writing merged atoms section
+        section = str()
         offset = 0
         for y in inp:
             if y.strip().startswith(";") or y.strip() == "": continue
             offset = 1 - int(y.split()[0])
             break
         atoms_in_mol = offset
+        assert tag not in self.atomtypes
+        self.atomtypes[tag]=[]
+        assert tag not in self.molatnum2new_atomtypes
+        self.molatnum2new_atomtypes[tag]={}
         for x in range(0,nmol):
-            fsec.write(tag+self.nPlaces(n=3,count2str=x+1)+"\n")
+            section+=";%s_%s\n"%(tag,self.nPlaces(n=3,count2str=x+1))
             for y in inp:
                 if y.strip() == "": continue
-                elif y.strip().startswith(";"): fsec.write(y+"\n")
+                elif y.strip().startswith(";"): section+=y+"\n"
                 else:
                     i=y.strip().split()
+                    if int(i[0]) in surface:
+                        new_type="%s_%s%s"%(i[1],i[0],tag[0]+tag[4:])
+                        #self.excl_volume[new_type]=self.excl_volume[i[1]]
+                        if new_type not in self.old2new_atomtypes[i[1]]:
+                            self.old2new_atomtypes[i[1]].append(new_type)
+                        self.molatnum2new_atomtypes[tag][int(i[0])]=new_type
+                        i[1]=new_type
                     a0 = offset + int(i[0]) + prev_at_count + x*atoms_in_mol
                     a5 = offset + int(i[5]) + prev_at_count + x*atoms_in_mol
-                    fsec.write("  %5d %5s %4s %5s %5s %5d %5s %5s\n" % (a0, i[1], i[2], i[3], i[4], a5, i[6], i[7]))
-                    if x==0: atoms_in_mol = a0
-        return atoms_in_mol,offset
+                    section+="  %5d %10s %4s %5s %5s %5d %5s %5s\n" % (a0, i[1].center(10), i[2], i[3], i[4], a5, i[6], i[7])
+                    self.atomtypes[tag].append(i[1])
+                    if x==0: atoms_in_mol = int(i[0])
+        self.atoms_in_mol.append(atoms_in_mol)
+        self.atoms_section += section
+        return atoms_in_mol*nmol
 
-    def __writeInteractions__(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset):
-        for x in range(0,nmol):
-            fsec.write(tag+self.nPlaces(n=3,count2str=x+1)+"\n")
-            for y in inp:
-                if y.strip() == "": continue
-                elif y.strip().startswith(";"): fsec.write(y+"\n")
-                else:
-                    line=y.strip() .split()
-                    a = [atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)]
-                    fsec.write(nparticles*" %5d"%tuple(a))
-                    fsec.write(len(line[nparticles:])*" %5s"%tuple(line[nparticles:]))
-                    fsec.write("\n")
-        return
+    def __writeAtomtypesSection__(self,fsec,inp,exclude=[]):
+        temp = []
+        for data in inp:
+            for line in data:
+                if line.strip() != "" and line not in temp:
+                    temp.append(line)
+                    if line.strip()[0]==";": 
+                        fsec.write("%s\n"%line)
+                        continue
+                    line=line.split()
+                    bead=line[0]
+                    for new_bead in self.old2new_atomtypes[bead]:
+                        fsec.write(" %10s"%new_bead.center(10))
+                        fsec.write(len(line[1:])*" %s"%tuple(line[1:])+"\n")
 
-    def __writeSymPaIrs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset):
-        fsec.write(tag+"symmetrized_interactions_"+self.nPlaces(n=3,count2str=nmol)+"\n")
-        for y in inp:
-            if y.strip() == "": continue
-            elif y.strip().startswith(";"): fsec.write(y+"\n")
-            else:
-                line=y.strip() .split()
-                group = []
-                I = [atnum_offset + int(line[0]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
-                J = [atnum_offset + int(line[1]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
-                for i in range(len(I)):
-                    for j in range(len(J)): 
-                        if i!=j: 
-                            fsec.write(2*" %5d"%(I[i],J[j]))
-                            fsec.write(len(line[2:])*" %5s"%tuple(line[2:]))
-                            fsec.write("\n")
-        return
+    def __writeSymPairs2Nonbond__(self,fsec,inp,cmap_func):
+        nonbond_pairs={}
+        for pairs,chains,eps,sig in inp:
+            C1,C2 = np.transpose(chains)
+            C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            I,J=1+np.transpose(pairs)    
+            I=[self.molatnum2new_atomtypes[C1[x]][I[x]] for x in range(I.shape[0])]
+            J=[self.molatnum2new_atomtypes[C2[x]][J[x]] for x in range(J.shape[0])]
+            func=1
+            if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
+            elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
+            elif cmap_func in (5,6,7):
+                func,sd = 6,0.05
+                I_rad = np.float_([self.excl_volume[I[x]] for x in range(I.shape[0])])
+                J_rad = np.float_([self.excl_volume[J[x]] for x in range(J.shape[0])])
+                if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
+                elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
+                values = eps,sig,np.ones(C12.shape[0])*sd,C12
+            values = np.transpose(values)
+            for x in range(pairs.shape[0]):
+                p=[I[x],J[x]]; p.sort(); p=tuple(p)
+                ptype=[y.split("_")[0] for y in p]; ptype.sort();ptype=ptype=tuple(ptype)
+                if ptype not in nonbond_pairs: nonbond_pairs[ptype]={}
+                nonbond_pairs[ptype][p]=0
+                if self.opt.opensmog:
+                    self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"sig":[sig[x]]})
+                    continue
+                fsec.write(" %10s %10s\t %5d\t"%(p[0].center(10),p[1].center(10),func))
+                fsec.write(len(values[x])*" %e"%tuple(values[x])+"\n")
+            
+        return nonbond_pairs
 
-    def __writeInterPairs__(self,fsec,nmol,atoms_in_mol,tag,atnum_offset,sym):
-        print ("> Determining Inter pairs")
-        cmap = self.inter_cmap
-        data=self.data
-        inp=self.data.contacts
-        if not sym: assert nmol[0]==1 and nmol[1]==1, "Multplte units not supported if not symmeterized"
-        prev_at_count = [0,nmol[0]*atoms_in_mol[0]]
-
-
-        for x0 in range(nmol[0]):
-            fsec.write(tag[0]+self.nPlaces(n=3,count2str=x0+1)+"|") 
-            for x1 in range(nmol[1]):
-                fsec.write(tag[1]+self.nPlaces(n=3,count2str=x1+1)+"\n")    
-                for pairs,chains,dist,eps in data.contacts:
-                    I,J = np.transpose(pairs)
-                    func = 1
-                    if cmap.func==1: values = 2*eps*(dist**6.0),eps*(dist**12.0)
-                    elif cmap.func==2: values = 6*eps*(dist**10.0),5*eps*(dist**12.0)
-                    elif cmap.func==3: assert cmap.func!=3,"Error 18-12 not supported yet"
-                    elif cmap.func in (5,6):
-                        func,sd = 6,0.05
-                        I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
-                        J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
-                        if self.excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
-                        elif self.excl_rule == 2: c12 = ((I+J)/2.0)**12.0
-                        values = eps,dist,sd,c12
-                    I = 1 + I + atnum_offset[0] + prev_at_count[0] + x0*atoms_in_mol[0]
-                    J = 1 + J + atnum_offset[1] + prev_at_count[1] + x1*atoms_in_mol[1]
-                    values = np.transpose(values)                    
-                    for x in range(pairs.shape[0]): 
-                        fsec.write(" %5d %5d %5d"%(I[x],J[x],func))
-                        fsec.write(len(values[x])*" %e"%tuple(values[x]))
-                        fsec.write("\n")
-        return
-
-    def __writeNonbondParams__(self,fsec):
+    def __writeNucProtParams__(self,fsec,exclude={}):
         print ("> Writing user given custom nonbond_params:",self.opt.interface)
-        
-        eps,sig = self.data.Interactions(interface=self.opt.interface)
-           
-        if self.excl_rule == 2:
-            pairs = []
-            Krep = (self.fconst.Kr_prot+self.fconst.Kr_nucl)*0.5
-            for x in self.excl_volume:
-                if not x.startswith(("CA","CB")):
-                    for y in self.excl_volume:
-                        if y.startswith(("CA","CB")):
-                            C10,C12 = 0.0, Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                            p = [x,y]; p=tuple(p)
-                            if p not in pairs and p not in eps:
-                                fsec.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
-                                pairs.append(p)
+        eps,sig = self.data[0].Interactions(interface=self.opt.interface)
+        cmap_func=self.inter_cmap.func
+
+        pairs = []
+        Krep = (self.fconst.Kr_prot+self.fconst.Kr_nucl)*0.5
+        for x in self.excl_volume:
+            if not x.startswith(("CA","CB")):
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB")):
+                        func=1
+                        if self.excl_rule==1: c12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                        elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
+                        if cmap_func in (1,2): values = 0,C12
+                        elif cmap_func in (5,6):
+                            func,sd = 6,0.05
+                            values = 0,0,sd,C12
+                        p = [x,y]; ptype=p; p=tuple(p)
+                        ptype.sort();ptype=tuple(ptype)
+                        if p not in pairs and p not in eps:
+                            pairs.append(p)
+                            for i in self.old2new_atomtypes[p[0]]:
+                                for j in self.old2new_atomtypes[p[1]]:
+                                    a=[i,j]; a.sort(); a=tuple(a)
+                                    if ptype in exclude and a in exclude[ptype]: continue
+                                    if self.opt.opensmog:
+                                        self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"sig":[0]})
+                                        continue
+                                    fsec.write(" %10s %10s\t %d\t"%(i.center(10),j.center(10),func))
+                                    fsec.write(len(values)*" %e"%tuple(values))
+                                    fsec.write("\n")
+
+
         if len(eps)>0:
-            cmap_func=self.inter_cmap.func
             fsec.write("; Custom Protein-RNA/DNA interactions\n")
             if self.nucl_cmap.func in (5,6):
                 fsec.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
@@ -649,7 +706,7 @@ class MergeTop:
                 if p[1] not in self.excl_volume: continue
                 p=list(p); p.sort(); p=tuple(p)
                 if p in pairs: continue
-                pairs.append(p)
+                pairs.append(p); ptype=p
                 if p not in sig: cmap_func=-1
                 else: sig[p]=sig[p][0] #to be changed for Gaussian
                 func=1
@@ -664,64 +721,376 @@ class MergeTop:
                     if self.excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif self.excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = eps[p],sig[p],sd,C12
-                fsec.write(" %5s %5s\t%d\t"%(p[0],p[1],func))
-                fsec.write(len(values)*" %e"%tuple(values))
-                fsec.write("\n")
+                for x in self.old2new_atomtypes[p[0]]:
+                    for y in self.old2new_atomtypes[p[1]]:
+                        a=[x,y]; a.sort(); a=tuple(a)
+                        if ptype in exclude and a in exclude[ptype]:continue
+                        if self.opt.opensmog:
+                            self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"sig":[sig[p]]})
+                            continue
+                        fsec.write(" %10s %10s\t %d\t"%(x.center(10),y.center(10),func))
+                        fsec.write(len(values)*" %e"%tuple(values))
+                        fsec.write("\n")
+        return pairs
+
+    def __writeNonbondParams__(self,fsec,inp,exclude={}):
+        print ("> Ignoring allready added %d contact pair-types."%len(exclude))
+        temp=[]
+        for data in inp:
+            for line in data:
+                if line.strip().startswith(";"): fsec.write(line+"\n")
+                elif line.strip() != "":
+                    line=line.split()
+                    beads=line[:2]; beads.sort(); beads=tuple(beads)
+                    c12=line[-1]
+                    if beads in temp: continue
+                    temp.append(beads)
+                    b1 = self.old2new_atomtypes[beads[0]]
+                    b2 = self.old2new_atomtypes[beads[1]]
+                    for i in range(len(b1)):
+                        for j in range(len(b2)):
+                            if j<i: continue
+                            new_beads=[b1[i],b2[j]];new_beads.sort();new_beads=tuple(new_beads)
+                            if beads in exclude and new_beads in exclude[beads]: continue
+                            fsec.write(2*" %10s"%(new_beads[0].center(10),new_beads[1].center(10)))
+                            fsec.write("\t"+len(line[2:])*" %5s"%tuple(line[2:])+"\n")
         return
-                            
-    def __merge__(self,Nprot,Nnucl,topfile,opt,excl_volume):
+
+    def __writeNonbondParamsXML__(self,fsec,inp,exclude={}):
+        print ('> Ignoring allready added %d contact pair-types.'%len(exclude))
+        temp=[]
+        for data in inp:
+            for line in data:
+                line=line.split('"')
+                assert line[0].endswith('type1=') and line[2].endswith('type2=')
+                beads=[line[1],line[3]]; beads.sort(); beads=tuple(beads)
+                if beads in temp: continue
+                temp.append(beads)
+                b1 = self.old2new_atomtypes[beads[0]]
+                b2 = self.old2new_atomtypes[beads[1]]
+                for i in range(len(b1)):
+                    for j in range(len(b2)):
+                        if j<i: continue
+                        new_beads=[b1[i],b2[j]];new_beads.sort();new_beads=tuple(new_beads)
+                        if beads in exclude and new_beads in exclude[beads]: continue
+                        fsec.write(line[0]+3*'"%s'%(new_beads[0],line[2],new_beads[1]))
+                        fsec.write(len(line[4:])*'"%s'%tuple(line[4:]))
+        return
+
+    def __writeInteractions__(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+        for x in range(0,nmol):
+            fsec.write(";%s_%s\n"%(tag,self.nPlaces(n=3,count2str=x+1)))
+            for y in inp:
+                if y.strip() == "": continue
+                elif y.strip().startswith(";"): fsec.write(y+"\n")
+                else:
+                    line=y.strip() .split()
+                    a = [atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)]
+                    fsec.write(nparticles*" %5d"%tuple(a))
+                    fsec.write(len(line[nparticles:])*" %5s"%tuple(line[nparticles:]))
+                    fsec.write("\n")
+        return
+
+    def __writeSymPaIrs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+        fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
+        for y in inp:
+            if y.strip() == "": continue
+            elif y.strip().startswith(";"): fsec.write(y+"\n")
+            else:
+                line=y.strip() .split()
+                I = [atnum_offset + int(line[0]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+                J = [atnum_offset + int(line[1]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+                for i in range(len(I)):
+                    for j in range(len(J)): 
+                        fsec.write(2*" %5d"%(I[i],J[j]))
+                        fsec.write(len(line[2:])*" %5s"%tuple(line[2:]))
+                        fsec.write("; %s(%d,%d) %5s %5s\n"%tuple([tag,i,j]+line[:2]))
+        return
+
+    def __writeInteractionsXML__(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+        for x in range(0,nmol):
+            #fsec.write(';%s_%s\n'%(tag,self.nPlaces(n=3,count2str=x+1)))
+            for line in inp:
+                line=line.split('"')
+                assert line[0].endswith('i=') and line[2].endswith('j=')
+                a = [atnum_offset + int(line[2*i+1]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)]
+                fsec.write(line[0])
+                for i in range(nparticles): fsec.write('"%d"%s'%(a[i],line[2*(i+1)]))
+                fsec.write(len(line[2*nparticles+1:])*'"%s'%tuple(line[2*nparticles+1:]))            
+        return
+
+    def __writeSymPaIrsXML__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+        fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
+        for line in inp:
+            line=line.split('"')
+            group = []
+            I = [atnum_offset + int(line[1]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+            J = [atnum_offset + int(line[3]) + prev_at_count + x*atoms_in_mol for x in range(nmol)]
+            for i in range(len(I)):
+                for j in range(len(J)): 
+                    fsec.write('%s"%d"%s"%d'%(line[0],I[i],line[2],J[j]))
+                    fsec.write(len(line[4:])*'"%s'%tuple(line[4:]))
+        return
+
+    def __writeInterPairs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,sym=True,neighlist=False,atnum_offset=0):
+        print ("> Determining Inter pairs")
+        atoms_in_mol=self.atoms_in_mol
+        cmap_func=self.inter_cmap.func
+        if not sym: 
+            assert len(nmol)==sum(nmol),"Multplte units not supported if not symmeterized"
+        prev_at_count={tag[x]:int(sum(prev_at_count[:x+1])) for x in range(len(tag))}
+        nmol={tag[x]:nmol[x] for x in range(len(tag))}
+        atoms_in_mol={tag[x]:atoms_in_mol[x] for x in range(len(tag))}
+        inter_exclusions=[";Inter-molecule symmetrized_interactions\n"]
+        fsec.write(";Inter-molecule symmetrized_interactions\n")
+        xml_pairs_data=list()
+        for pairs,chains,eps,sig in inp:
+            I,J = np.transpose(pairs)
+            C1,C2 = np.transpose(chains)
+            C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            sym_I = [1 + np.int_([I[y] + x*atoms_in_mol[C1[y]] for x in range(nmol[C1[y]])]) + \
+                        atnum_offset + prev_at_count[C1[y]] for y in range(I.shape[0])]
+            sym_J = [1 + np.int_([J[y] + x*atoms_in_mol[C2[y]] for x in range(nmol[C2[y]])]) + \
+                        atnum_offset + prev_at_count[C2[y]] for y in range(J.shape[0])]
+            func=1
+            if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
+            elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
+            elif cmap_func in (5,6,7):
+                func,sd = 6,0.05
+                I_rad = np.float_([self.excl_volume[self.atomtypes[C1[x]][I[x]]] for x in range(I.shape[0])])
+                J_rad = np.float_([self.excl_volume[self.atomtypes[C2[x]][J[x]]] for x in range(J.shape[0])])
+                if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
+                elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
+                values = eps,sig,np.ones(C12.shape[0])*sd,C12
+            values = np.transpose(values)
+            I,J = 1 + np.transpose(pairs)
+            for x in range(pairs.shape[0]):
+                for i in range(len(sym_I[x])):
+                    for j in range(len(sym_J[x])):
+                        if neighlist:
+                            if C1[x]==C2[x] and i==j and sym_I[x][0]!=sym_J[x][0]:
+                                inter_exclusions.append(" %5s %5s ; %s(%d)-%s(%d) %5d %5d\n"%(sym_I[x][i],sym_J[x][i],C1[x],i,C2[x],j,I[x],J[x]))
+                            continue
+                        if C1[x]==C2[x] and i==j: continue
+                        inter_exclusions.append(" %5s %5s ; %s(%d)-%s(%d) %5d %5d\n"%(sym_I[x][i],sym_J[x][j],C1[x],i,C2[x],j,I[x],J[x]))
+                        if self.opt.opensmog:
+                            xml_pairs_data.append((sym_I[x][i],sym_J[x][j],eps[x],sig[x],values[x][-1]))
+                            continue
+                        fsec.write(" %5s %5s\t%d\t"%(sym_I[x][i],sym_J[x][j],func))
+                        fsec.write(len(values[x])*" %e"%tuple(values[x]))
+                        fsec.write("; %s(%d)-%s(%d) %5d %5d\n"%(C1[x],i,C2[x],j,I[x],J[x]))
+
+        if self.opt.opensmog:
+            I,J,eps,sig,C12=np.transpose(xml_pairs_data)
+            pairs=-1+np.int_([(I[x],J[x]) for x in range(len(pairs))])
+            params={"r0":sig,"eps":eps}
+
+            if cmap_func==1: expr,name="eps*( 1*((r0/r)^12) - 2*((r0/r)^10) )","symInter_contacts_LJ-06-12"
+            elif cmap_func==2: expr,name="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )","symInter_contacts_LJ-10-12"
+            elif cmap_func in (5,6,7):
+                sd=0.05;params["C12"]=C12
+                expr="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
+                name="symInter_contacts_Gaussian-12"
+            self.xmlfile.write_pairs_xml(pairs=pairs,name=name,params=params,expression=expr)
+
+        return inter_exclusions
+
+    def __merge__(self,Nprot,Nnucl,opt,excl_volume):
         #combining top file
-        outfile = "merged_"
-        assert Nprot+Nnucl>1, "Error, cannot use combine with 1 molecule"
-        prot_top,nucl_top={},{}
-        if Nnucl>0:
-            nucl_top,extras,oerder = self.__topParse__(topfile="nucl_"+topfile)
-            outfile += "nucl"+self.nPlaces(3,Nnucl)+"_"
-        if Nprot>0: 
-            prot_top,extras,order = self.__topParse__(topfile="prot_"+topfile)
-            outfile += "prot"+self.nPlaces(3,Nprot)+"_"
-        if Nprot>0 and Nnucl>0:
+        assert len(Nprot)==len(Nnucl)
+        Ninp=len(Nprot)
+        outfile=self.topfile
+
+        parsed_top,parsed_xml=[],[]
+        tag_list,nmol_list=[],[]
+        temp_data=list()
+        if Ninp==1:
+            if Nnucl[0]>0: 
+                if self.opt.opensmog: 
+                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="nucl"))
+                parsed_top.append(self.__topParse__(topfile_tag="nucl"))
+                tag_list.append("nucl");nmol_list.append(Nnucl[0])
+                temp_data.append(self.data[0])
+            if Nprot[0]>0: 
+                if self.opt.opensmog: 
+                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="prot"))
+                parsed_top.append(self.__topParse__(topfile_tag="prot"))
+                tag_list.append("prot");nmol_list.append(Nprot[0])
+                temp_data.append(self.data[0])
+        else:        
+            for i in range(Ninp):
+                if Nnucl[i]>0: 
+                    if self.opt.opensmog: 
+                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="nucl%d"%i))
+                    parsed_top.append(self.__topParse__(topfile_tag="nucl%d"%i))
+                    tag_list.append("nucl%d"%i);nmol_list.append(Nnucl[i])
+                    temp_data.append(self.data[i])
+            for i in range(Ninp):
+                if Nprot[i]>0:
+                    if self.opt.opensmog: 
+                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="prot%d"%i))
+                    parsed_top.append(self.__topParse__(topfile_tag="prot%d"%i))
+                    tag_list.append("prot%d"%i);nmol_list.append(Nprot[i])
+                    temp_data.append(self.data[i])
+        Ninp,self.data=len(parsed_top),temp_data
+        del(temp_data)
+
+        inter_contacts=list()
+        self.mol_surface_atoms = [[] for x in range(Ninp)]
+        if len(nmol_list)>1:
+            if sum(Nprot)==0 or sum(Nnucl)==0 or self.prot_cmap.func==self.nucl_cmap.func==self.inter_cmap.func:
+                cmap_func=self.inter_cmap.func
             if self.inter_cmap.type>=0: 
                 if not opt.control_run:
                     assert self.inter_cmap.type == 0, \
-                        "Error, calculating inter Protein-RNA/DNA contacts only supported for --control runs. Provide custom file --cmap_i" 
-                self.data.Pairs(cmap=self.inter_cmap,group="inter")
-            
-        outfile = outfile+topfile       
-        if Nnucl==0: nucl_top = {k:[""] for k in prot_top}
-        if Nprot==0: prot_top = {k:[""] for k in nucl_top}
+                        "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
+                if opt.control_run: assert len(self.data)==1
+            self.data[0].Pairs(cmap=self.inter_cmap,group="inter")
+            inter_contacts = self.data[0].contacts.copy()
+            self.data[0].contacts=[]
+            opt.inter_symmetrize=True
+            if sum(nmol_list)>10:
+                add_inter_2_neighlist=True
+                for x in range(Ninp):
+                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms__(contacts=inter_contacts,tag=tag_list[x])
+            else: add_inter_2_neighlist=False
+            if self.opt.opensmog: 
+                uniq_expr=set([parsed_xml[i][tag][subtag]["expr"] for i in range(Ninp) \
+                                for tag in parsed_xml[i] for subtag in parsed_xml[i][tag]\
+                                if "nonbond" in tag and "nonbond" in subtag])
+                assert len(uniq_expr)==1, "Error, Cannot use custom expressions while merging files"
+        else:
+           opt.inter_symmetrize=False  
+        if opt.intra_symmetrize:
+            add_intra_2_neighlist=[nmol_list[i]>3 for i in range(Ninp)]
+            if sum(Nprot)==0 or sum(Nnucl)==0 or self.prot_cmap.func==self.nucl_cmap.func==self.inter_cmap.func:
+                cmap_func=self.inter_cmap.func
+                for x in range(Ninp):
+                    if "prot" in tag_list[x]:cmap=self.prot_cmap
+                    elif "nucl" in tag_list[x]: cmap.self.nucl_cmap
+                    else: print (tag_list[x])
+                    cmap.file=tag_list[x]+".CGcont"
+                    cmap.type=0
+                    self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4])
+                    if add_intra_2_neighlist[x]:
+                        self.mol_surface_atoms[x] += self.__getSurfaceAtoms__(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
+            else: add_intra_2_neighlist = np.zeros(Ninp)
+
+        if opt.opensmog: 
+            nb_tag=[tag for tag in parsed_xml[0] if "nonbond" in tag][0]
+            nb_subtag=[subtag for subtag in parsed_xml[0][nb_tag]][0]
+            ct_tag=list(set([tag for i in range(Ninp) for tag in parsed_xml[i] if "contacts" in tag]))
+            assert len(ct_tag)<=1
+            if len(ct_tag)==1: ct_tag=ct_tag[0]
+
+        print (">> Detected %d topology file(s)"%Ninp)
+        for i in range(Ninp): print (i,tag_list[i],nmol_list[i])
+                
         print (">>> writing Combined GROMACS toptology", outfile)
         with open(outfile,"w+") as fout:
-            Nparticles = {"bonds":2,"angles":3,"pairs":2,"dihedrals":4,"exclusions":2}
-            fout.write("\n; Topology file generated by eSBM.\n")
+            ##
+            Nparticles={"bonds":2,"angles":3,"pairs":2,"dihedrals":4,"exclusions":2,"nonbond_params":2,"atomtypes":1}
+            fout.write("\n; Topology file generated by SuBMIT.\n")
+            order=parsed_top[0][2]
+            ##
+            atom_list = [parsed_top[x][0]["atoms"] for x in range(Ninp)]
+            prev_natoms=np.zeros(Ninp+1)
+            for i in range(Ninp):
+                prev_natoms[i+1] = self.__getAtomsSection__(inp=atom_list[i],nmol=nmol_list[i],tag=tag_list[i], \
+                                            prev_at_count=sum(prev_natoms),surface=self.mol_surface_atoms[i])
+            ##
             for header in order:
-                prot_data,nucl_data = prot_top[header],nucl_top[header]
-                print ("> Writing",outfile+".top",header,"section.")
+                data_list = [parsed_top[x][0][header] for x in range(Ninp)]
+                print ("> Writing",outfile,header,"section.")
                 fout.write("\n[ "+header+" ]\n")
-                if header in ["nonbond_params","atomtypes"]:
-                    if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
-                    if Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
-                    if Nnucl>0 and Nprot>0: 
-                        if header == "nonbond_params": self.__writeNonbondParams__(fsec=fout)
+                ##
+                if header == "atomtypes":
+                    self.__writeAtomtypesSection__(fsec=fout,inp=data_list)
+                elif header == "nonbond_params":
+                    if opt.opensmog:
+                        print ("> Writing %s nonbond section."%opt.xmlfile)
+                        expr=parsed_xml[0][nb_tag][nb_subtag]["expr"]
+                        self.xmlfile.fxml.write(nb_tag+nb_subtag+expr)
+                        for param in parsed_xml[0][nb_tag][nb_subtag]["params"]: self.xmlfile.fxml.write(param)
+                    exclude_nonbond_pairs = {}
+                    if opt.intra_symmetrize:
+                        for i in range(Ninp):
+                            if not add_intra_2_neighlist[i]: continue
+                            exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond__(fsec=fout,cmap_func=cmap_func,inp=self.data[i].contacts))
+                    if opt.inter_symmetrize and add_inter_2_neighlist:
+                        exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond__(fsec=fout,cmap_func=cmap_func,inp=inter_contacts))
+                    if sum(Nprot)>0 and sum(Nnucl)>0: self.__writeNucProtParams__(fsec=fout,exclude=exclude_nonbond_pairs)
+                    self.__writeNonbondParams__(fsec=fout,inp=data_list,exclude=exclude_nonbond_pairs)
+                    if opt.opensmog:
+                        xml_data_list=[parsed_xml[i][nb_tag][nb_subtag]["data"] for i in range(Ninp)]
+                        self.__writeNonbondParamsXML__(fsec=self.xmlfile.fxml,inp=xml_data_list,exclude=exclude_nonbond_pairs)
+                        self.xmlfile.fxml.write("%s</%s"%tuple(nb_subtag.split("<")))
+                        self.xmlfile.fxml.write("%s</%s"%tuple(nb_tag.split("<")))
+                        if len(ct_tag)!=0: self.xmlfile.fxml.write(ct_tag)
                 elif header == "atoms":
-                    natoms_nucl,off0= self.__writeAtomsSection__(fsec=fout,inp=nucl_data,nmol=Nnucl,tag=";RNA/DNA_")
-                    natoms_prot,off1 = self.__writeAtomsSection__(fsec=fout,inp=prot_data,nmol=Nprot,tag=";Protein_",\
-                                                                            prev_at_count=Nnucl*natoms_nucl)
-                elif header in ["bonds","angles","pairs","dihedrals","exclusions"]:                
-                    self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=nucl_data,nmol=Nnucl,\
-                                        prev_at_count=0,atoms_in_mol=natoms_nucl,tag=";RNA/DNA_",atnum_offset=off0)
-                    self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=prot_data,nmol=Nprot, \
-                        prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
-                    if header in ["pairs","exclusions"]:
-                        if opt.intra_symmetrize: self.__writeSymPaIrs__(fsec=fout,inp=prot_data,nmol=Nprot, 
-                                prev_at_count=Nnucl*natoms_nucl,atoms_in_mol=natoms_prot,tag=";Protein_",atnum_offset=off1)
-                        if len(self.data.contacts)>0:
-                            self.__writeInterPairs__(fsec=fout,nmol=[Nnucl,Nprot],atoms_in_mol=[natoms_nucl,natoms_prot],\
-                                                     tag=[";Protein_","RNA/DNA_"],atnum_offset=[off0,off1],sym=opt.inter_symmetrize)
-                else:
-                    if Nnucl>0: status=[fout.write(i+"\n") for i in nucl_data if i.strip() != ""]
-                    elif Nprot>0: status=[fout.write(i+"\n") for i in prot_data if i.strip() != ""]
+                    fout.write(self.atoms_section)
+                elif header in ["bonds","angles","dihedrals"]:
+                    for i in range(Ninp):
+                        self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
+                                    nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                        if header=="bonds" and opt.opensmog and len(ct_tag)!=0:
+                            ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
+                                        if "contacts" not in subtag.split("=")[-1].lower()]
+                            for subtag in ct_subtags:
+                                print ("> Writing %s bonds to %s contacts section."%(subtag.split('"')[1],opt.xmlfile))
+                                new_subtag=subtag.split('"');new_subtag[1]="%s_%s"%(tag_list[i],new_subtag[1])
+                                new_subtag='"'.join(new_subtag)
+                                expr=parsed_xml[i][ct_tag][subtag]["expr"]
+                                self.xmlfile.fxml.write(new_subtag+expr)
+                                for param in parsed_xml[i][ct_tag][subtag]["params"]: self.xmlfile.fxml.write(param)
+                                xml_data=parsed_xml[i][ct_tag][subtag]["data"]
+                                self.__writeInteractionsXML__(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
+                                                                nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                                self.xmlfile.pairs_count+=1
+                                self.xmlfile.fxml.write("%s</%s>\n"%tuple(subtag.split()[0].split("<")))
+                elif header in ["pairs","exclusions"]:
+                    for i in range(Ninp):
+                        if not opt.intra_symmetrize: 
+                            self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
+                                        nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])                    
+                        elif opt.intra_symmetrize: 
+                            if not add_intra_2_neighlist[i]:
+                                self.__writeSymPaIrs__(fsec=fout,inp=data_list[i],nmol=nmol_list[i], \
+                                    prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i],tag=tag_list[i])
+                        if header=="pairs" and opt.opensmog and len(ct_tag)!=0:
+                            ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
+                                        if "contacts" in subtag.split("=")[-1].lower()]
+                            for subtag in ct_subtags:
+                                print ("> Writing %s pairs to %s contacts section."%(subtag.split('"')[1],opt.xmlfile))
+                                new_subtag=subtag.split('"');new_subtag[1]="%s_%s"%(tag_list[i],new_subtag[1])
+                                new_subtag='"'.join(new_subtag)
+                                expr=parsed_xml[i][ct_tag][subtag]["expr"]
+                                self.xmlfile.fxml.write(new_subtag+expr)
+                                for param in parsed_xml[i][ct_tag][subtag]["params"]: self.xmlfile.fxml.write(param)
+                                xml_data=parsed_xml[i][ct_tag][subtag]["data"]
+                                if not opt.intra_symmetrize:
+                                    self.__writeInteractionsXML__(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
+                                                                nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                                elif opt.intra_symmetrize:
+                                    if not add_intra_2_neighlist[i]:
+                                        self.__writeSymPaIrsXML__(fsec=self.xmlfile.fxml,inp=xml_data,nmol=nmol_list[i],tag=tag_list[i], \
+                                                                prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                                self.xmlfile.pairs_count+=1
+                                self.xmlfile.fxml.write("  %s</%s>\n"%tuple(subtag.split()[0].split("<")))
+                    if header == "pairs":
+                        if len(inter_contacts)>0:
+                            if add_inter_2_neighlist:
+                                inter_exclusions_section = self.__writeInterPairs__(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
+                                                                prev_at_count=prev_natoms,atoms_in_mol=self.atoms_in_mol[i],neighlist=add_inter_2_neighlist)
 
+                            else:
+                                inter_exclusions_section = self.__writeInterPairs__(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
+                                                                prev_at_count=prev_natoms,atoms_in_mol=self.atoms_in_mol[i],neighlist=add_inter_2_neighlist)
+                        else: inter_exclusions_section = []
+                    else: status = [fout.write(line) for line in inter_exclusions_section]
+                else:
+                    status=[fout.write(i+"\n") for i in data_list[0] if i.strip() != ""]
+                    
 class OpenSMOGXML:
     def __init__(self,xmlfile,coulomb) -> None:
         self.fxml=open(xmlfile,"w+")
@@ -736,35 +1105,50 @@ class OpenSMOGXML:
             self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
             self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
             
-    def write_nonbond_xml(self,pairs=[],expression='Krep*((C/r)^12)',params={}):
+    def write_nonbond_xml(self,pairs=[],func=1,C12=[],epsA=[],sig=[],expression=str(),params={}):
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
+        if len(expression)==0:
+            if func==1: expression="C12(type1,type2)/(r^12) - 2*epsA(type1,type2)*(sig(type1,type2)/r)^6"
+            elif func==2: expression="C12(type1,type2)/(r^12) - 6*epsA(type1,type2)*(sig(type1,type2)/r)^10"
+            elif func in (5,6): 
+                expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
+        if len(C12)!=0: params["C12"]=C12
+        if len(epsA)!=0: params["epsA"]=epsA
+        if len(sig)!=0: params["sig"]=sig
         if self.add_electrostatics:
             expression="%s + %s ; %s"%(self.elec_expr,expression,self.elec_const)
             params["q1q2"]=[]
+        self.fxml.write('   <expression expr="%s"/>\n'%expression)
+        for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
+        self.write_nonbond_param_entries(pairs=pairs,params=params)
+        self.fxml.write('  </nonbond_bytype>\n')
+        self.fxml.write(' </nonbond>\n') 
+        self.nb_count+=1
+        return
+
+    def write_nonbond_param_entries(self,pairs,params):
+        if self.add_electrostatics:
+            if "q1q2" not in params:params["q1q2"]=[]
             neg,pos=[],[]
             if self.coulomb.CB: neg,pos=["CBD","CBE"],["CBK","CBR","CBH"]
             if self.coulomb.P:neg+=["P"]
             neg,pos=tuple(neg),tuple(pos)
             for p in pairs:
-                if p[0].endswith(neg) and "CBP" not in p[0]:
-                    if p[1].endswith(neg) and "CBP" not in p[1]: params["q1q2"].append(1)
-                    elif p[1].endswith(pos): params["q1q2"].append(-1)
+                if (p[0].startswith(neg) or p[0].endswith(neg)) and "CBP" in p[0]:
+                    if (p[1].startswith(neg) or p[1].endswith(neg)) and "CBP" not in p[1]:
+                        params["q1q2"].append(1)
+                    elif p[1].startswith(pos) or p[1].endswith(pos): params["q1q2"].append(-1)
                     else: params["q1q2"].append(0)
-                elif p[0].endswith(pos):
-                    if p[1].endswith(pos): params["q1q2"].append(1)
-                    elif p[1].endswith(neg): params["q1q2"].append(-1)
+                elif p[0].startswith(pos) or p[0].endswith(pos):
+                    if p[1].startswith(pos) or p[1].endswith(pos): params["q1q2"].append(1)
+                    elif p[1].startswith(neg) or p[1].endswith(neg): params["q1q2"].append(-1)
                     else: params["q1q2"].append(0)
                 else: params["q1q2"].append(0)
-        self.fxml.write('   <expression expr="%s"/>\n'%expression)
-        for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
         for x in range(len(pairs)):
             self.fxml.write('   <nonbond_param type1="%s" type2="%s"'%tuple(pairs[x]))
             for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
             self.fxml.write('/>\n')
-        self.fxml.write('  </nonbond_bytype>\n')
-        self.fxml.write(' </nonbond>\n') 
-        self.nb_count+=1
         return
 
     def write_pairs_xml(self,pairs=[],params={},name="contacts_LJ-10-12",\
@@ -796,12 +1180,12 @@ class Topology:
         self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
-        self.excl_volume = dict()
+        self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
 
     def __write_header__(self,fout,combrule) -> None:
             print (">> Writing header section")
-            fout.write("\n; Topology file generated by eSBM. \n")
+            fout.write("\n; Topology file generated by SuBMIT. \n")
             fout.write("\n[ defaults  ]\n")
             fout.write("; nbfunc comb-rule gen-pairs\n")
             fout.write("  1      1         no   \n\n")
@@ -835,8 +1219,6 @@ class Topology:
                     C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
                     self.excl_volume[bead] = 2*rad[bead]
                     fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
-            lego = False
-            if lego: print ("WIP for lego")
         if len(data.P_atn) != 0:
             assert type in (1,3,5)
             self.excl_volume["P"] = 2*rad["P"]
@@ -856,51 +1238,72 @@ class Topology:
                             if bead not in self.excl_volume:
                                 self.excl_volume[bead] = 2*rad[tag+seq[i]]
                                 C12 = self.fconst.Kr_prot*(self.excl_volume[bead])**12.0
-                                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"S"))
+                                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,bead[0]))
         return
 
     def __write_nonbond_params__(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
-        fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
 
         eps,sig = data.Interactions(nonbond=self.opt.nonbond)
         pairs,repul_C12 = [],[]
+
         if len(data.CA_atn) > 0:
             cmap_func=self.cmap["prot"].func
-            if excl_rule == 2 and type == 2:
-                for x in self.excl_volume:
-                    if x.startswith(("CA","CB")):
-                        for y in self.excl_volume:
-                            if y.startswith(("CA","CB")):
-                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                                p = [x,y]; p.sort(); p=tuple(p)
-                                if p not in pairs:
-                                    if p in eps: continue
-                                    pairs.append(p)
-                                    repul_C12.append(C12) 
-                                    if self.opt.opensmog: continue
-                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))                            
-        if len(data.P_atn) > 0:
-            cmap_func=self.cmap["nucl"].func
-            if excl_rule == 2 and type in (3,5):
-                for x in self.excl_volume:
-                    if x.startswith(("P","S","B")):
-                        for y in self.excl_volume:
-                            if y.startswith(("P","S","B")):
-                                C10,C12 = 0.0, self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                                p = [x,y]; p.sort(); p=tuple(p)
-                                if p not in pairs:
-                                    if p in eps: continue
-                                    pairs.append(p)
-                                    repul_C12.append(C12) 
-                                    if self.opt.opensmog: continue
-                                    fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C10,C12))
-        if len(eps)>0:
-            fout.write("; Custom Nnobond interactions\n")
             if cmap_func in (5,6):
                 fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
+            else: fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+            #if excl_rule == 2 and type == 2:
+            for x in self.excl_volume:
+                if x.startswith(("CA","CB")):
+                    for y in self.excl_volume:
+                        if y.startswith(("CA","CB")):
+                            func=1
+                            if excl_rule==1: C12 = self.fconst.Kr_prot*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                            elif excl_rule==2: C12=self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                            if cmap_func in (1,2): values = 0,C12
+                            elif cmap_func in (5,6):
+                                func,sd = 6,0.05
+                                values = 0,0,sd,C12
+                            p = [x,y]; p.sort(); p=tuple(p)
+                            if p not in pairs:
+                                if p in eps: continue
+                                pairs.append(p)
+                                repul_C12.append(C12) 
+                                if self.opt.opensmog: continue
+                                fout.write(" %s %s\t%d\t"%(p[0].ljust(5),p[1].ljust(5),func))
+                                fout.write(len(values)*" %e"%tuple(values)+"\n")
+
+        if len(data.P_atn) > 0:
+            cmap_func=self.cmap["nucl"].func
+            if cmap_func in (5,6):
+                fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
+            else: fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+
+            #if excl_rule == 2 and type in (3,5):
+            for x in self.excl_volume:
+                if x.startswith(("P","S","B")):
+                    for y in self.excl_volume:
+                        if y.startswith(("P","S","B")):
+                            func=1
+                            if excl_rule==1: C12 = self.fconst.Kr_nucl*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                            elif excl_rule==2: C12=self.fconst.Kr_nucl*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
+                            if cmap_func in (1,2): values = 0,C12
+                            elif cmap_func in (5,6):
+                                func,sd = 6,0.05
+                                values = 0,0,sd,C12
+                            p = [x,y]; p.sort(); p=tuple(p)
+                            if p not in pairs:
+                                if p in eps: continue
+                                pairs.append(p)
+                                repul_C12.append(C12) 
+                                if self.opt.opensmog: continue
+                                fout.write(" %s %s\t%d\t"%(p[0].ljust(5),p[1].ljust(5),func))
+                                fout.write(len(values)*" %e"%tuple(values)+"\n")
+
+        if len(eps)>0:
+            fout.write("; Custom Nnobond interactions\n")
             for p in eps:
                 if p[0] not in self.excl_volume: continue
                 if p[1] not in self.excl_volume: continue
@@ -928,24 +1331,19 @@ class Topology:
                 fout.write("\n")
 
         if self.opt.opensmog and len(repul_C12)!=0:
-            if len(eps)==0: 
-                expression,params="C12(type1,type2)/(r^12)",{"C12":repul_C12}
-            else:
-                params={"eps_att":[],"sig":[],"C12":repul_C12}
-                for p in pairs: 
-                    if p in eps: params["eps_att"].append(eps[p])
-                    else: params["eps_att"].append(1)
-                    if p in sig: params["sig"].append(sig[p])
-                    else: params["sig"].appen(0)
-                assert len(params["eps_att"])==len(params["C12"])
-                if cmap_func==1: expression="C12(type1,type2)/(r^12) - 2*eps_att(type1,type2)*(sig(type1,type2)/r)^6"
-                elif cmap_func==2: expression="C12(type1,type2)/(r^12) - 6*eps_att(type1,type2)*(sig(type1,type2)/r)^10"
-                elif cmap_func in (5,6): 
-                    expression="eps_att(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
-            if len(data.CA_atn)!=0: self.prot_xmlfile.write_nonbond_xml(pairs=pairs,\
-                                        expression=expression,params=params)
-            if len(data.P_atn)!=0: self.nucl_xmlfile.write_nonbond_xml(pairs=pairs,\
-                                        expression=expression,params=params)
+            params={"eps_att":[],"sig":[],"C12":repul_C12}
+            for p in pairs: 
+                if p in eps: params["eps_att"].append(eps[p])
+                else: params["eps_att"].append(1)
+                if p in sig: params["sig"].append(sig[p])
+                else: params["sig"].append(0)
+            assert len(params["eps_att"])==len(params["C12"])
+            if len(data.CA_atn)!=0:
+                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                        C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
+            if len(data.P_atn)!=0: 
+                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                        C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
         return 0
 
     def __write_moleculetype__(self,fout):
@@ -1127,7 +1525,7 @@ class Topology:
             assert func!=3, "Error, func 3 not encoded yes. WIP"
             for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
-        elif cmap.func in (5,6):
+        elif cmap.func in (5,6,7):
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
@@ -1299,93 +1697,78 @@ class Topology:
                 fout.write(" %5d %5d\n"%(I[x],J[x]))
         return
 
-    def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
-        cgpdb = PDB_IO()
-        Data = Calculate(aa_pdb=self.allatomdata)
-        if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-            if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata.prot.bb_file,refine=False)
-            elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata.prot.sc_file,refine=False)
-            prot_topfile = "prot_"+outtop
-            if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot_"+self.opt.xmlfile,coulomb=charge)
-            with open(prot_topfile,"w+") as ftop:
-                print (">>> writing Protein GROMACS toptology", prot_topfile)
-                proc_data_p = Calculate(aa_pdb=self.allatomdata)
-                proc_data_p.processData(data=cgpdb.prot)
-                self.__write_header__(fout=ftop,combrule=excl)
-                self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
-                self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
-                self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB)*(not self.opt.opensmog))
-                self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
-                self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
-                self.__write_protein_angles__(fout=ftop, data=proc_data_p)
-                self.__write_protein_dihedrals__(fout=ftop, data=proc_data_p,chiral=CBchiral)
-                self.__write_exclusions__(fout=ftop,data=proc_data_p)
-                self.__write_footer__(fout=ftop)
-                self.proc_data_p = proc_data_p
-            if self.opt.opensmog: del self.prot_xmlfile
-        else: 
-            self.CGlevel["prot"]=0
-            self.cmap["prot"].func=self.cmap["inter"].func=-1
-        if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
-            if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata.nucl.bb_file,refine=False)
-            elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata.nucl.sc_file,refine=False)
-            nucl_topfile = "nucl_"+outtop
-            if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl_"+self.opt.xmlfile,coulomb=charge)
-            with open(nucl_topfile,"w+") as ftop:
-                print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
-                proc_data_n = Calculate(aa_pdb=self.allatomdata)
-                proc_data_n.processData(data=cgpdb.nucl)
-                self.__write_header__(fout=ftop,combrule=excl)
-                self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
-                self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
-                self.__write_moleculetype__(fout=ftop)
-                self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P*(not self.opt.opensmog))
-                self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
-                self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
-                self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
-                self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data_n,chiral=CBchiral)
-                self.__write_exclusions__(fout=ftop,data=proc_data_n)
-                self.__write_footer__(fout=ftop)
-                self.prot_data_n = proc_data_n
-            if self.opt.opensmog: del nucl_xmlfile
-        else:
-            self.CGlevel["nucl"]=0
-            self.cmap["nucl"].func=self.cmap["inter"].func=-1
-        Nmol = self.Nmol
-        #if len(self.allatomdata.nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
-        if Nmol["prot"]+Nmol["nucl"] > 1:
-            if Nmol["prot"]>0 and len(proc_data_p.CA_atn) != 0:
-                Data.CA_atn,Data.CB_atn = proc_data_p.CA_atn,proc_data_p.CB_atn
-                Data.cgpdb_p = proc_data_p.cgpdb
-                assert len(proc_data_p.P_atn) == 0
-            if Nmol["nucl"]>0 and len(proc_data_n.P_atn) != 0: 
-                Data.P_atn,Data.S_atn,Data.B_atn = proc_data_n.P_atn,proc_data_n.S_atn,proc_data_n.B_atn
-                Data.cgpdb_n = proc_data_n.cgpdb
-                assert len(proc_data_n.CA_atn) == 0
-            if len(self.allatomdata.prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt,excl_volume=self.excl_volume,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
-
-        if self.opt.opensmog: return #don't write table
-        table = Tables()
-        if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
-            table.__write_pair_table__(coulomb=charge,ljtype=2)
-        if self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1 or self.cmap["inter"].func == 1:
-            if charge.debye: table.__write_pair_table__(coulomb=charge,ljtype=1)
-        
-        return 
-
-class Clementi2000(Topology):
-    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
-        self.allatomdata = allatomdata
-        self.fconst = fconst
-        self.CGlevel = CGlevel
-        self.Nmol = Nmol
-        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
-        self.opt = opt
-        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+    def __clean__(self):
+        self.excl_volume_set.update(self.excl_volume.copy())
         self.excl_volume = dict()
         self.atomtypes = []
+
+    def write_topfile(self,outtop,excl,charge,bond_function,CBchiral,rad):
+        nfiles=len(self.allatomdata)
+        Nmol,Data = self.Nmol,list()
+        total_mol_p,total_mol_n= sum(Nmol["prot"]),sum(Nmol["nucl"])
+        for i in range(nfiles):
+            cgpdb = PDB_IO()
+            fileindex=[str(i),str()][int(nfiles==1)]
+            Data.append(Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex))
+            if len(self.allatomdata[i].prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
+                if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata[i].prot.bb_file,refine=False)
+                elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata[i].prot.sc_file,refine=False)
+                prot_topfile = "prot%s_%s"%(fileindex,outtop)
+                if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
+                with open(prot_topfile,"w+") as ftop:
+                    print (">>> writing Protein GROMACS toptology", prot_topfile)
+                    proc_data_p = Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
+                    proc_data_p.processData(data=cgpdb.prot)
+                    self.__write_header__(fout=ftop,combrule=excl)
+                    self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
+                    self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
+                    self.__write_moleculetype__(fout=ftop)
+                    self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB)*(not self.opt.opensmog))
+                    self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
+                    self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
+                    self.__write_protein_angles__(fout=ftop, data=proc_data_p)
+                    self.__write_protein_dihedrals__(fout=ftop, data=proc_data_p,chiral=CBchiral)
+                    self.__write_exclusions__(fout=ftop,data=proc_data_p)
+                    self.__write_footer__(fout=ftop)
+                    Data[i].CA_atn,Data[i].CB_atn=proc_data_p.CA_atn,proc_data_p.CB_atn
+                    Data[i].cgpdb_p=proc_data_p.cgpdb
+                if self.opt.opensmog: del self.prot_xmlfile
+            if len(self.allatomdata[i].nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
+                if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata[i].nucl.bb_file,refine=False)
+                elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata[i].nucl.sc_file,refine=False)
+                nucl_topfile = "nucl%s_%s"%(fileindex,outtop)
+                if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
+                with open(nucl_topfile,"w+") as ftop:
+                    print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
+                    proc_data_n = Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
+                    proc_data_n.processData(data=cgpdb.nucl)
+                    self.__write_header__(fout=ftop,combrule=excl)
+                    self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
+                    self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
+                    self.__write_moleculetype__(fout=ftop)
+                    self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P*(not self.opt.opensmog))
+                    self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
+                    self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
+                    self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
+                    self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data_n,chiral=CBchiral)
+                    self.__write_exclusions__(fout=ftop,data=proc_data_n)
+                    self.__write_footer__(fout=ftop)
+                    Data[i].P_atn,Data[i].S_atn,Data[i].B_atn=proc_data_n.P_atn,proc_data_n.S_atn,proc_data_n.B_atn
+                    Data[i].cgpdb_n=proc_data_n.cgpdb
+                if self.opt.opensmog: del self.nucl_xmlfile
+            self.__clean__()
+        if sum(Nmol["prot"])==0: self.CGlevel["prot"],self.cmap["prot"].func=0,-1
+        if sum(Nmol["nucl"])==0: self.CGlevel["nucl"],self.cmap["nucl"].func=0,-1
+        
+        #if sum(Nmol["prot"])+sum(Nmol["nucl"])>1:
+        merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt, \
+                coul=charge,excl_volume=self.excl_volume_set,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
+
+        return 0
+
+class Clementi2000(Topology):
+    def __del__(self):
+        pass
 
 class Pal2019(Topology):
     def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
@@ -1398,7 +1781,7 @@ class Pal2019(Topology):
         func = 1
         epsmat,stack = data.Interactions(pairs=True)
 
-        B_atn = {v:self.atomtypes[v] for k,v_list in self.allatomdata.nucl.B_atn.items() for v in v_list}
+        B_atn = {data.B_atn[c][r]:self.atomtypes[data.B_atn[c][r]] for c in data.B_atn for r in data.B_atn[c]}
         for p in stack:stack[p]=stack[p][0] #multiple distances not supported
         for c in data.B_atn:
             resnum = list(data.B_atn[c].keys())
@@ -1425,19 +1808,18 @@ class Pal2019(Topology):
 class Reddy2017(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
-        #self.__check_H_atom__()
+        #for data in range(len(allatomdata)) self.__check_H_atom__(data)
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
         self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
-        self.excl_volume = dict()
+        self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
 
-    def __check_H_atom__(self):
+    def __check_H_atom__(self,data):
         # checking presence of H-atom. Important for adding GLY CB
-        data = self.allatomdata.prot.res
         data = [(x[1],x[-1]) for x in data if "GLY" in x]
         atlist = {}
         for x in data:
@@ -1471,8 +1853,12 @@ class Reddy2017(Topology):
                             fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
         
         if self.opt.opensmog: 
-            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"excl_r1":excl_rad1,"excl_r2":excl_rad2},\
-                    expression='Krep*(sig/r)^6;sig=0.5*(excl_r1(type1,type2)+excl_r2(type1,type2));Krep=%e'%self.fconst.Kr_prot)
+            #self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"excl_r1":excl_rad1,"excl_r2":excl_rad2},\
+            #        expression='Krep*(sig/r)^6;sig=0.5*(excl_r1(type1,type2)+excl_r2(type1,type2));Krep=%e'%self.fconst.Kr_prot)
+            sig=[0.5*(excl_rad1[i]+excl_rad2[i]) for i in range(len(pairs))]
+            Krep=(-0.5)*self.fconst.Kr_prot*np.ones(len(pairs))
+            repul_12=np.zeros(len(pairs))
+            self.prot_xmlfile.write_nonbond_xml(func=1,pairs=pairs,C12=repul_12,epsA=Krep,sig=sig)
         return 0
 
     def __write_protein_bonds__(self,fout,data,func):
@@ -1634,7 +2020,7 @@ class Baul2019(Reddy2017):
         self.eps_bbsc = 0.24*self.fconst.caltoj 
         self.eps_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
-        self.excl_volume = dict()
+        self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
 
     def __write_nonbond_params__(self,fout,type,excl_rule,data):
@@ -1674,8 +2060,13 @@ class Baul2019(Reddy2017):
             excl_rad1,excl_rad2=np.transpose([(self.excl_volume[x],self.excl_volume[y]) for x,y in pairs])
             epsmat=[epsmat[p] for p in pairs]
             eps=[eps[(x[:2],y[:2])] for x,y in pairs]
-            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"eps":eps,"f":epsmat,"r1":excl_rad1,"r2":excl_rad2},\
-                                            expression='eps(type1,type2)*f(type1,type2)*((s/r)^12 - 2*(s/r)^6); s=0.5*(r1(type1,type2)+r2(type1,type2))')
+            #self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"eps":eps,"f":epsmat,"r1":excl_rad1,"r2":excl_rad2},\
+                                            #expression='eps(type1,type2)*f(type1,type2)*((s/r)^12 - 2*(s/r)^6); s=0.5*(r1(type1,type2)+r2(type1,type2))')
+            sig=[0.5*(excl_rad1[i]+excl_rad2[i]) for i in range(len(pairs))]
+            eps=[eps[i]*epsmat[i] for i in range(len(pairs))]
+            repul_12=[1*eps[i]*(sig[i])**12 for i in range(len(pairs))]
+            self.prot_xmlfile.write_nonbond_xml(func=1,pairs=pairs,C12=repul_12,epsA=eps,sig=sig)
+
         return 0  
 
     def __write_protein_pairs__(self,fout,data,excl_rule,charge):
@@ -1743,7 +2134,6 @@ class Baratam2024(Reddy2017):
     def __init__(self,allatomdata,idrdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.idrdata=idrdata
-        self.ordered=self.allatomdata.prot
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
@@ -1753,11 +2143,13 @@ class Baratam2024(Reddy2017):
         self.eps_idr_bbsc = 0.24*self.fconst.caltoj 
         self.eps_idr_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
-        self.excl_volume = dict()
+        self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.bonds = []
 
-    def __write_unfolded_cgpdb__(self,rad):
+    def __write_unfolded_cgpdb__(self,rad,data):
         print ("> Writing unfolded CG-PDB file")
+        self.ordered=data.allatpdb.prot
         residues=set(self.idrdata.res+self.ordered.res)
         residues = [x for x in residues if "CA" in x]        
         residues.sort()
@@ -1795,7 +2187,7 @@ class Baratam2024(Reddy2017):
 
     def __write_atomtypes__(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
-        self.__write_unfolded_cgpdb__(rad=rad)
+        self.__write_unfolded_cgpdb__(rad=rad,data=data)
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12\n"))
@@ -1830,12 +2222,14 @@ class Baratam2024(Reddy2017):
             if x.startswith(("CA","CB")):
                 for y in self.excl_volume:
                     if y.startswith(("CA","CB")):
-                        C06 = -1*self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**6
+                        sig=(self.excl_volume[x]+self.excl_volume[y])/2.0
+                        eps = -1*self.fconst.Kr_prot
+                        C06 = eps*(sig)**6
                         C12 = 0.0
                         p = [x,y]; p.sort(); p=tuple(p)
                         if p not in pairs:
                             pairs.append(p)
-                            values.append((C06,C12))
+                            values.append((0.5*eps,sig,C12))  #values.append((C06,C12))
                             if self.opt.opensmog: continue
                             fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
         
@@ -1867,18 +2261,23 @@ class Baratam2024(Reddy2017):
                         q=(x.strip("i"),y.strip("i"))
                         C06 = 2*eps[p]*epsmat[q]*(sig)**6
                         C12 = 1*eps[p]*epsmat[q]*(sig)**12
+                        ptype=tuple(p)
                         p = [x,y]; p.sort(); p = tuple(p)
                         if p not in pairs:
                             pairs.append(p)
-                            values.append((C06,C12))
+                            values.append((eps[ptype]*epsmat[q],sig,C12))  #values.append((C06,C12))
                             if self.opt.opensmog: continue
                             fout.write(" %s %s\t1\t%e %e "%(x.ljust(5),y.ljust(5),C06,C12))
                             if y.startswith("i"): fout.write("; IDR-IDR\n")
                             else: fout.write("; OR-IDR\n")
+
         if self.opt.opensmog:
-            C06,C12 = np.transpose(values)
-            self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"C12":C12,"C6":C06},\
-                        expression='C12(type1,type2)/(r^12) - C6(type1,type2)/(r^6)')
+            #C06,C12 = np.transpose(values)
+            #self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"C12":C12,"C6":C06},\
+            #            expression='C12(type1,type2)/(r^12) - C6(type1,type2)/(r^6)')
+            eps,sig,C12=np.transpose(values)
+            self.prot_xmlfile.write_nonbond_xml(func=1,pairs=pairs,C12=C12,epsA=eps,sig=sig)
+
         return 0  
 
     def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
@@ -1975,7 +2374,7 @@ class Baratam2024(Reddy2017):
         data.Bonds()
         adjusted_data=self.__get_idr_bonds__(data=data)
         data.bonds=adjusted_data.bonds
-
+        self.bonds.append(adjusted_data.bonds)
         table_idx = dict()
         if self.opt.opensmog:
             fout.write(";%5s %5s %5s %5s %5s; for excl\n"%("ai", "aj", "func", "r0", "Kb=0.0"))
