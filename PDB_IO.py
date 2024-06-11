@@ -230,7 +230,7 @@ class PDB_IO:
         self.prot.pdbfile = ""
         self.refined_pdbfile = ""
         self.pdbfile = '"'
-        self.nucl.xyz, self.nucl.res, self.nucl.atn, self.nucl.ter, self.nucl.cid = [],[],[],[],[]
+        self.nucl.xyz, self.nucl.res, self.nucl.atn, self.nucl.ter, self.nucl.cid, self.nucl.deoxy = [],[],[],[],[],[]
         self.prot.xyz, self.prot.res, self.prot.atn, self.prot.ter, self.prot.cid = [],[],[],[],[]
         self.nucl.lines,self.prot.lines = [],[]
         self.nucl.seq, self.prot.seq = str(),str()
@@ -252,6 +252,7 @@ class PDB_IO:
                 if l.startswith(("TER","END")) and self.nucl.lines[x-1].startswith("ATOM"):
                     self.nucl.ter.append(hy36decode(5,self.nucl.lines[x-1][6:11]))
                     self.nucl.cid.append(self.nucl.lines[x-1][21])
+                    self.nucl.deoxy.append(self.nucl.lines[x-1][17:20].strip()[0]=="D")
                     nucl_chain_count+=1
                     self.nucl.seq += " "
             if len(self.nucl.seq) == 0: self.nucl.seq = bbseq
@@ -302,6 +303,8 @@ class PDB_IO:
             prev_resname,prev_resnum = str(),0
             for line in fin:
                 if line.startswith(("ATOM","HETATM")):
+                    atname=line[12:16].strip()
+                    if atname.startswith("H") and not self.CBgly: continue
                     resname,resnum =  line[17:20].strip(),hy36decode(4,line[22:26])
                     if prev_resnum not in (resnum,resnum-1) and len(prev_resname)!=0:
                         if prev_resname in self.prot.amino_acid_dict: prot_lines.append("TER\n")
@@ -363,7 +366,8 @@ class PDB_IO:
             self.prot.lines = prot_lines
         return outfile+".pdb"
 
-    def loadfile(self, infile, refine=True):
+    def loadfile(self, infile, refine=True, CBgly=False):
+        self.CBgly=CBgly
         if refine: self.pdbfile=self.__refinePDB__(infile=infile)
         else: self.pdbfile=self.__readLnes__(infile=infile)
         self.__readPDB__()
@@ -611,6 +615,53 @@ class PDB_IO:
             if len(self.prot.lines) != 0:
                 self.__combineGro__(outfile=outgro)
 
+    def extractPDBSegment(self,fasta,data):
+        #reading fasta and extracting segment from input PDB data
+        outpdb = fasta+".pdb"
+        chains,chain_order = dict(),list()
+        with open(fasta) as fin:
+            for line in fin:
+                line = line.strip()
+                if len(line) == 0: continue
+                elif line.startswith(">"):
+                    tag = line.strip().strip(">").split(":")
+                    tag = tag[:len(tag)]+[chr(65+len(chains)),1][len(tag)-1:]
+                    tag=tuple(tag)
+                    chains[tag] = str()
+                    chain_order.append(tag)
+                else: chains[tag] += line.strip().upper()
+
+        with open(outpdb,"w+") as fout:
+            for tag in chains:
+                seg_seq=chains[tag]
+                if seg_seq in data.nucl.seq: data,stype=data.nucl,"nucl"
+                elif seg_seq in data.prot.seq: data,stype=data.prot,"prot"
+                seq=data.seq.split()
+                assert tag[1] in [data.cid[x] for x in np.where([seg_seq in x for x in seq])[0]], \
+                    "Error, input segment chaind ID mismatch"
+                index=np.where([data.cid[x]==tag[1] for x in np.where([seg_seq in x for x in seq])[0]])[0][0]
+                name,c=tag[:2]
+                r0=int(tag[2])
+                if len(tag)==3: r1=r0+len(chains[tag])
+                else: r1=int(tag[3])
+                assert r1-r0==len(chains[tag]),\
+                    "Error, chain length and resnum mismatch in %s"%fasta
+                checkres={(c,r):0 for r in list(range(r0,r1+1))}
+                for line in data.lines:
+                    if line.startswith("ATOM"):
+                        c,r=line[21],hy36decode(4,line[22:26])
+                        if (c,r) in checkres: 
+                            fout.write(line)
+                            if line[12:16].strip()=="CA": checkres[(c,r)]+=1
+                    if sum(checkres.values())==len(checkres): break
+
+        self.pdbfile=self.__refinePDB__(infile=outpdb)
+        self.__readPDB__()
+        #if stype=="prot": self.prot.res=[tuple([index]+list(x[1:])) for x in self.prot.res]
+        #if stype=="nucl": self.nucl.res=[tuple([index]+list(x[1:])) for x in self.nucl.res]
+        self.segment_cidx=index
+        return outpdb
+
     def buildProtIDR(self,fasta,rad,topbonds=False,CBgly=False):
         #reading fasta and writing stretched IDR to pdb
         outpdb = fasta+".pdb"
@@ -631,9 +682,15 @@ class PDB_IO:
             dist={tuple(1+pairs[x]):10*dist[x] for pairs,dist in topbonds for x in range(pairs.shape[0])}                
         else: assert len(rad)>0
 
+        
+        chain_width=max([3.9*len(chains[tag]) for tag in chain_order])
+        assert chain_width < 2*(999.0),\
+                "Strecthed structure for %s cannot be generated becuase of the chain length. Please build an input PDB with missing regions included using colabfold"%tag[0]
+
+        
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
-            ca_xyz = np.float_([0,0,0])
+            ca_xyz = np.float_([-25*(len(chain_order)-1),chain_width/2,0])
             offset,chain_count,atnum,prev_ca = 0,0,0,0
             for tag in chain_order:
                 if len(tag)==3: 
@@ -647,7 +704,6 @@ class PDB_IO:
                         "Error, chain length and resnum mismatch in %s"%fasta
                 resnum = list(range(r0,r1+1))
                 prev_ca = 0
-                ca_xyz = ca_xyz + np.float_([50,0,0])
                 for x in range(len(chains[tag])):
                     res = chains[tag][x]
                     atnum+=1
@@ -657,7 +713,7 @@ class PDB_IO:
                         else: ca_xyz = ca_xyz + np.float_([0,Arad+Arad,0])*[-1,+1][chain_count%2]
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CA".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
-                         +4*" "+3*"%8.3f"%tuple(ca_xyz+50)
+                         +4*" "+3*"%8.3f"%tuple(ca_xyz)
                     fout.write(line+"\n")
                     prev_ca=atnum
                     if not CBgly and res=="G":continue
@@ -666,11 +722,12 @@ class PDB_IO:
                     else: cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CB".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
-                         +4*" "+3*"%8.3f"%tuple(cb_xyz+50.0)
+                         +4*" "+3*"%8.3f"%tuple(cb_xyz)
                     fout.write(line+"\n")
                     prev_cb=atnum
                 fout.write("TER\n")
                 chain_count+=1
+                ca_xyz = ca_xyz + np.float_([50,0,0])
         self.pdbfile=self.__refinePDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb

@@ -115,10 +115,13 @@ def main():
 	parser.add_argument("--azia2009","-azia2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model")
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
 	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB")
+	parser.add_argument("--denesyuk2013","-denesyuk2013","--rna_tis2013","-rna_tis2013",action="store_true",help="Denesyuk & Thirumalai 2013 Three Interaction Site TIS P-S-B model")
+	parser.add_argument("--chakraborty2018","-chakraborty2018","--dna_tis2018","-dna_tis2018",action="store_true",help="Chakraborty & Thirumalai 2018 Three Interaction Site TIS P-S-B model")
 	parser.add_argument("--baul2019","-baul2019","--sopsc_idp","-sopsc_idp",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp2","-sopsc_idp2",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baratam2024","-baratam2024","--sop-multi","-sop-multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB")
 	parser.add_argument("--banerjee2023","-banerjee2023","--selfpeptide","-selfpeptide",action="store_true",help="Banerjee & Gosavi 2023 Self-Peptide model")
+	parser.add_argument("--virusassembly","-virusassembly","--virusassem","-virusassem",action="store_true",help="Preset for structure based virus assembly (inter-Symmetrized)")
 	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
 
 	#input options for protein
@@ -134,7 +137,7 @@ def main():
 	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality. Default: False")
 	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for large systems)")
 	parser.add_argument("--bfunc","-bfunc",help="Bond function 1: harnomic, 7: FENE. Default: 1 (Harmonic)")
-	parser.add_argument("--idp_seq","-idp_seq",help="User input sequence for building IDRs/helices etc.")
+	parser.add_argument("--idp_seq","-idp_seq",help="User input sequence for building/extracting IDRs/segments etc.")
 
 	#native  determining contacts parameters
 	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5A")
@@ -340,6 +343,34 @@ def main():
 		ModelDir("pal2019/adj_nbnb.stackparams.dat").copy2("interactions.pairs.dat")
 		ModelDir("pal2019/inter_nbcb.stackparams.dat").copy2("interactions.interface.dat")
 
+	if args.virusassembly:
+		print (">>> Using template virus assembly preset.")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb."
+		CGlevel["prot"]=2		# CB-CA
+		CGlevel["nucl"]=3		# P-S-B
+		rad["CA"]=1.9			# 3.8 A excl vol rad
+		rad["CB"]=1.5			# 3.0 A excl vol rad
+		CB_far=True			# CB at farthest SC atom 
+		CB_chiral=True		# improp dihed for CAi-1 CAi+1 CAi CBi
+		charge.CB=True		# Charge on CB
+		charge.P=True			#charge on P
+		excl_rule=2			# Excl volume Arith. Mean
+		fconst.Kd_prot["mf"]=1.0	#factor to divide 3 multiplicity dihed term
+		prot_contmap.W=False			# contact weight
+		prot_contmap.cutoff=4.5	# cutoff
+		prot_contmap.type=1		# Calculate from all-atom structure
+		prot_contmap.func=2		# Use LJ 10-12 pairs
+		prot_contmap.W=True
+		nucl_contmap.cutoff=4.5
+		nucl_contmap.type=1	
+		nucl_contmap.func=2
+		nucl_contmap.W=True
+		inter_contmap.type=0
+		charge.debye=True		# Use DH-electrostatics
+		charge.dielec=70		# dielectric constant
+		charge.iconc=0.01		# concentration
+		opt.P_stretch=False	
+
 	if args.dlprakash:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
@@ -378,7 +409,8 @@ def main():
 	if args.reddy2017:
 		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
 		CGlevel["prot"]=2
-		CGlevel["uncl"]=0
+		if args.opensmog: args.denesyuk2013=True
+		else: CGlevel["nucl"]=0
 		bond_function=8
 		prot_contmap.cutoff=8.0
 		prot_contmap.type=2
@@ -401,7 +433,7 @@ def main():
 		args.baul2019=True
 		print (">>> Using Baul et. al. 2019 SOP-SCP-IDP model.")
 		CGlevel["prot"]=2
-		CGlevel["uncl"]=0
+		CGlevel["nucl"]=0
 		bond_function=8
 		prot_contmap.cutoff=8.0 #will not be used
 		prot_contmap.type=-1	#contacts not used
@@ -425,7 +457,8 @@ def main():
 	if args.baratam2024:
 		print (">>> Using Baratam & Srivastava SOP-MULTI IDR model.")
 		CGlevel["prot"]=2
-		CGlevel["uncl"]=0
+		if args.opensmog: args.denesyuk2013=True
+		else: CGlevel["nucl"]=0
 		bond_function=8
 		prot_contmap.cutoff=8.0
 		prot_contmap.type=2
@@ -445,6 +478,48 @@ def main():
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
+
+	if args.denesyuk2013 or args.chakraborty2018:
+		print (">>> Using TIS model. \n\t 1) Denesyuk & Thirumalai 2013 for RNA. \n\t 2) Chakraborty & Thirumalai 2018 for DNA.")
+		CGlevel["prot"]=2
+		args.denesyuk2013=True
+		bond_function=8
+		prot_contmap.cutoff=8.0
+		prot_contmap.type=2
+		prot_contmap.func=1
+		prot_contmap.custom_pairs=True
+		nucl_contmap.cutoff=8.0
+		nucl_contmap.type=2
+		nucl_contmap.func=1
+		nucl_contmap.custom_pairs=True
+		opt.codon_pairs=True
+		excl_rule=2
+		opt.btparams=True
+		charge.CB=True
+		charge.P=True
+		fconst.Kb_prot=20.0*fconst.caltoj
+		fconst.Kr_prot=1.0*fconst.caltoj
+		fconst.Kr_nucl=1.0*fconst.caltoj
+		CB_radii=True
+		charge.debye=True
+		charge.dielec=10
+		charge.iconc=0.01		# M
+		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
+
+
+	if args.banerjee2023:
+		print (">>> Using Banerjee & Gosavi 2023 self-peptide approach.")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb"
+		assert args.idp_seq, "Error no peptide seq/range given. See example/Banjerjee2023"
+		#fixed params can't be overwritten
+		CGlevel["prot"]=1		# CA_only	
+		CGlevel["nucl"]=0		# No RNA/DNA
+		rad["CA"]=2.0			# 4.0 A excl vol rad
+		prot_contmap.W=True			# weighted 
+		prot_contmap.cutoff=4.5	# 4.5 A
+		prot_contmap.cutofftype=1	# all-atom contacts mapped to CG
+		prot_contmap.contfunc=2	# LJ 10-12
 
 	""" presets end here """
 
@@ -637,12 +712,12 @@ def main():
 		nfiles=len(args.aa_pdb)
 		for i in range(nfiles):
 			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
-			pdbdata[-1].loadfile(infile=args.aa_pdb[i],refine=True)
+			pdbdata[-1].loadfile(infile=args.aa_pdb[i],refine=True,CBgly=CB_gly)
 	elif args.cg_pdb: 
 		nfiles=len(args.cg_pdb)
 		for i in range(nfiles):
 			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
-			pdbdata[-1].loadfile(infile=args.cg_pdb[i],refine=True)
+			pdbdata[-1].loadfile(infile=args.cg_pdb[i],refine=True,CBgly=CB_gly)
 	else:
 		pdbdata=[PDB_IO()]
 		if args.idp_seq:
@@ -661,7 +736,7 @@ def main():
 		opt.custom_nuc=True
 		if args.custom_nuc:
 			custom_nucl_file=PDB_IO()
-			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True)
+			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True,CBgly=CB_gly)
 			assert len(pdbdata)==1, \
 				"Error: --custom_nuc file is only supported with single --aa_pdb/--cg_pdb. \
 				Give your RNA/DNA file directly to --aa_pdb/--cc_pdb."
@@ -673,12 +748,22 @@ def main():
 			if pdbdata[0].prot.pdbfile!="" and  pdbdata[0].nucl.pdbfile != "":
 				print (">> Note: custom_nuc option being used without input, will use unbound version of native RNA/DNA ")
 				pdbdata[0].coordinateTransform()
-	
+
+	if args.banerjee2023:
+		assert len(pdbdata)==1, "Error, model supports only 1 PDB input."
+		segmentdata=PDB_IO()
+		segmentdata.extractPDBSegment(fasta=args.idp_seq,data=pdbdata[0])
+		pdbdata.append(segmentdata)
+		if args.nmol: args.nmol=[1]+args.nmol
+		else: args.nmol=[1,1]
+
 	if args.nmol:
 		assert len(args.nmol)==len(pdbdata), "Error, number of values given to --nmol should be equal to values given to --aa_pdb/--cg_pdb"
 		args.nmol=np.int_(args.nmol)
 	else: args.nmol = np.ones(len(pdbdata),dtype=int)
 	Nmol['prot'],Nmol["nucl"]=list(args.nmol),list(args.nmol)
+	if CGlevel["prot"]==0: Nmol["prot"]=list(np.zeros(len(Nmol["prot"])))
+	if CGlevel["nucl"]==0: Nmol["nucl"]=list(np.zeros(len(Nmol["nucl"])))
 	for i in range(len(pdbdata)):
 		if len(pdbdata[i].prot.lines)==0: Nmol["prot"][i]=0
 		if len(pdbdata[i].nucl.lines)==0: Nmol["nucl"][i]=0
@@ -741,6 +826,9 @@ def main():
 		unfolded=PDB_IO()
 		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.bonds[0])
 		unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
+	elif args.banerjee2023:
+		top=Banerjee2023(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	else:
 		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)

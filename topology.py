@@ -111,7 +111,7 @@ class Tables:
 
         return
     
-class Calculate:
+class Preprocess:
     def __init__(self,aa_pdb,pdbindex="") -> None:
         self.file_ndx=str(pdbindex)
         self.allatpdb = aa_pdb
@@ -292,6 +292,71 @@ class Calculate:
                 T = self.__torsions__(quadruplets=quadruplets)
                 self.bb_dihedrals.append((quadruplets,T))
                 if len(self.CB_atn)!=0:
+                    quadruplets = [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c] and x in self.CB_atn[c]]
+                    quadruplets = np.int_(quadruplets)
+                    T = self.__torsions__(quadruplets=quadruplets)
+                    self.sc_dihedrals.append((quadruplets,T))
+
+        if len(self.P_atn) != 0: #RNA/DNA exists
+            if len(self.S_atn) == 0:
+                for c in self.P_atn:
+                    resnum = list(self.P_atn[c].keys())
+                    resnum.sort()
+                    quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
+                    quadruplets = np.int_(quadruplets)
+                    T = self.__torsions__(quadruplets=quadruplets)
+                    self.bb_dihedrals.append((quadruplets,T))
+            if len(self.S_atn) != 0:
+                psps,spsp = True,True
+                bsps,spsb = True,True
+                assert len(self.B_atn) > 0
+                for c in self.S_atn:
+                    resnum = list(self.S_atn[c].keys())
+                    resnum.sort()
+                    if psps:
+                        quadruplets = [(self.P_atn[c][x],self.S_atn[c][x], \
+                                    self.P_atn[c][x+1],self.S_atn[c][x+1]) \
+                                    for x in resnum if x+1 in self.S_atn[c] and \
+                                    x in self.P_atn[c] and x+1 in self.P_atn[c]]
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.bb_dihedrals.append((quadruplets,T))
+                    if spsp:
+                        quadruplets = [(self.S_atn[c][x],self.P_atn[c][x+1], \
+                                    self.S_atn[c][x+1],self.P_atn[c][x+2]) \
+                                    for x in resnum if x+1 in self.S_atn[c] and \
+                                    x+1 in self.P_atn[c] and x+2 in self.P_atn[c]]
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.bb_dihedrals.append((quadruplets,T))
+                    if bsps:
+                        quadruplets = [(self.B_atn[c][x],self.S_atn[c][x], \
+                                       self.P_atn[c][x+1],self.S_atn[c][x+1]) \
+                                    for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.sc_dihedrals.append((quadruplets,T))
+                    if spsb:
+                        quadruplets = [(self.S_atn[c][x],self.P_atn[c][x+1], \
+                                    self.S_atn[c][x+1],self.B_atn[c][x+1]) \
+                                    for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.sc_dihedrals.append((quadruplets,T))
+
+        return
+    
+    def Impropers(self):
+        # Getting torsion angle info from the pre-supplied data
+        if len(self.CA_atn) != 0:
+            for c in self.CA_atn:
+                resnum = list(self.CA_atn[c].keys())
+                resnum.sort()
+                quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
+                quadruplets = np.int_(quadruplets)
+                T = self.__torsions__(quadruplets=quadruplets)
+                self.bb_dihedrals.append((quadruplets,T))
+                if len(self.CB_atn)!=0:
                     quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
                     quadruplets = np.int_(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
@@ -391,7 +456,7 @@ class Calculate:
 
             aa2cg = {0:self.CA_atn,1:self.CB_atn,\
                      5:self.P_atn,2:self.S_atn,3:self.B_atn}
-            
+
             cutoff = cmap.cutoff*cmap.scale
             resgap = 4 
             contacts_dict = dict()
@@ -539,7 +604,7 @@ class MergeTop:
     def nPlaces(self,n,count2str):
         return "0"*(n-len(str(count2str)))+str(count2str)
 
-    def __topParse__(self,topfile_tag):
+    def __topParse(self,topfile_tag):
         topfile="%s_%s"%(topfile_tag,self.topfile)
         print ("> Parsing",topfile)
         top={x.split("]")[0].strip():x.split("]")[1].strip().split("\n") for x in open(topfile).read().split("[") if len(x.split("]"))==2}
@@ -547,7 +612,7 @@ class MergeTop:
         order=[x.split("]")[0].strip() for x in open(topfile).read().split("[") if len(x.split("]"))==2]
         return top,extras,order
 
-    def __smogxmlParse__(self,xmlfile_tag):
+    def __smogxmlParse(self,xmlfile_tag):
         xmlfile="%s_%s"%(xmlfile_tag,self.opt.xmlfile)
         data=dict()
         for line in open(xmlfile):
@@ -568,7 +633,7 @@ class MergeTop:
                 else: data[tag][subtag]["data"].append(line)
         return data
 
-    def __getSurfaceAtoms__(self,contacts,tag):
+    def __getSurfaceAtoms(self,contacts,tag):
         for psirs,chains,eps,sig in contacts:
             surface=list()
             I,J = 1+np.transpose(psirs)
@@ -578,7 +643,7 @@ class MergeTop:
         surface.sort()
         return surface
 
-    def __getAtomsSection__(self,inp,nmol,tag,prev_at_count=0,surface=[]):
+    def __getAtomsSection(self,inp,nmol,tag,prev_at_count=0,surface=[]):
         #writing merged atoms section
         section = str()
         offset = 0
@@ -614,7 +679,7 @@ class MergeTop:
         self.atoms_section += section
         return atoms_in_mol*nmol
 
-    def __writeAtomtypesSection__(self,fsec,inp,exclude=[]):
+    def __writeAtomtypesSection(self,fsec,inp,exclude=[]):
         temp = []
         for data in inp:
             for line in data:
@@ -629,7 +694,7 @@ class MergeTop:
                         fsec.write(" %10s"%new_bead.center(10))
                         fsec.write(len(line[1:])*" %s"%tuple(line[1:])+"\n")
 
-    def __writeSymPairs2Nonbond__(self,fsec,inp,cmap_func):
+    def __writeSymPairs2Nonbond(self,fsec,inp,cmap_func):
         nonbond_pairs={}
         for pairs,chains,eps,sig in inp:
             C1,C2 = np.transpose(chains)
@@ -661,7 +726,7 @@ class MergeTop:
             
         return nonbond_pairs
 
-    def __writeNucProtParams__(self,fsec,exclude={}):
+    def __writeNucProtParams(self,fsec,exclude={}):
         print ("> Writing user given custom nonbond_params:",self.opt.interface)
         eps,sig = self.data[0].Interactions(interface=self.opt.interface)
         cmap_func=self.inter_cmap.func
@@ -673,7 +738,7 @@ class MergeTop:
                 for y in self.excl_volume:
                     if y.startswith(("CA","CB")):
                         func=1
-                        if self.excl_rule==1: c12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                        if self.excl_rule==1: C12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                         elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                         if cmap_func in (1,2): values = 0,C12
                         elif cmap_func in (5,6):
@@ -733,7 +798,7 @@ class MergeTop:
                         fsec.write("\n")
         return pairs
 
-    def __writeNonbondParams__(self,fsec,inp,exclude={}):
+    def __writeNonbondParams(self,fsec,inp,exclude={}):
         print ("> Ignoring allready added %d contact pair-types."%len(exclude))
         temp=[]
         for data in inp:
@@ -756,7 +821,7 @@ class MergeTop:
                             fsec.write("\t"+len(line[2:])*" %5s"%tuple(line[2:])+"\n")
         return
 
-    def __writeNonbondParamsXML__(self,fsec,inp,exclude={}):
+    def __writeNonbondParamsXML(self,fsec,inp,exclude={}):
         print ('> Ignoring allready added %d contact pair-types.'%len(exclude))
         temp=[]
         for data in inp:
@@ -777,7 +842,7 @@ class MergeTop:
                         fsec.write(len(line[4:])*'"%s'%tuple(line[4:]))
         return
 
-    def __writeInteractions__(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+    def __writeInteractions(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
         for x in range(0,nmol):
             fsec.write(";%s_%s\n"%(tag,self.nPlaces(n=3,count2str=x+1)))
             for y in inp:
@@ -791,7 +856,7 @@ class MergeTop:
                     fsec.write("\n")
         return
 
-    def __writeSymPaIrs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+    def __writeSymPaIrs(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
         fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
         for y in inp:
             if y.strip() == "": continue
@@ -807,7 +872,7 @@ class MergeTop:
                         fsec.write("; %s(%d,%d) %5s %5s\n"%tuple([tag,i,j]+line[:2]))
         return
 
-    def __writeInteractionsXML__(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+    def __writeInteractionsXML(self,fsec,nparticles,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
         for x in range(0,nmol):
             #fsec.write(';%s_%s\n'%(tag,self.nPlaces(n=3,count2str=x+1)))
             for line in inp:
@@ -819,7 +884,7 @@ class MergeTop:
                 fsec.write(len(line[2*nparticles+1:])*'"%s'%tuple(line[2*nparticles+1:]))            
         return
 
-    def __writeSymPaIrsXML__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
+    def __writeSymPaIrsXML(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
         fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
         for line in inp:
             line=line.split('"')
@@ -832,7 +897,7 @@ class MergeTop:
                     fsec.write(len(line[4:])*'"%s'%tuple(line[4:]))
         return
 
-    def __writeInterPairs__(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,sym=True,neighlist=False,atnum_offset=0):
+    def __writeInterPairs(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,sym=True,neighlist=False,atnum_offset=0):
         print ("> Determining Inter pairs")
         atoms_in_mol=self.atoms_in_mol
         cmap_func=self.inter_cmap.func
@@ -907,29 +972,29 @@ class MergeTop:
         if Ninp==1:
             if Nnucl[0]>0: 
                 if self.opt.opensmog: 
-                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="nucl"))
-                parsed_top.append(self.__topParse__(topfile_tag="nucl"))
+                        parsed_xml.append(self.__smogxmlParse(xmlfile_tag="nucl"))
+                parsed_top.append(self.__topParse(topfile_tag="nucl"))
                 tag_list.append("nucl");nmol_list.append(Nnucl[0])
                 temp_data.append(self.data[0])
             if Nprot[0]>0: 
                 if self.opt.opensmog: 
-                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="prot"))
-                parsed_top.append(self.__topParse__(topfile_tag="prot"))
+                        parsed_xml.append(self.__smogxmlParse(xmlfile_tag="prot"))
+                parsed_top.append(self.__topParse(topfile_tag="prot"))
                 tag_list.append("prot");nmol_list.append(Nprot[0])
                 temp_data.append(self.data[0])
         else:        
             for i in range(Ninp):
                 if Nnucl[i]>0: 
                     if self.opt.opensmog: 
-                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="nucl%d"%i))
-                    parsed_top.append(self.__topParse__(topfile_tag="nucl%d"%i))
+                        parsed_xml.append(self.__smogxmlParse(xmlfile_tag="nucl%d"%i))
+                    parsed_top.append(self.__topParse(topfile_tag="nucl%d"%i))
                     tag_list.append("nucl%d"%i);nmol_list.append(Nnucl[i])
                     temp_data.append(self.data[i])
             for i in range(Ninp):
                 if Nprot[i]>0:
                     if self.opt.opensmog: 
-                        parsed_xml.append(self.__smogxmlParse__(xmlfile_tag="prot%d"%i))
-                    parsed_top.append(self.__topParse__(topfile_tag="prot%d"%i))
+                        parsed_xml.append(self.__smogxmlParse(xmlfile_tag="prot%d"%i))
+                    parsed_top.append(self.__topParse(topfile_tag="prot%d"%i))
                     tag_list.append("prot%d"%i);nmol_list.append(Nprot[i])
                     temp_data.append(self.data[i])
         Ninp,self.data=len(parsed_top),temp_data
@@ -952,7 +1017,7 @@ class MergeTop:
             if sum(nmol_list)>10:
                 add_inter_2_neighlist=True
                 for x in range(Ninp):
-                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms__(contacts=inter_contacts,tag=tag_list[x])
+                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=inter_contacts,tag=tag_list[x])
             else: add_inter_2_neighlist=False
             if self.opt.opensmog: 
                 uniq_expr=set([parsed_xml[i][tag][subtag]["expr"] for i in range(Ninp) \
@@ -973,7 +1038,7 @@ class MergeTop:
                     cmap.type=0
                     self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4])
                     if add_intra_2_neighlist[x]:
-                        self.mol_surface_atoms[x] += self.__getSurfaceAtoms__(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
+                        self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
             else: add_intra_2_neighlist = np.zeros(Ninp)
 
         if opt.opensmog: 
@@ -996,7 +1061,7 @@ class MergeTop:
             atom_list = [parsed_top[x][0]["atoms"] for x in range(Ninp)]
             prev_natoms=np.zeros(Ninp+1)
             for i in range(Ninp):
-                prev_natoms[i+1] = self.__getAtomsSection__(inp=atom_list[i],nmol=nmol_list[i],tag=tag_list[i], \
+                prev_natoms[i+1] = self.__getAtomsSection(inp=atom_list[i],nmol=nmol_list[i],tag=tag_list[i], \
                                             prev_at_count=sum(prev_natoms),surface=self.mol_surface_atoms[i])
             ##
             for header in order:
@@ -1005,7 +1070,7 @@ class MergeTop:
                 fout.write("\n[ "+header+" ]\n")
                 ##
                 if header == "atomtypes":
-                    self.__writeAtomtypesSection__(fsec=fout,inp=data_list)
+                    self.__writeAtomtypesSection(fsec=fout,inp=data_list)
                 elif header == "nonbond_params":
                     if opt.opensmog:
                         print ("> Writing %s nonbond section."%opt.xmlfile)
@@ -1016,14 +1081,14 @@ class MergeTop:
                     if opt.intra_symmetrize:
                         for i in range(Ninp):
                             if not add_intra_2_neighlist[i]: continue
-                            exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond__(fsec=fout,cmap_func=cmap_func,inp=self.data[i].contacts))
+                            exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=cmap_func,inp=self.data[i].contacts))
                     if opt.inter_symmetrize and add_inter_2_neighlist:
-                        exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond__(fsec=fout,cmap_func=cmap_func,inp=inter_contacts))
-                    if sum(Nprot)>0 and sum(Nnucl)>0: self.__writeNucProtParams__(fsec=fout,exclude=exclude_nonbond_pairs)
-                    self.__writeNonbondParams__(fsec=fout,inp=data_list,exclude=exclude_nonbond_pairs)
+                        exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=cmap_func,inp=inter_contacts))
+                    if sum(Nprot)>0 and sum(Nnucl)>0: self.__writeNucProtParams(fsec=fout,exclude=exclude_nonbond_pairs)
+                    self.__writeNonbondParams(fsec=fout,inp=data_list,exclude=exclude_nonbond_pairs)
                     if opt.opensmog:
                         xml_data_list=[parsed_xml[i][nb_tag][nb_subtag]["data"] for i in range(Ninp)]
-                        self.__writeNonbondParamsXML__(fsec=self.xmlfile.fxml,inp=xml_data_list,exclude=exclude_nonbond_pairs)
+                        self.__writeNonbondParamsXML(fsec=self.xmlfile.fxml,inp=xml_data_list,exclude=exclude_nonbond_pairs)
                         self.xmlfile.fxml.write("%s</%s"%tuple(nb_subtag.split("<")))
                         self.xmlfile.fxml.write("%s</%s"%tuple(nb_tag.split("<")))
                         if len(ct_tag)!=0: self.xmlfile.fxml.write(ct_tag)
@@ -1031,7 +1096,7 @@ class MergeTop:
                     fout.write(self.atoms_section)
                 elif header in ["bonds","angles","dihedrals"]:
                     for i in range(Ninp):
-                        self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
+                        self.__writeInteractions(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
                                     nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                         if header=="bonds" and opt.opensmog and len(ct_tag)!=0:
                             ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
@@ -1044,18 +1109,18 @@ class MergeTop:
                                 self.xmlfile.fxml.write(new_subtag+expr)
                                 for param in parsed_xml[i][ct_tag][subtag]["params"]: self.xmlfile.fxml.write(param)
                                 xml_data=parsed_xml[i][ct_tag][subtag]["data"]
-                                self.__writeInteractionsXML__(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
+                                self.__writeInteractionsXML(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
                                                                 nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                                 self.xmlfile.pairs_count+=1
                                 self.xmlfile.fxml.write("%s</%s>\n"%tuple(subtag.split()[0].split("<")))
                 elif header in ["pairs","exclusions"]:
                     for i in range(Ninp):
                         if not opt.intra_symmetrize: 
-                            self.__writeInteractions__(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
+                            self.__writeInteractions(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
                                         nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])                    
                         elif opt.intra_symmetrize: 
                             if not add_intra_2_neighlist[i]:
-                                self.__writeSymPaIrs__(fsec=fout,inp=data_list[i],nmol=nmol_list[i], \
+                                self.__writeSymPaIrs(fsec=fout,inp=data_list[i],nmol=nmol_list[i], \
                                     prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i],tag=tag_list[i])
                         if header=="pairs" and opt.opensmog and len(ct_tag)!=0:
                             ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
@@ -1069,22 +1134,22 @@ class MergeTop:
                                 for param in parsed_xml[i][ct_tag][subtag]["params"]: self.xmlfile.fxml.write(param)
                                 xml_data=parsed_xml[i][ct_tag][subtag]["data"]
                                 if not opt.intra_symmetrize:
-                                    self.__writeInteractionsXML__(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
+                                    self.__writeInteractionsXML(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
                                                                 nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                                 elif opt.intra_symmetrize:
                                     if not add_intra_2_neighlist[i]:
-                                        self.__writeSymPaIrsXML__(fsec=self.xmlfile.fxml,inp=xml_data,nmol=nmol_list[i],tag=tag_list[i], \
+                                        self.__writeSymPaIrsXML(fsec=self.xmlfile.fxml,inp=xml_data,nmol=nmol_list[i],tag=tag_list[i], \
                                                                 prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                                 self.xmlfile.pairs_count+=1
                                 self.xmlfile.fxml.write("  %s</%s>\n"%tuple(subtag.split()[0].split("<")))
                     if header == "pairs":
                         if len(inter_contacts)>0:
                             if add_inter_2_neighlist:
-                                inter_exclusions_section = self.__writeInterPairs__(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
+                                inter_exclusions_section = self.__writeInterPairs(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
                                                                 prev_at_count=prev_natoms,atoms_in_mol=self.atoms_in_mol[i],neighlist=add_inter_2_neighlist)
 
                             else:
-                                inter_exclusions_section = self.__writeInterPairs__(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
+                                inter_exclusions_section = self.__writeInterPairs(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
                                                                 prev_at_count=prev_natoms,atoms_in_mol=self.atoms_in_mol[i],neighlist=add_inter_2_neighlist)
                         else: inter_exclusions_section = []
                     else: status = [fout.write(line) for line in inter_exclusions_section]
@@ -1095,7 +1160,7 @@ class OpenSMOGXML:
     def __init__(self,xmlfile,coulomb) -> None:
         self.fxml=open(xmlfile,"w+")
         self.fxml.write('<OpenSMOGforces>\n')
-        self.nb_count,self.pairs_count=0,0
+        self.nb_count,self.pairs_count,self.dihed_count=0,0,0
         self.add_electrostatics=False
         self.coulomb=coulomb
         if coulomb.P or coulomb.CA or coulomb.CB or coulomb.inter:
@@ -1166,8 +1231,28 @@ class OpenSMOGXML:
         self.pairs_count+=1
         return
 
+    def write_dihedrals_xml(self,quads=[],params={},name="CustomDihedrals",\
+                            expression="Kd*(1+cos(n*theta-theta0));theta0=theta0_deg*3.141592653589793/180"):
+        if self.pairs_count>0:
+            self.fxml.write(' </contacts>\n')
+            self.pairs_count=0
+        if self.dihed_count==0: self.fxml.write(' <dihedrals>\n')
+        expression="select(check,V,V_pi);check=floor(1000*sin(angle(p1,p2,p3))*sin(angle(p2,p3,p4))),V_pi=0.0;V="+expression
+        self.fxml.write('  <dihedrals_type name="%s">\n'%name)
+        self.fxml.write('   <expression expr="%s"/>\n'%expression)
+        for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
+        I,J,K,L = 1+np.transpose(quads)
+        for x in range(quads.shape[0]): 
+            self.fxml.write('   <interaction i="%d" j="%d" k="%d" l="%d"'%(I[x],J[x],K[x],L[x]))
+            for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
+            self.fxml.write('/>\n')
+        self.fxml.write('  </dihedrals_type>\n')
+        self.dihed_count+=1
+        return
+
     def __del__(self):
         if self.pairs_count>0:self.fxml.write(' </contacts>\n')
+        elif self.dihed_count>0: self.fxml.write(' </dihedrals>\n')
         self.fxml.write('</OpenSMOGforces>\n')
         self.fxml.close()
 
@@ -1182,8 +1267,9 @@ class Topology:
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.tableb_ndx = 0
 
-    def __write_header__(self,fout,combrule) -> None:
+    def __write_header(self,fout,combrule) -> None:
             print (">> Writing header section")
             fout.write("\n; Topology file generated by SuBMIT. \n")
             fout.write("\n[ defaults  ]\n")
@@ -1191,7 +1277,7 @@ class Topology:
             fout.write("  1      1         no   \n\n")
             return
 
-    def __write_footer__(self,fout) -> None:
+    def __write_footer(self,fout) -> None:
             print (">> Writing tail section")
             fout.write("\n%s\n"%("[ system ]"))
             fout.write("%s\n"%(";name"))
@@ -1201,12 +1287,11 @@ class Topology:
             fout.write("%s\n"%("Macromolecule     1"))
             return
 
-    def __write_atomtypes__(self,fout,type,rad,seq,data):
+    def __write_protein_atomtypes(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
-
         if len(data.CA_atn) != 0:
             assert type<=2
             self.excl_volume["CA"] = 2*rad["CA"]
@@ -1219,6 +1304,13 @@ class Topology:
                     C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
                     self.excl_volume[bead] = 2*rad[bead]
                     fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+        return 
+    
+    def __write_nucleicacid_atomtypes(self,fout,type,rad,seq,data):
+        print (">> Writing atomtypes section")
+        #1:CA model or 2:CA+CB model
+        fout.write('%s\n'%("[ atomtypes ]"))
+        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
         if len(data.P_atn) != 0:
             assert type in (1,3,5)
             self.excl_volume["P"] = 2*rad["P"]
@@ -1241,13 +1333,14 @@ class Topology:
                                 fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,bead[0]))
         return
 
-    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+    def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
 
         eps,sig = data.Interactions(nonbond=self.opt.nonbond)
         pairs,repul_C12 = [],[]
+        self.atomtypes = []
 
         if len(data.CA_atn) > 0:
             cmap_func=self.cmap["prot"].func
@@ -1274,6 +1367,58 @@ class Topology:
                                 if self.opt.opensmog: continue
                                 fout.write(" %s %s\t%d\t"%(p[0].ljust(5),p[1].ljust(5),func))
                                 fout.write(len(values)*" %e"%tuple(values)+"\n")
+
+        if len(eps)>0:
+            fout.write("; Custom Nnobond interactions\n")
+            for p in eps:
+                if p[0] not in self.excl_volume: continue
+                if p[1] not in self.excl_volume: continue
+                p=list(p); p.sort(); p=tuple(p)
+                if p in pairs: continue
+                pairs.append(p)
+                if p not in sig: cmap_func=-1
+                else: sig[p]=sig[p][0] #to be changed for Gaussian
+                func=1
+                if cmap_func ==-1:
+                    if excl_rule==1: c12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    elif excl_rule==2: C12 = eps[p]*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
+                    values = 0.0,C12
+                elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
+                elif cmap_func==2: values = 6*eps[p]*((sig[p])**10),5*eps[p]*((sig[p])**12)
+                elif cmap_func in (5,6):
+                    func,sd = 6,0.05
+                    if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
+                    values = eps[p],sig[p],sd,C12
+                repul_C12.append(values[-1])
+                if self.opt.opensmog: continue
+                fout.write(" %5s %5s\t%d\t"%(p[0],p[1],func))
+                fout.write(len(values)*" %e"%tuple(values))
+                fout.write("\n")
+
+        if self.opt.opensmog and len(repul_C12)!=0:
+            params={"eps_att":[],"sig":[],"C12":repul_C12}
+            for p in pairs: 
+                if p in eps: params["eps_att"].append(eps[p])
+                else: params["eps_att"].append(1)
+                if p in sig: params["sig"].append(sig[p])
+                else: params["sig"].append(0)
+            assert len(params["eps_att"])==len(params["C12"])
+            if len(data.CA_atn)!=0:
+                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                        C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
+            if len(data.P_atn)!=0: 
+                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                        C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
+        return 0
+
+    def __write_nucleicacid_nonbondparams(self,fout,type,excl_rule,data):
+        print (">> Writing nonbond_params section")
+        ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
+        fout.write("\n%s\n"%("[ nonbond_params ]"))
+
+        eps,sig = data.Interactions(nonbond=self.opt.nonbond)
+        pairs,repul_C12 = [],[]
 
         if len(data.P_atn) > 0:
             cmap_func=self.cmap["nucl"].func
@@ -1346,25 +1491,51 @@ class Topology:
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
         return 0
 
-    def __write_moleculetype__(self,fout):
+    def __write_moleculetype(self,fout):
         print (">> Writing moleculetype section")
         fout.write("\n%s\n"%("[ moleculetype ]"))
         fout.write("%s\n"%("; name            nrexcl"))
         fout.write("%s\n"%("  Macromolecule   3"))
 
-    def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
+    def __write_protein_atoms(self,fout,type,cgfile,seq,inc_charge):
         print (">> Writing atoms section")
         fout.write("\n%s\n"%("[ atoms ]"))
         fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
         Q = dict()
         if inc_charge: 
             Q.update({x:1 for x in ["CBK","CBR","CBH"]})
-            Q.update({x:-1 for x in ["CBD","CBE","P"]})
+            Q.update({x:-1 for x in ["CBD","CBE"]})
 
         prev_resnum,seqcount,rescount="",0,0
-        if ".nucl." in cgfile: seq=["5%s3"%x for x in seq.split()]
-        elif ".prot." in cgfile: seq=["_%s_"%x for x in seq.split()]
-        self.atomtypes=[]
+        assert ".prot." in cgfile
+        seq=["_%s_"%x for x in seq.split()]
+        self.atomtypes = []
+        with open(cgfile) as fin:
+            for line in fin:
+                if line.startswith("ATOM"):
+                    atnum=hy36decode(5,line[6:11])
+                    atname=line[12:16].strip()
+                    resname=line[17:20].strip()
+                    resnum=hy36decode(4,line[22:26])
+                    atype=atname
+                    if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
+                    if atype=="CB": atype+=seq[seqcount][rescount]
+                    if atype not in Q: Q[atype] = 0
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
+                    self.atomtypes.append(atype)
+                elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
+        return
+
+    def __write_nucleicacid_atoms(self,fout,type,cgfile,seq,inc_charge):
+        print (">> Writing atoms section")
+        fout.write("\n%s\n"%("[ atoms ]"))
+        fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
+        Q = {"P":-1}
+
+        prev_resnum,seqcount,rescount="",0,0
+        assert ".nucl." in cgfile
+        seq=["5%s3"%x for x in seq.split()]
+        self.atomtypes = []
         with open(cgfile) as fin:
             for line in fin:
                 if line.startswith("ATOM"):
@@ -1379,8 +1550,7 @@ class Topology:
                             codon=atype[1]+seq[seqcount][rescount-1].lower()\
                                  +seq[seqcount][rescount]+seq[seqcount][rescount+1].lower()
                         else: codon=atype[1]+seq[seqcount][rescount]
-                    if atype=="CB": atype+=seq[seqcount][rescount]
-                    elif atype.endswith("'"): atype="S"+codon
+                    if atype.endswith("'"): atype="S"+codon
                     elif atype.startswith("N"): atype="B"+codon
                     if atype not in Q: Q[atype] = 0
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
@@ -1388,7 +1558,7 @@ class Topology:
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
 
-    def __write_protein_bonds__(self,fout,data,func):
+    def __write_protein_bonds(self,fout,data,func):
         print (">> Writing bonds section")
         #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
         #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
@@ -1406,7 +1576,7 @@ class Topology:
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],Kb))
         return 
 
-    def __write_protein_angles__(self,fout,data):
+    def __write_protein_angles(self,fout,data):
         print (">> Writing angless section")
         #V_ang = (Ktheta/2)*(r-r0)^2
         #Input units KJ mol-1 #GROMACS units KJ mol-1 
@@ -1423,7 +1593,7 @@ class Topology:
                 fout.write(" %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],func,angles[x],Ka))
         return
 
-    def __write_protein_dihedrals__(self,fout,data,chiral):
+    def __write_protein_dihedrals(self,fout,data,chiral):
         print (">> Writing dihedrals section")
 
         #GROMACS IMPLEMENTATION: Edihedrals Kphi*(1 + cos(n(phi-phi0)))
@@ -1442,9 +1612,15 @@ class Topology:
         fout.write("\n%s\n"%("[ dihedrals ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
 
-        data.Dihedrals()
+        data.Impropers()
         func = 1
-        for quads,diheds in data.bb_dihedrals:
+        for c in range(len(data.bb_dihedrals)):
+            quads,diheds = data.bb_dihedrals[c]
+            #if self.opt.opensmog:
+            #    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
+            #                            expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
+            #                            params={"theta0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
+            #    continue
             I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
@@ -1453,12 +1629,18 @@ class Topology:
         if chiral and len(data.CB_atn) != 0:
             func = 2
             fout.write("; %5s %5s %5s %5s %5s %5s %5s \n" % (";ai","aj","ak","al","func","phi0(deg)","Kd"))
-            for quads,diheds in data.sc_dihedrals:
+            for c in range(len(data.sc_dihedrals)):
+                quads,diheds = data.sc_dihedrals[c]
+                #if self.opt.opensmog:
+                #    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
+                #                        expression="Kd*((theta-theta0)^2);theta0=theta0_deg*3.141592653589793/180",\
+                #                        params={"theta0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
+                #    continue
                 I,J,K,L = 1+np.transpose(quads)
                 for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_sc))
         return
 
-    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
+    def __write_protein_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap["prot"]
         #data.Pairs(cmap=cmap,aa_data=self.allatomdata.prot)
@@ -1547,7 +1729,7 @@ class Topology:
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
         return 
 
-    def __write_nucleicacid_bonds__(self,fout,data,func):
+    def __write_nucleicacid_bonds(self,fout,data,func):
         print (">> Writing bonds section")
         #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
         #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
@@ -1563,7 +1745,7 @@ class Topology:
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,dist[x],Kb))
         return 
 
-    def __write_nucleicacid_angles__(self,fout,data):
+    def __write_nucleicacid_angles(self,fout,data):
         print (">> Writing angless section")
         #V_ang = (Ktheta/2)*(r-r0)^2
         #Input units KJ mol-1 #GROMACS units KJ mol-1 
@@ -1580,7 +1762,7 @@ class Topology:
                 fout.write(" %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],func,angles[x],Ka))
         return
 
-    def __write_nucleicacid_dihedrals__(self,fout,data,chiral):
+    def __write_nucleicacid_dihedrals(self,fout,data,chiral):
         print (">> Writing dihedrals section")
 
         #GROMACS IMPLEMENTATION: Edihedrals Kphi*(1 + cos(n(phi-phi0)))
@@ -1599,18 +1781,30 @@ class Topology:
         fout.write("\n%s\n"%("[ dihedrals ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
 
-        data.Dihedrals()
+        data.Impropers()
 
         func = 1
-        for quads,diheds in data.bb_dihedrals:
-            I,J,K,L = 1+np.transpose(quads)
+        for c in range(len(data.bb_dihedrals)):
+            quads,diheds = data.bb_dihedrals[c]
             if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
+            #if self.opt.opensmog:
+            #    self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
+            #                            expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
+            #                            params={"theta0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
+            #    continue
+            I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
                 fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_bb,1))
                 fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_bb/mfac,3))
         if len(data.S_atn):
-            for quads,diheds in data.sc_dihedrals:
+            for c in len(data.sc_dihedrals):
+                quads,diheds = data.sc_dihedrals[c]
+                #if self.opt.opensmog:
+                #   self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
+                #                        expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
+                #                        params={"theta0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
+                #   continue
                 I,J,K,L = 1+np.transpose(quads)
                 diheds += phase
                 for x in range(quads.shape[0]):
@@ -1618,7 +1812,7 @@ class Topology:
                     fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_sc/mfac,3))
         return
 
-    def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
+    def __write_nucleicacid_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap["nucl"]
         #data.Pairs(cmap=cmap,aa_data=self.allatomdata.nucl)
@@ -1687,7 +1881,7 @@ class Topology:
                     fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
         return 
 
-    def __write_exclusions__(self,fout,data):
+    def __write_exclusions(self,fout,data):
         print (">> Writing exclusions section")
         fout.write("\n%s\n"%("[ exclusions ]"))
         fout.write("; %5s %5s\n"%("i","j"))
@@ -1697,7 +1891,7 @@ class Topology:
                 fout.write(" %5d %5d\n"%(I[x],J[x]))
         return
 
-    def __clean__(self):
+    def __next(self):
         self.excl_volume_set.update(self.excl_volume.copy())
         self.excl_volume = dict()
         self.atomtypes = []
@@ -1709,7 +1903,7 @@ class Topology:
         for i in range(nfiles):
             cgpdb = PDB_IO()
             fileindex=[str(i),str()][int(nfiles==1)]
-            Data.append(Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex))
+            Data.append(Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex))
             if len(self.allatomdata[i].prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
                 if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata[i].prot.bb_file,refine=False)
                 elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata[i].prot.sc_file,refine=False)
@@ -1717,19 +1911,19 @@ class Topology:
                 if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
                 with open(prot_topfile,"w+") as ftop:
                     print (">>> writing Protein GROMACS toptology", prot_topfile)
-                    proc_data_p = Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
+                    proc_data_p = Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
                     proc_data_p.processData(data=cgpdb.prot)
-                    self.__write_header__(fout=ftop,combrule=excl)
-                    self.__write_atomtypes__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
-                    self.__write_nonbond_params__(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
-                    self.__write_moleculetype__(fout=ftop)
-                    self.__write_atoms__(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CA or charge.CB)*(not self.opt.opensmog))
-                    self.__write_protein_pairs__(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
-                    self.__write_protein_bonds__(fout=ftop, data=proc_data_p,func=bond_function)
-                    self.__write_protein_angles__(fout=ftop, data=proc_data_p)
-                    self.__write_protein_dihedrals__(fout=ftop, data=proc_data_p,chiral=CBchiral)
-                    self.__write_exclusions__(fout=ftop,data=proc_data_p)
-                    self.__write_footer__(fout=ftop)
+                    self.__write_header(fout=ftop,combrule=excl)
+                    self.__write_protein_atomtypes(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],seq=cgpdb.prot.seq,rad=rad)
+                    self.__write_protein_nonbondparams(fout=ftop,data=proc_data_p,type=self.CGlevel["prot"],excl_rule=excl)
+                    self.__write_moleculetype(fout=ftop)
+                    self.__write_protein_atoms(fout=ftop,type=self.CGlevel["prot"],cgfile=cgpdb.pdbfile,seq=cgpdb.prot.seq,inc_charge=(charge.CB or charge.CA)*(not self.opt.opensmog))
+                    self.__write_protein_pairs(fout=ftop, data=proc_data_p,excl_rule=excl,charge=charge)
+                    self.__write_protein_bonds(fout=ftop, data=proc_data_p,func=bond_function)
+                    self.__write_protein_angles(fout=ftop, data=proc_data_p)
+                    self.__write_protein_dihedrals(fout=ftop, data=proc_data_p,chiral=CBchiral)
+                    self.__write_exclusions(fout=ftop,data=proc_data_p)
+                    self.__write_footer(fout=ftop)
                     Data[i].CA_atn,Data[i].CB_atn=proc_data_p.CA_atn,proc_data_p.CB_atn
                     Data[i].cgpdb_p=proc_data_p.cgpdb
                 if self.opt.opensmog: del self.prot_xmlfile
@@ -1740,23 +1934,23 @@ class Topology:
                 if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
                 with open(nucl_topfile,"w+") as ftop:
                     print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
-                    proc_data_n = Calculate(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
+                    proc_data_n = Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
                     proc_data_n.processData(data=cgpdb.nucl)
-                    self.__write_header__(fout=ftop,combrule=excl)
-                    self.__write_atomtypes__(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
-                    self.__write_nonbond_params__(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
-                    self.__write_moleculetype__(fout=ftop)
-                    self.__write_atoms__(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P*(not self.opt.opensmog))
-                    self.__write_nucleicacid_pairs__(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
-                    self.__write_nucleicacid_bonds__(fout=ftop, data=proc_data_n,func=bond_function)
-                    self.__write_nucleicacid_angles__(fout=ftop, data=proc_data_n)
-                    self.__write_nucleicacid_dihedrals__(fout=ftop, data=proc_data_n,chiral=CBchiral)
-                    self.__write_exclusions__(fout=ftop,data=proc_data_n)
-                    self.__write_footer__(fout=ftop)
+                    self.__write_header(fout=ftop,combrule=excl)
+                    self.__write_nucleicacid_atomtypes(fout=ftop,type=self.CGlevel["nucl"],data=proc_data_n,seq=cgpdb.nucl.seq,rad=rad)
+                    self.__write_nucleicacid_nonbondparams(fout=ftop,data=proc_data_n,type=self.CGlevel["nucl"],excl_rule=excl)
+                    self.__write_moleculetype(fout=ftop)
+                    self.__write_nucleicacid_atoms(fout=ftop,type=self.CGlevel["nucl"],cgfile=cgpdb.pdbfile,seq=cgpdb.nucl.seq,inc_charge=charge.P*(not self.opt.opensmog))
+                    self.__write_nucleicacid_pairs(fout=ftop, data=proc_data_n,excl_rule=excl,charge=charge)
+                    self.__write_nucleicacid_bonds(fout=ftop, data=proc_data_n,func=bond_function)
+                    self.__write_nucleicacid_angles(fout=ftop, data=proc_data_n)
+                    self.__write_nucleicacid_dihedrals(fout=ftop, data=proc_data_n,chiral=CBchiral)
+                    self.__write_exclusions(fout=ftop,data=proc_data_n)
+                    self.__write_footer(fout=ftop)
                     Data[i].P_atn,Data[i].S_atn,Data[i].B_atn=proc_data_n.P_atn,proc_data_n.S_atn,proc_data_n.B_atn
                     Data[i].cgpdb_n=proc_data_n.cgpdb
                 if self.opt.opensmog: del self.nucl_xmlfile
-            self.__clean__()
+            self.__next()
         if sum(Nmol["prot"])==0: self.CGlevel["prot"],self.cmap["prot"].func=0,-1
         if sum(Nmol["nucl"])==0: self.CGlevel["nucl"],self.cmap["nucl"].func=0,-1
         
@@ -1764,14 +1958,47 @@ class Topology:
         merge=MergeTop(proc_data=Data,Nprot=Nmol["prot"],Nnucl=Nmol["nucl"],topfile=outtop,opt=self.opt, \
                 coul=charge,excl_volume=self.excl_volume_set,excl_rule=excl,fconst=self.fconst,cmap=self.cmap)
 
+        if self.opt.opensmog: return #don't write table
+        table = Tables()
+        if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
+            table.__write_pair_table__(coulomb=charge,ljtype=2)
+        if self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1 or self.cmap["inter"].func == 1:
+            if charge.debye: table.__write_pair_table__(coulomb=charge,ljtype=1)
+
         return 0
 
 class Clementi2000(Topology):
     def __del__(self):
         pass
 
+class Banerjee2023(Clementi2000):
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
+        self.allatomdata = allatomdata
+        self.fconst = fconst
+        self.CGlevel = CGlevel
+        self.Nmol = Nmol
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
+        self.opt = opt
+        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+        self.excl_volume,self.excl_volume_set = dict(),dict()
+        self.atomtypes = []
+        self.tableb_ndx = 0
+        self.pdb_counter = 0
+
+    def __write_inter_pairs_file__(self):
+        pass
+
+    def __next(self):
+        self.pdb_counter+=1
+        self.excl_volume_set.update(self.excl_volume.copy())
+        if self.pdb_counter==2:
+            self.__write_inter_pairs_file__()
+            exit()
+        self.excl_volume = dict()
+        self.atomtypes = []
+
 class Pal2019(Topology):
-    def __write_nucleicacid_pairs__(self,fout,data,excl_rule,charge):
+    def __write_nucleicacid_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing pairs section")
         cmap = self.cmap["nucl"]
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -1805,7 +2032,155 @@ class Pal2019(Topology):
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c10[x],c12[x]))
         return 
 
-class Reddy2017(Topology):
+class Denesyuk2013_Chakraborty2018(Topology):
+    def __get_atn_typeletter__(self,data):
+        P_atn={data.P_atn[c][r]:self.atomtypes[data.P_atn[c][r]] for c in data.P_atn for r in data.P_atn[c]}
+        S_atn={data.S_atn[c][r]:self.atomtypes[data.S_atn[c][r]][0] for c in data.S_atn for r in data.S_atn[c]}
+        B_atn={data.B_atn[c][r]:self.atomtypes[data.B_atn[c][r]] for c in data.B_atn for r in data.B_atn[c]}
+        all_atn={}
+        for k in P_atn: assert P_atn[k]=="P"
+        for k in S_atn: assert S_atn[k]=="S"
+        for k in B_atn: 
+            assert B_atn[k][0]=="B"
+            B_atn[k]=[x for x in B_atn[k][2:] if x.isupper()][0]
+        return [P_atn,S_atn,B_atn]
+
+    def __get_force_constants__(self,type,deoxy):
+        if not deoxy: #Denesyuk2013
+            Kb={("P","S"):23.00, ("S","P"):64.00, \
+                ("S","A"):10.00, ("S","G"):10.00, \
+                ("S","U"):10.00, ("S","C"):10.00}
+            Ka={("P","S","P"):20.00, ("S","P",'S'):20.00, ("P","S","A"):05.00, \
+                ("A","S","P"):05.00, ("G","S","P"):05.00, ("P","S","G"):05.00, \
+                ("P","S","U"):05.00, ("P","S","C"):05.00, \
+                ("U","S","P"):05.00, ("C","S","P"):05.00 }
+        elif deoxy:#Chakraborty2018
+            Kb={("P","S"):17.63, ("S","P"):62.59, \
+                ("S","A"):44.31, ("S","G"):48.98, \
+                ("S","T"):46.56, ("S","C"):43.25}
+            Ka={("P","S","P"):25.67, ("S","P",'S'):67.50, ("P","S","A"):29.53, \
+                ("A","S","P"):67.32, ("G","S","P"):62.94, ("P","S","G"):26.28, \
+                ("P","S","T"):39.56, ("P","S","C"):35.25, \
+                ("T","S","P"):93.99, ("C","S","P"):77.78 }
+
+        #Kcal/(mol A2) to KJ/(mol nm2)
+        for k in Kb: Kb[k]*=(100*self.fconst.caltoj) 
+        #Kcal/(mol rad2) to KJ/(mol rad2)
+        for k in Ka: Ka[k]*=self.fconst.caltoj
+
+        if type in ("bonds","bond","b"): return Kb.copy()
+        elif type in ("angles","angle","a"): return Ka.copy()
+
+    def __write_nucleicacid_bonds(self,fout,data,func):
+        print (">> Writing bonds section")
+        #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
+        #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
+
+        all_atn=dict()
+        for x in self.__get_atn_typeletter__(data=data): all_atn.update(x) 
+
+
+        fout.write("\n%s\n"%("[ bonds ]"))
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "r0(nm)", "Kb"))
+
+
+        #TIS force bond force constants for RNA or DNA 
+        deoxy=data.allatpdb.nucl.deoxy
+        data.Bonds()
+        for c in range(len(data.bonds)):
+            pairs,dist=data.bonds[c]
+            Kb=self.__get_force_constants__(type="bonds",deoxy=deoxy[c])
+            I,J = 1+np.transpose(pairs)
+            pairs = [(all_atn[pairs[x][0]],all_atn[pairs[x][1]]) for x in range(pairs.shape[0])]
+            for x in range(len(pairs)): 
+                fout.write(" %5d %5d %5d %e %e"%(I[x],J[x],func,dist[x],Kb[pairs[x]]))
+                fout.write("; %s-%s\n"%pairs[x])
+        return 
+
+    def __write_nucleicacid_angles(self,fout,data):
+        print (">> Writing angless section")
+        #V_ang = (Ktheta/2)*(r-r0)^2
+        #Input units KJ mol-1 #GROMACS units KJ mol-1 
+
+        all_atn=dict()
+        for x in self.__get_atn_typeletter__(data=data): all_atn.update(x) 
+        #TIS force bond force constants
+
+        fout.write("\n%s\n"%("[ angles ]"))
+        fout.write("; %5s %5s %5s %5s %5s %5s\n"%("ai", "aj", "ak","func", "th0(deg)", "Ka"))
+
+        func = 1
+        #TIS force bond force constants for RNA or DNA 
+        deoxy=data.allatpdb.nucl.deoxy
+        data.Angles()
+        for c in range(len(data.angles)):
+            triplets,angles=data.angles[c]
+            Ka=self.__get_force_constants__(type="angles",deoxy=deoxy[c])
+            I,J,K = 1+np.transpose(triplets)
+            triplets=[(all_atn[triplets[x][0]],all_atn[triplets[x][1]],all_atn[triplets[x][2]]) \
+                                                            for x in range(triplets.shape[0])]
+            for x in range(len(triplets)): 
+                fout.write(" %5d %5d %5d %5d %e %e"%(I[x],J[x],K[x],func,angles[x],Ka[triplets[x]]))
+                fout.write("; %s-%s-%s\n"%triplets[x])
+        return
+
+    def __write_nucleicacid_pairs(self,fout,data,excl_rule,charge):
+        print (">> Writing stacking interactions section to contscts")
+        cmap = self.cmap["nucl"]
+        
+        all_atn=self.__get_atn_typeletter__(data=data)
+        data.Pairs(cmap=cmap,group="nucl")
+
+        opensmog_dlp_fork=False
+        print ("NOTE: TIS stacking interactions includes B1-S1-P2-S2 and S1-P2-S2-B2 torsions, requiring 5-particle function which is not supported in current official version of OpenSMOG.")
+        print ("A fork of OpenSMOGv1.1.1 with N-particle interaction support is available here: ")
+        opensmog_dlp_fork=bool(int("0"+input("\n\t 0) Implement B1-S1-S2-B2 torsion instead.\n\t 1) Use default TIS implementation with unofficial fork of OpenSMOG.\nSelect an options (0/1, default:0: ")))
+        print ("Use OpenSMOG fork: ",opensmog_dlp_fork)
+        if opensmog_dlp_fork: data.Dihedrals()
+        else: data.Impropers()        
+
+        assert self.opt.opensmog
+        for c in data.B_atn:
+            resnum = list(data.B_atn[c].keys())
+            resnum.sort()
+            stack = {(data.B_atn[c][x],data.B_atn[c][x+1]):[] for x in resnum if x+1 in data.B_atn[c]}
+            for pairs,chains,sig,eps in data.contacts:
+                for x in range(pairs.shape[0]):
+                    if tuple(pairs[x]) in stack:
+                        stack[tuple(pairs[x])].append(sig[x])
+            phi1 = {k[0]:0.0 for k in stack}
+            phi2 = {k[1]:0.0 for k in stack}
+            grp1,grp2 = phi1.copy(),phi2.copy()
+            for quads,torsions in data.sc_dihedrals:
+                for x in range(quads.shape[0]):
+                    if quads[x][0] in phi1:
+                        phi1[quads[x][0]]=torsions[x]
+                        grp1[quads[x][0]]=quads[x]
+                    if quads[x][3] in phi2:
+                        phi2[quads[x][3]]=torsions[x]
+                        grp2[quads[x][3]]=quads[x]
+            group=stack.copy()
+            for k1,k2 in stack:
+                stack[(k1,k2)]+=[phi1[k1],phi2[k2]]
+                group[(k1,k2)]=[grp1[k1],grp2[k2]]
+
+            quads1,quads2,values=[],[],[]
+            for k in stack: 
+                quads1.append(group[k][0])
+                quads2.append(group[k][1])
+                values.append(stack[k])
+
+            Kl,Kd=1.45,3.00
+            if not opensmog_dlp_fork:
+                quads1=np.int_(quads1)
+                values=np.transpose(values)
+                self.nucl_xmlfile.write_dihedrals_xml(quads=quads1,name="base_stacking%d_"%c,\
+                                params={"r0":values[0],"theta0":values[1]},\
+                                 expression="eps/(Kl*(r-r0)^2 + Kd*(theta-theta0)^2;Kd=%d'Kl=%d"%(Kl,Kd))
+
+        return 
+
+class Reddy2017(Denesyuk2013_Chakraborty2018):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         #for data in range(len(allatomdata)) self.__check_H_atom__(data)
@@ -1817,6 +2192,7 @@ class Reddy2017(Topology):
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.tableb_ndx = 0
 
     def __check_H_atom__(self,data):
         # checking presence of H-atom. Important for adding GLY CB
@@ -1831,7 +2207,7 @@ class Reddy2017(Topology):
                 or "CB" in atlist[rnum], "Error, SOP-SC needs H-atoms in the PDB file."
         return
 
-    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+    def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
@@ -1861,7 +2237,7 @@ class Reddy2017(Topology):
             self.prot_xmlfile.write_nonbond_xml(func=1,pairs=pairs,C12=repul_12,epsA=Krep,sig=sig)
         return 0
 
-    def __write_protein_bonds__(self,fout,data,func):
+    def __write_protein_bonds(self,fout,data,func):
         print (">> Writing SOP-SC bonds section")
         print ("Note: Function not supported by GROMACS. Use table files or enable --opensmog")
 
@@ -1903,7 +2279,7 @@ class Reddy2017(Topology):
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
-                if r0 not in table_idx: table_idx[r0]=len(table_idx)
+                if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
                 if r0-R>0:r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
                 else: r=0.001*np.int_(range(int(1000*(0+0.001)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
@@ -1911,21 +2287,22 @@ class Reddy2017(Topology):
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
                 Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
                 fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
+        self.tableb_ndx=max(table_idx.values())
         return 
 
-    def __write_protein_angles__(self,fout,data):
+    def __write_protein_angles(self,fout,data):
         print (">> Not Writing angless section")
         fout.write("\n%s\n"%("[ angles ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s\n"%("ai", "aj", "ak","func", "th0(deg)", "Ka"))
         return
 
-    def __write_protein_dihedrals__(self,fout,data,chiral):
+    def __write_protein_dihedrals(self,fout,data,chiral):
         print (">> Not Writing dihedrals section")
         fout.write("\n%s\n"%("[ dihedrals ]"))
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
         return
 
-    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
+    def __write_protein_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap["prot"]
         data.Pairs(cmap=cmap,group="prot")
@@ -2022,8 +2399,9 @@ class Baul2019(Reddy2017):
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.tableb_ndx = 0
 
-    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+    def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6  C12'))
@@ -2069,7 +2447,7 @@ class Baul2019(Reddy2017):
 
         return 0  
 
-    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
+    def __write_protein_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap["prot"]
         assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
@@ -2145,6 +2523,7 @@ class Baratam2024(Reddy2017):
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.tableb_ndx = 0
         self.bonds = []
 
     def __write_unfolded_cgpdb__(self,rad,data):
@@ -2180,12 +2559,12 @@ class Baratam2024(Reddy2017):
         unfolded.buildProtIDR(fasta=outfasta,rad=rad)
         self.unfolded_cgpdb=unfolded.prot
         #get unfolded CG-pdb processed data
-        unfolded = Calculate(aa_pdb=self.allatomdata)
+        unfolded = Preprocess(aa_pdb=self.allatomdata)
         unfolded.processData(data=self.unfolded_cgpdb)
         self.unfolded_data=unfolded
         return 0
 
-    def __write_atomtypes__(self,fout,type,rad,seq,data):
+    def __write_protein_atomtypes(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
         self.__write_unfolded_cgpdb__(rad=rad,data=data)
         #1:CA model or 2:CA+CB model
@@ -2194,10 +2573,10 @@ class Baratam2024(Reddy2017):
 
         assert len(data.CA_atn)!=0 and type==2
         self.excl_volume["CA"] = 2*rad["CA"]
-        self.excl_volume["iCA"] = self.excl_volume["CA"]
+        self.excl_volume["CAi"] = self.excl_volume["CA"]
         C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
         fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("iCA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CAi".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
         for s in seq+self.idrdata.seq:
             bead = "CB"+s
             if bead in self.excl_volume or s == " ": continue
@@ -2205,12 +2584,12 @@ class Baratam2024(Reddy2017):
             self.excl_volume[bead] = 2*rad[bead]
             fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
             if s in self.idrdata.seq:
-                self.excl_volume["i"+bead]=self.excl_volume[bead]
-                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("i"+bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+                self.excl_volume[bead+"i"]=self.excl_volume[bead]
+                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead+"i".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
         
         return 0
 
-    def __write_nonbond_params__(self,fout,type,excl_rule,data):
+    def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
         fout.write("\n%s\n"%("[ nonbond_params ]"))
@@ -2219,9 +2598,9 @@ class Baratam2024(Reddy2017):
         assert type==2 and excl_rule == 2
         pairs,values = [],[]
         for x in self.excl_volume:
-            if x.startswith(("CA","CB")):
+            if x.startswith(("CA","CB")) and x[-1]!="i":
                 for y in self.excl_volume:
-                    if y.startswith(("CA","CB")):
+                    if y.startswith(("CA","CB")) and y[-1]!="i":
                         sig=(self.excl_volume[x]+self.excl_volume[y])/2.0
                         eps = -1*self.fconst.Kr_prot
                         C06 = eps*(sig)**6
@@ -2233,8 +2612,6 @@ class Baratam2024(Reddy2017):
                             if self.opt.opensmog: continue
                             fout.write(" %s %s\t1\t%e %e\n"%(p[0].ljust(5),p[1].ljust(5),C06,C12))
         
-
-
         fout.write(";IDR C6-C12 interactions\n")
         eps = dict()
         eps[("CA","CA")] = self.eps_idr_bbbb
@@ -2252,12 +2629,11 @@ class Baratam2024(Reddy2017):
         epsmat.update({("CA","CA"):1.0})
 
         for x in self.excl_volume:
-            if x.startswith(("iCA","iCB")):
+            if x.startswith(("CA","CB")) and x[-1]=="i":
                 for y in self.excl_volume:
-                    if y.startswith(("CA","CB","iCA","iCB")):
+                    if y.startswith(("CA","CB")):
                         sig = (self.excl_volume[x]+self.excl_volume[y])/2.0
-                        if y.startswith("C"): p = [x[1:3],y[:2]]; p.sort(); p = tuple(p)
-                        elif y.startswith("iC"): p = [x[1:3],y[1:3]]; p.sort(); p = tuple(p)
+                        p = [x[:2],y[:2]]; p.sort(); p = tuple(p)
                         q=(x.strip("i"),y.strip("i"))
                         C06 = 2*eps[p]*epsmat[q]*(sig)**6
                         C12 = 1*eps[p]*epsmat[q]*(sig)**12
@@ -2280,14 +2656,14 @@ class Baratam2024(Reddy2017):
 
         return 0  
 
-    def __write_atoms__(self,fout,type,cgfile,seq,inc_charge):
+    def __write_protein_atoms(self,fout,type,cgfile,seq,inc_charge):
         print (">> Writing atoms section")
         fout.write("\n%s\n"%("[ atoms ]"))
         fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
         Q = dict()
         if inc_charge: 
             Q.update({x:1 for x in ["CBK","CBR","CBH"]})
-            Q.update({x:-1 for x in ["CBD","CBE","P"]})
+            Q.update({x:-1 for x in ["CBD","CBE"]})
         
         assert cgfile==self.ordered.sc_file
         cgfile=self.unfolded_cgpdb.pdbfile
@@ -2311,8 +2687,8 @@ class Baratam2024(Reddy2017):
                     if atype=="CB": atype+=seq[seqcount][rescount]
                     if atype not in Q: Q[atype] = 0
                     if atinfo in self.idrdata.res:
-                        Q["i"+atype]=Q[atype]
-                        atype="i"+atype
+                        Q[atype+"i"]=Q[atype]
+                        atype=atype+"i"
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
@@ -2351,7 +2727,7 @@ class Baratam2024(Reddy2017):
 
         return unfolded
 
-    def __write_protein_bonds__(self,fout,data,func):
+    def __write_protein_bonds(self,fout,data,func):
         print (">> Writing SOP-SC bonds section")
         print ("Note: Function not supported by GROMACS. Use table files or enable --opensmog")
 
@@ -2396,7 +2772,7 @@ class Baratam2024(Reddy2017):
             I,J = 1+np.transpose(pairs) 
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
-                if r0 not in table_idx: table_idx[r0]=len(table_idx)
+                if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
                 if r0-R>0:
                     r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
                 else:
@@ -2406,9 +2782,10 @@ class Baratam2024(Reddy2017):
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
                 Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
                 fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
+        self.tableb_ndx=max(table_idx.values())
         return 
 
-    def __write_protein_pairs__(self,fout,data,excl_rule,charge):
+    def __write_protein_pairs(self,fout,data,excl_rule,charge):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap["prot"]
         data.Pairs(cmap=cmap,group="prot")
@@ -2438,7 +2815,6 @@ class Baratam2024(Reddy2017):
                 if c0 in data.CB_atn and r0 in data.CB_atn[c0]:
                     old2new_atn[data.CB_atn[c0][r0]]=self.unfolded_data.CB_atn[c][r]
             
-
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
@@ -2480,6 +2856,7 @@ class Baratam2024(Reddy2017):
         data.Angles()
         diam = self.excl_volume.copy()
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
+        
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
         eps_scsc = 1.0*self.fconst.caltoj
