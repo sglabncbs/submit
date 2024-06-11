@@ -1049,8 +1049,12 @@ class MergeTop:
             if len(ct_tag)==1: ct_tag=ct_tag[0]
 
         print (">> Detected %d topology file(s)"%Ninp)
-        for i in range(Ninp): print (i,tag_list[i],nmol_list[i])
-                
+        with open("molecule_order.list","w+") as fout:
+            fout.write("#inp_ndx mol_typ num_mol\n")
+            for i in range(Ninp): 
+                print (i,tag_list[i],nmol_list[i])
+                fout.write(" %7d %7s %7d\n"%(i,tag_list[i].rjust(7),nmol_list[i]))
+        
         print (">>> writing Combined GROMACS toptology", outfile)
         with open(outfile,"w+") as fout:
             ##

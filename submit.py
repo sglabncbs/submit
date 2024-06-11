@@ -28,9 +28,10 @@
 	this program.
 
 usage: python submit.py --help
-(Author: Digvijay L. Prakash)
+(Author: Digvijay L. Prakash & Shachi S. Gosavi)
 """
 
+import os
 import argparse
 import numpy as np
 from typing import NamedTuple, Dict
@@ -104,6 +105,57 @@ class ModelDir:
 		with open(copyfile,"w+") as fout:
 			fout.write(open(self.path).read())
 		return 1
+
+class CleanUP:
+	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str()):
+		self.createDir()
+		self.delFiles(f_suffix="refined.pdb")
+		self.moveFiles(f_suffix=".pdb",f_middle=".refined.",out_subdir="RefinedPDB_CMap")
+		self.moveFiles(f_suffix="cont",out_subdir="RefinedPDB_CMap")
+		self.moveFiles(f_suffix=grosuffix,out_subdir="GRO_TOP_XML")
+		self.moveFiles(f_suffix=topsuffix,out_subdir="GRO_TOP_XML")
+		self.moveFiles(f_middle=grosuffix);self.moveFiles(f_middle=topsuffix)
+		if len(xmlsuffix)>0: 
+			self.moveFiles(f_suffix=xmlsuffix,out_subdir="GRO_TOP_XML")
+			self.moveFiles(f_middle=xmlsuffix)
+		self.moveFiles(f_middle="molecule_order.list")
+		self.genbox(grosuffix=grosuffix)	
+
+	def createDir(self):
+		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
+		os.makedirs("SuBMIT_Output/GRO_TOP_XML",exist_ok=True)
+		os.makedirs("SuBMIT_Output/model_params",exist_ok=True)
+		return
+
+	def moveFiles(self,f_suffix=str(),f_prefix=str(),f_middle=str(),out_subdir=str()):
+		common_dir="SuBMIT_Output"
+		for filename in os.listdir():
+			if filename.startswith(f_prefix) and filename.endswith(f_suffix):
+				if f_middle in filename and filename!=f_suffix and filename!=f_prefix:
+					os.replace(filename,"%s/%s/%s"%(common_dir,out_subdir,filename))
+		return
+	
+	def delFiles(self,f_suffix=str(),f_prefix=str(),f_middle=str()):
+		if len(f_prefix)+len(f_middle)+len(f_suffix)==0: return
+		for filename in os.listdir():
+			if filename.startswith(f_prefix) and filename.endswith(f_suffix):
+				if f_middle in filename and filename!=f_suffix and filename!=f_prefix:
+					os.remove(filename)
+		return
+
+	def genbox(self,grosuffix):
+		mol_list=[tuple(line.split()) \
+			 	for line in open("SuBMIT_Output/molecule_order.list")\
+				if not line.startswith(("#","@",":"))]
+		if len(mol_list)==1 and int(mol_list[0][-1])==1:
+			open("SuBMIT_Output/%s"%grosuffix,"w+").write(\
+				open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
+		else:			
+			mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
+			
+		
+		#for filename in os.listdir("SuBMIT_Output/GRO_TOP_XML"):
+			#if filename.endswith(".gro"): print (filename)
 
 def main():
 	
@@ -832,6 +884,7 @@ def main():
 	else:
 		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-
+	
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile)
 if __name__ == '__main__':
     main()
