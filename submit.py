@@ -118,6 +118,8 @@ class CleanUP:
 		if len(xmlsuffix)>0: 
 			self.moveFiles(f_suffix=xmlsuffix,out_subdir="GRO_TOP_XML")
 			self.moveFiles(f_middle=xmlsuffix)
+		self.moveFiles(f_prefix="table",f_suffix=".xvg",out_subdir="Tables")
+		self.moveFiles(f_prefix="interactions",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.genbox(grosuffix=grosuffix)	
 
@@ -125,6 +127,7 @@ class CleanUP:
 		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
 		os.makedirs("SuBMIT_Output/GRO_TOP_XML",exist_ok=True)
 		os.makedirs("SuBMIT_Output/model_params",exist_ok=True)
+		os.makedirs("SuBMIT_Output/Tables",exist_ok=True)
 		return
 
 	def moveFiles(self,f_suffix=str(),f_prefix=str(),f_middle=str(),out_subdir=str()):
@@ -151,12 +154,35 @@ class CleanUP:
 			open("SuBMIT_Output/%s"%grosuffix,"w+").write(\
 				open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
 		else:			
-			mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
-			
-		
-		#for filename in os.listdir("SuBMIT_Output/GRO_TOP_XML"):
-			#if filename.endswith(".gro"): print (filename)
-
+			if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
+				mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
+			else:
+				mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
+			with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
+				for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
+				fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
+				infile="_temp_0.gro"
+				fout.write('#for GROMACS v4 (<v5)\n')
+				for i in range(len(mol_list)):
+					outfile="_temp_%d.gro"%(i+1)
+					addfile="GRO_TOP_XML/%s"%mol_list[i][0]
+					if i+1==len(mol_list): outfile=grosuffix
+					command1='genbox -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
+									(infile,addfile,mol_list[i][1],outfile)
+					fout.write(command1)
+					infile=outfile
+				fout.write('#for GROMACS v5 (>=v5)\n')
+				for i in range(len(mol_list)):
+					outfile="_temp_%d.gro"%(i+1)
+					addfile="GRO_TOP_XML/%s"%mol_list[i][0]
+					if i+1==len(mol_list): outfile=grosuffix
+					command1='#gmx insert-molecules -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
+									(infile,addfile,mol_list[i][1],outfile)
+					fout.write(command1)
+					infile=outfile
+				fout.write('rm _temp_*gro\n')
+				fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
+		return
 def main():
 	
 	""" loading arguments here """

@@ -969,14 +969,17 @@ class MergeTop:
         parsed_top,parsed_xml=[],[]
         tag_list,nmol_list=[],[]
         temp_data=list()
+        pdb_input_ndx=list()
         if Ninp==1:
             if Nnucl[0]>0: 
+                pdb_input_ndx.append(0)
                 if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="nucl"))
                 parsed_top.append(self.__topParse(topfile_tag="nucl"))
                 tag_list.append("nucl");nmol_list.append(Nnucl[0])
                 temp_data.append(self.data[0])
             if Nprot[0]>0: 
+                pdb_input_ndx.append(0)
                 if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="prot"))
                 parsed_top.append(self.__topParse(topfile_tag="prot"))
@@ -985,6 +988,7 @@ class MergeTop:
         else:        
             for i in range(Ninp):
                 if Nnucl[i]>0: 
+                    pdb_input_ndx.append(i)
                     if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="nucl%d"%i))
                     parsed_top.append(self.__topParse(topfile_tag="nucl%d"%i))
@@ -992,6 +996,7 @@ class MergeTop:
                     temp_data.append(self.data[i])
             for i in range(Ninp):
                 if Nprot[i]>0:
+                    pdb_input_ndx.append(i)
                     if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="prot%d"%i))
                     parsed_top.append(self.__topParse(topfile_tag="prot%d"%i))
@@ -1052,8 +1057,8 @@ class MergeTop:
         with open("molecule_order.list","w+") as fout:
             fout.write("#inp_ndx mol_typ num_mol\n")
             for i in range(Ninp): 
-                print (i,tag_list[i],nmol_list[i])
-                fout.write(" %7d %7s %7d\n"%(i,tag_list[i].rjust(7),nmol_list[i]))
+                print (pdb_input_ndx[i],tag_list[i],nmol_list[i])
+                fout.write(" %7d %7s %7d\n"%(pdb_input_ndx[i],tag_list[i].rjust(7),nmol_list[i]))
         
         print (">>> writing Combined GROMACS toptology", outfile)
         with open(outfile,"w+") as fout:
@@ -1802,7 +1807,7 @@ class Topology:
                 fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_bb,1))
                 fout.write(" %5d %5d %5d %5d %5d %e %e %d\n"%(I[x],J[x],K[x],L[x],func,3*diheds[x],Kd_bb/mfac,3))
         if len(data.S_atn):
-            for c in len(data.sc_dihedrals):
+            for c in range(len(data.sc_dihedrals)):
                 quads,diheds = data.sc_dihedrals[c]
                 #if self.opt.opensmog:
                 #   self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
