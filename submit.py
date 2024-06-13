@@ -76,6 +76,7 @@ class ContactMap(Dict):
 	type=1 		#all-atom mapped to CG
 	scale=1.0 
 	func=2 		# LJ 10-12
+	nbfunc=-1	# LJ 10-12
 	W=False 		#Equal weights 
 	file=str()	# no cmap file
 	custom_pairs=False
@@ -223,28 +224,29 @@ def main():
 	parser.add_argument("--W_cont","-W_cont",action="store_true",help="Weight (and normalize) CG contacts based on all atom contacts")
 	parser.add_argument("--cmap","-cmap",help="User defined cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling","-scaling", help="User defined scaling for mapping to all-atom contact-map.")
-	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	parser.add_argument("--nbfunc","-nbfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18 (3: modified gmx5), (6&7: OpenSMOG)6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for proteins
 	parser.add_argument("--cutoff_p","-cutoff_p",type=float,help="User defined Cut-off (in Angstrom) for Protein contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype_p","-cutofftype_p",type=int,help="For Proteins: -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_p","-W_cont_p",action="store_true",help="Weight (and normalize) Protein CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_p","-cmap_p",help="User defined Protein cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_p","-scaling_p", help="User defined scaling for mapping to all-atom contact-map.")
-	#parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for RNA/DNA
 	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype_n","-cutofftype_n",type=int,help="For RNA/DNA. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_n","-W_cont_n",action="store_true",help="Weight (and normalize) RNA/DNA CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_n","-cmap_n",help="User defined RNA/DNA cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_n","-scaling_n", help="User RNA/DNA defined scaling for mapping to all-atom contact-map.")
-	#parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#inter Protein-RNA/DNA
 	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5A")
 	parser.add_argument("--cutofftype_i","-cutofftype_i",type=int,help="For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_i","-W_cont_i",action="store_true",help="Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_i","-cmap_i",help="User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_i","-scaling_i", help="User Protein RNA/DNA interface defined scaling for mapping to all-atom contact-map.")
-	#parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 5 Gauss no excl, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	#parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 
 	#atom type 1: CA only. 2: Ca+Cb
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -312,10 +314,9 @@ def main():
 	parser.add_argument("--dielec","-dielec", help="Dielectric constant of solvant. Default=70")
 	
 	#disabled for now
-	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
-	parser.add_argument('--ext_conmap',"-ext_conmap",help='External contact map in format chain res chain res')
 	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
+	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
 	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts.')
 
@@ -351,6 +352,7 @@ def main():
 	#For preteins
 	
 	bond_function=1
+	nonbond_function=-1
 	rad["CA"]=1.9
 	rad["CB"]=1.5
 	CA_com=False
@@ -662,9 +664,27 @@ def main():
 	#if args.contfunc_p: prot_contmap.func=int(args.contfunc_p)
 	#if args.contfunc_n: nucl_contmap.func=int(args.contfunc_n)
 	#if args.contfunc_i: inter_contmap.func=int(args.contfunc_i)
-	assert (prot_contmap.func in range(0,6+1))
-	assert (nucl_contmap.func in range(0,6+1))
-	assert (inter_contmap.func in range(0,6+1))
+	if prot_contmap.func==7 and prot_contmap.type!=0: prot_contmap.func=6
+	if nucl_contmap.func==7 and nucl_contmap.type!=0: nucl_contmap.func=6
+	if inter_contmap.func==7 and inter_contmap.type!=0: inter_contmap.func=6
+	assert (prot_contmap.func in [1,2,6,7])
+	assert (nucl_contmap.func in [1,2,6,7])
+	assert (inter_contmap.func in [1,2,6,7])
+
+	if args.nbfunc:
+		nonbond_function=int(args.nbfunc)
+		if args.opensmog: assert nonbond_function in [1,2,3,6,7], "Error, nbfunc input not supported"
+		else: assert nonbond_function in [1,2,3],"Error, nbfunc input not supported by GROMACS"
+	else:
+		if nonbond_function==-1:
+			if opt.opensmog: nonbond_function=prot_contmap.func
+			else:
+				if prot_contmap.func in (1,2): nonbond_function=prot_contmap.func
+				elif nucl_contmap.func in (1,2): nonbond_function=nucl_contmap.func
+				elif inter_contmap.func in (1,2): nonbond_function=inter_contmap.func
+				else: nonbond_function=2
+			print (">>non-bond function --nbfunc not given. Using %d."%nonbond_function)
+	prot_contmap.nbfunc,nucl_contmap.nbfunc,inter_contmap.nbfunc=nonbond_function,nonbond_function,nonbond_function
 
 	if args.bfunc: 
 		bond_function=int(args.bfunc)

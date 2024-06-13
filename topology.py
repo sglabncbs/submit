@@ -7,13 +7,13 @@ class Tables:
     def __init__(self) -> None:
         pass
 
-    def __prePad__(self,X):
+    def __prePad(self,X):
         step = 0.001 #nm
         return np.int_(range(0,int(X[0]*1000)))*0.001
 
-    def __write_bond_table__(self,index,X,V,V_1):
+    def write_bond_table(self,index,X,V,V_1):
         with open("table_b"+str(index)+".xvg","w+") as fout:
-            for x in self.__prePad__(X):           
+            for x in self.__prePad(X):           
                 fout.write("%e %e %e\n"%(x,V[0],0))
             for i in range(X.shape[0]):
                 fout.write("%e %e %e\n"%(X[i],V[i],-V_1[i]))
@@ -74,7 +74,7 @@ class Tables:
         V_1 = K_elec*(-inv_dl*r-1)*np.exp(-inv_dl*r)/r**2
         return V,V_1
         
-    def __write_pair_table__(self,ljtype,coulomb):
+    def write_pair_table(self,ljtype,coulomb):
         #writing pairs table file
 
         r = np.int_(range(0,250000))*0.002 #100 nm
@@ -384,7 +384,7 @@ class Preprocess:
         
         return
     
-    def Pairs(self,cmap,group="all"):
+    def Pairs(self,cmap,group="all",writefile=True):
         # Getting Non-bonded contact pairs info from the pre-supplied data
         temp_p,temp_c,temp_w,temp_d = [],[],[],[]
         pairs,chains,weights,distances = [],[],[],[]
@@ -412,16 +412,61 @@ class Preprocess:
                         w,d = 1.0,0.0
                         if len(line)==5: w = np.float(line[4])
                         temp_p.append((a1,a2));temp_w.append(w);temp_c.append((c1,c2))
-                    elif len(line)==6: 
-                        w,d = np.float_(line[4:])
+                    elif len(line)>=6:
                         pairs.append((a1,a2));chains.append((c1,c2))
-                        weights.append(w);distances.append(d)
+                        if cmap.func!=7:
+                            w,d=np.float_(line[4:])
+                            weights.append(w);distances.append(d)
+                        elif cmap.func==7:
+                            w= np.float_(line[4])
+                            d=np.float_(line[5:])
+                            weights.append(w);distances.append(d)
+
             if len(temp_p)!=0: 
                 if group!="inter": temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
                 elif group=="inter": 
                     temp_d = list(self.__distances__(pairs=np.int_(temp_p),xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz))
+                if cmap.func==7: temp_d=[tuple([x]) for x in temp_d]
             pairs += temp_p; chains += temp_c; weights += temp_w; distances += temp_d
-            pairs = np.int_(pairs); weights = np.float_(weights); distances = np.float_(distances)
+            del (temp_p,temp_c,temp_d,temp_w)
+            if writefile:
+                fcg=open(tagforfile+".CGcont","w+")
+                temp_c=list()
+                for c in chains:
+                    c=[y.split("_") for y in c]
+                    if len(c[0])==2:
+                        assert tagforfile.startswith(c[0][0])
+                        c[0][0]=tagforfile
+                    else: c[0]=[tagforfile,c[0]]
+                    if len(c[1])==2:
+                        assert tagforfile.startswith(c[1][0])
+                        c[1][0]=tagforfile
+                    else: c[1]=[tagforfile,c[1]]
+                    c=tuple(["_".join(y) for y in c])
+            if cmap.func!=7:
+                pairs=np.int_(pairs); weights=np.float_(weights); distances=np.float_(distances)
+                self.contacts.append((pairs,chains,distances,weights))
+                if writefile:
+                    for x in range(pairs.shape[0]):
+                        c,a = chains[x],pairs[x]+1
+                        w,d = weights[x],distances[x]
+                        fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+                    fcg.close()
+            else:
+                for max_dist_values in set([len(x) for x in distances]):
+                    temp_p=np.int_([pairs[i] for i in range(len(pairs)) if len(distances[i])==max_dist_values])
+                    temp_c=[chains[i] for i in range(len(chains)) if len(distances[i])==max_dist_values]
+                    temp_w=np.float_([weights[i] for i in range(len(weights)) if len(distances[i])==max_dist_values])
+                    temp_d=np.float_([distances[i] for i in range(len(distances)) if len(distances[i])==max_dist_values])
+                    self.contacts.append((temp_p,temp_c,temp_d,temp_w))
+                    if writefile:
+                        for x in range(temp_p.shape[0]):
+                            c,a = temp_c[x],temp_p[x]+1
+                            w,d = temp_w[x],temp_d[x]
+                            fcg.write("%s %d %s %d %.3f"%(c[0],a[0],c[1],a[1],w))
+                            fcg.write(len(d)*" %.3f"%tuple(d)+"\n")
+                    del (temp_p,temp_c,temp_d,temp_w)
+                if writefile: fcg.close()
 
         elif cmap.type == 1:        # Calculating contacts from all-atom structure and maping to CG structure
             if group == "prot":
@@ -496,9 +541,9 @@ class Preprocess:
                     faa.write("%s %d %s %d\n"%(str_cid0[i],i+1,str_cid[x],x+1))
                     cg_a1 = aa2cg[bb_sc0[i]][cid0[i]][rnum0[i]]
                     cg_a2 = aa2cg[bb_sc[x]][cid[x]][rnum[x]]
-                    set = (str_cid0[i],str_cid[x]),(cg_a1,cg_a2)
-                    if set not in contacts_dict: contacts_dict[set] = 0
-                    contacts_dict[set] += 1
+                    pair_set = (str_cid0[i],str_cid[x]),(cg_a1,cg_a2)
+                    if pair_set not in contacts_dict: contacts_dict[pair_set] = 0
+                    contacts_dict[pair_set] += 1
             contacts_dict = {y:(x,contacts_dict[(x,y)]) for x,y in contacts_dict}
             pairs = list(contacts_dict.keys()); pairs.sort()
             weights = np.float_([contacts_dict[x][1] for x in pairs])
@@ -514,6 +559,7 @@ class Preprocess:
                 w,d = weights[x],distances[x]
                 fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
             faa.close();fcg.close()
+            self.contacts.append((pairs,chains,distances,weights))
 
         elif cmap.type == 2:        # Calculating contacts from CG structure
             cid = []
@@ -576,7 +622,8 @@ class Preprocess:
                     w,d = weights[x],distances[x]
                     fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
         
-        self.contacts.append((pairs,chains,distances,weights))
+            self.contacts.append((pairs,chains,distances,weights))
+
         return
 
 class MergeTop:
@@ -634,8 +681,8 @@ class MergeTop:
         return data
 
     def __getSurfaceAtoms(self,contacts,tag):
+        surface=list()
         for psirs,chains,eps,sig in contacts:
-            surface=list()
             I,J = 1+np.transpose(psirs)
             surface += [I[x] for x in range(I.shape[0]) if chains[x][0].split("_")[0]==tag]
             surface += [J[x] for x in range(J.shape[0]) if chains[x][1].split("_")[0]==tag]
@@ -706,6 +753,7 @@ class MergeTop:
             if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
             elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
             elif cmap_func in (5,6,7):
+                assert self.opt.opensmog
                 func,sd = 6,0.05
                 I_rad = np.float_([self.excl_volume[I[x]] for x in range(I.shape[0])])
                 J_rad = np.float_([self.excl_volume[J[x]] for x in range(J.shape[0])])
@@ -741,7 +789,8 @@ class MergeTop:
                         if self.excl_rule==1: C12 = Krep*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                         elif self.excl_rule==2: C12 = Krep*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                         if cmap_func in (1,2): values = 0,C12
-                        elif cmap_func in (5,6):
+                        elif cmap_func in (5,6,7):
+                            assert self.opt.opensmog
                             func,sd = 6,0.05
                             values = 0,0,sd,C12
                         p = [x,y]; ptype=p; p=tuple(p)
@@ -758,7 +807,6 @@ class MergeTop:
                                     fsec.write(" %10s %10s\t %d\t"%(i.center(10),j.center(10),func))
                                     fsec.write(len(values)*" %e"%tuple(values))
                                     fsec.write("\n")
-
 
         if len(eps)>0:
             fsec.write("; Custom Protein-RNA/DNA interactions\n")
@@ -781,7 +829,8 @@ class MergeTop:
                     values = 0.0,C12
                 elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
                 elif cmap_func==2: values = 6*eps[p]*((sig[p])**10),5*eps[p]*((sig[p])**12)
-                elif cmap_func in (5,6):
+                elif cmap_func in (5,6,7):
+                    assert self.opt.opensmog
                     func,sd = 6,0.05
                     if self.excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif self.excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
@@ -796,6 +845,7 @@ class MergeTop:
                         fsec.write(" %10s %10s\t %d\t"%(x.center(10),y.center(10),func))
                         fsec.write(len(values)*" %e"%tuple(values))
                         fsec.write("\n")
+
         return pairs
 
     def __writeNonbondParams(self,fsec,inp,exclude={}):
@@ -920,7 +970,7 @@ class MergeTop:
             func=1
             if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
             elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
-            elif cmap_func in (5,6,7):
+            elif cmap_func in (5,6):
                 func,sd = 6,0.05
                 I_rad = np.float_([self.excl_volume[self.atomtypes[C1[x]][I[x]]] for x in range(I.shape[0])])
                 J_rad = np.float_([self.excl_volume[self.atomtypes[C2[x]][J[x]]] for x in range(J.shape[0])])
@@ -952,7 +1002,7 @@ class MergeTop:
 
             if cmap_func==1: expr,name="eps*( 1*((r0/r)^12) - 2*((r0/r)^10) )","symInter_contacts_LJ-06-12"
             elif cmap_func==2: expr,name="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )","symInter_contacts_LJ-10-12"
-            elif cmap_func in (5,6,7):
+            elif cmap_func in (5,6):
                 sd=0.05;params["C12"]=C12
                 expr="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
                 name="symInter_contacts_Gaussian-12"
@@ -961,24 +1011,27 @@ class MergeTop:
         return inter_exclusions
 
     def __merge__(self,Nprot,Nnucl,opt,excl_volume):
-        #combining top file
-        assert len(Nprot)==len(Nnucl)
-        Ninp=len(Nprot)
-        outfile=self.topfile
+        #merting  top file
 
-        parsed_top,parsed_xml=[],[]
-        tag_list,nmol_list=[],[]
-        temp_data=list()
-        pdb_input_ndx=list()
+        #for every input PDB there is an Nprot and Nnucl value (=0 if either if not present)
+        assert len(Nprot)==len(Nnucl)
+        Ninp=len(Nprot)         #number of input PDBs (and hence .top/.xml files)
+        outfile=self.topfile    #combined topfile name
+
+        parsed_top,parsed_xml=[],[]     #list of parsed top/xml files
+        tag_list,nmol_list=[],[]        #order of nucl or prot top files
+        temp_data=list()                #order of data to be added to merfed top/xml files.
+        pdb_input_ndx=list()            #index of input PDB file (to be written to molecule_order.list file for reference)
         if Ninp==1:
-            if Nnucl[0]>0: 
+            # top and xml files do-not have index after prot or nucl tags if a single PDB input
+            if Nnucl[0]>0:  #nucl molecule data is added first
                 pdb_input_ndx.append(0)
                 if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="nucl"))
                 parsed_top.append(self.__topParse(topfile_tag="nucl"))
                 tag_list.append("nucl");nmol_list.append(Nnucl[0])
                 temp_data.append(self.data[0])
-            if Nprot[0]>0: 
+            if Nprot[0]>0: #prot molecule data is added after nucl data
                 pdb_input_ndx.append(0)
                 if self.opt.opensmog: 
                         parsed_xml.append(self.__smogxmlParse(xmlfile_tag="prot"))
@@ -986,7 +1039,8 @@ class MergeTop:
                 tag_list.append("prot");nmol_list.append(Nprot[0])
                 temp_data.append(self.data[0])
         else:        
-            for i in range(Ninp):
+            # top and xml files have indices (0,1,2,..) after prot or nucl tags for multiple PDB inputs
+            for i in range(Ninp):   #All nucl molecules are added first
                 if Nnucl[i]>0: 
                     pdb_input_ndx.append(i)
                     if self.opt.opensmog: 
@@ -994,7 +1048,7 @@ class MergeTop:
                     parsed_top.append(self.__topParse(topfile_tag="nucl%d"%i))
                     tag_list.append("nucl%d"%i);nmol_list.append(Nnucl[i])
                     temp_data.append(self.data[i])
-            for i in range(Ninp):
+            for i in range(Ninp): #All prot molecules are added after nucl molecules
                 if Nprot[i]>0:
                     pdb_input_ndx.append(i)
                     if self.opt.opensmog: 
@@ -1002,16 +1056,18 @@ class MergeTop:
                     parsed_top.append(self.__topParse(topfile_tag="prot%d"%i))
                     tag_list.append("prot%d"%i);nmol_list.append(Nprot[i])
                     temp_data.append(self.data[i])
+        
+        #counting nucl and prot data as separate inputs (all nucl first followed by all prots in their input order)
         Ninp,self.data=len(parsed_top),temp_data
         del(temp_data)
 
-        inter_contacts=list()
-        self.mol_surface_atoms = [[] for x in range(Ninp)]
-        if len(nmol_list)>1:
-            if sum(Nprot)==0 or sum(Nnucl)==0 or self.prot_cmap.func==self.nucl_cmap.func==self.inter_cmap.func:
-                cmap_func=self.inter_cmap.func
-            if self.inter_cmap.type>=0: 
-                if not opt.control_run:
+        inter_contacts=list()   #list for loading inter-PDB contacts 
+        self.mol_surface_atoms = [[] for x in range(Ninp)] #lsit of atoms in interface contacts
+        if len(nmol_list)>1:    #more than 1 input files
+            assert self.prot_cmap.nbfunc==self.nucl_cmap.nbfunc==self.inter_cmap.nbfunc
+            nbfunc=self.inter_cmap.nbfunc
+            if self.inter_cmap.type>=0:
+                if not opt.control_run:     #determining contacts only supported with control runs
                     assert self.inter_cmap.type == 0, \
                         "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
                 if opt.control_run: assert len(self.data)==1
@@ -1019,12 +1075,15 @@ class MergeTop:
             inter_contacts = self.data[0].contacts.copy()
             self.data[0].contacts=[]
             opt.inter_symmetrize=True
-            if sum(nmol_list)>10:
+            # for N>3 molecules, symmeterized contacts can be added to nonbond-paramns if nbfunc is same as contact func
+            if sum(nmol_list)>5 and self.inter_cmap.nbfunc==self.inter_cmap.func:
                 add_inter_2_neighlist=True
                 for x in range(Ninp):
                     self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=inter_contacts,tag=tag_list[x])
             else: add_inter_2_neighlist=False
             if self.opt.opensmog: 
+                #since all interactions have same nbfunc, there should be only 1 identical equations in all xml files
+                #if this is not true (custom added model not suited for merging), then the program wiil terminate
                 uniq_expr=set([parsed_xml[i][tag][subtag]["expr"] for i in range(Ninp) \
                                 for tag in parsed_xml[i] for subtag in parsed_xml[i][tag]\
                                 if "nonbond" in tag and "nonbond" in subtag])
@@ -1032,23 +1091,27 @@ class MergeTop:
         else:
            opt.inter_symmetrize=False  
         if opt.intra_symmetrize:
-            add_intra_2_neighlist=[nmol_list[i]>3 for i in range(Ninp)]
-            if sum(Nprot)==0 or sum(Nnucl)==0 or self.prot_cmap.func==self.nucl_cmap.func==self.inter_cmap.func:
-                cmap_func=self.inter_cmap.func
-                for x in range(Ninp):
-                    if "prot" in tag_list[x]:cmap=self.prot_cmap
-                    elif "nucl" in tag_list[x]: cmap.self.nucl_cmap
-                    else: print (tag_list[x])
-                    cmap.file=tag_list[x]+".CGcont"
-                    cmap.type=0
-                    self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4])
-                    if add_intra_2_neighlist[x]:
-                        self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
-            else: add_intra_2_neighlist = np.zeros(Ninp)
+            add_intra_2_neighlist=[nmol_list[i]>=3 for i in range(Ninp)]
+            assert self.prot_cmap.nbfunc==self.nucl_cmap.nbfunc==self.inter_cmap.nbfunc
+            nbfunc=self.inter_cmap.nbfunc
+            for x in range(Ninp):
+                if "prot" in tag_list[x]:cmap=self.prot_cmap
+                elif "nucl" in tag_list[x]:cmap=self.nucl_cmap
+                else: print (tag_list[x])
+                cmap.file=tag_list[x]+".CGcont"
+                cmap.type=0
+                self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4],writefile=False)
+                # if nbfunc and contfunc are not same, then cannot add sym contacts to neighbout list
+                if cmap.func != nbfunc: add_intra_2_neighlist[x]=False
+                #if adding to neighbour list get surface atoms to be excluded from rep term in nonbond params
+                if add_intra_2_neighlist[x]:
+                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
 
         if opt.opensmog: 
-            nb_tag=[tag for tag in parsed_xml[0] if "nonbond" in tag][0]
+            #nonbond tag and subtag
+            nb_tag=[tag for tag in parsed_xml[0] if "nonbond" in tag][0] 
             nb_subtag=[subtag for subtag in parsed_xml[0][nb_tag]][0]
+            #contacts tag and subtag
             ct_tag=list(set([tag for i in range(Ninp) for tag in parsed_xml[i] if "contacts" in tag]))
             assert len(ct_tag)<=1
             if len(ct_tag)==1: ct_tag=ct_tag[0]
@@ -1090,9 +1153,9 @@ class MergeTop:
                     if opt.intra_symmetrize:
                         for i in range(Ninp):
                             if not add_intra_2_neighlist[i]: continue
-                            exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=cmap_func,inp=self.data[i].contacts))
+                            exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=nbfunc,inp=self.data[i].contacts))
                     if opt.inter_symmetrize and add_inter_2_neighlist:
-                        exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=cmap_func,inp=inter_contacts))
+                        exclude_nonbond_pairs.update(self.__writeSymPairs2Nonbond(fsec=fout,cmap_func=nbfunc,inp=inter_contacts))
                     if sum(Nprot)>0 and sum(Nnucl)>0: self.__writeNucProtParams(fsec=fout,exclude=exclude_nonbond_pairs)
                     self.__writeNonbondParams(fsec=fout,inp=data_list,exclude=exclude_nonbond_pairs)
                     if opt.opensmog:
@@ -1179,7 +1242,7 @@ class OpenSMOGXML:
             self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
             self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
             
-    def write_nonbond_xml(self,pairs=[],func=1,C12=[],epsA=[],sig=[],expression=str(),params={}):
+    def write_nonbond_xml(self,pairs=[],func=1,C12=[],epsA=[],sig=[],expression="C12 - 2*epsA*(sig/r)^6",params={}):
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
         if len(expression)==0:
@@ -1351,11 +1414,10 @@ class Topology:
         pairs,repul_C12 = [],[]
         self.atomtypes = []
 
+        fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+
         if len(data.CA_atn) > 0:
-            cmap_func=self.cmap["prot"].func
-            if cmap_func in (5,6):
-                fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
-            else: fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+            cmap_func=self.cmap["prot"].nbfunc
             #if excl_rule == 2 and type == 2:
             for x in self.excl_volume:
                 if x.startswith(("CA","CB")):
@@ -1364,8 +1426,9 @@ class Topology:
                             func=1
                             if excl_rule==1: C12 = self.fconst.Kr_prot*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                             elif excl_rule==2: C12=self.fconst.Kr_prot*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                            if cmap_func in (1,2): values = 0,C12
-                            elif cmap_func in (5,6):
+                            values = 0,C12
+                            if cmap_func in (5,6,7):
+                                assert self.opt.opensmog
                                 func,sd = 6,0.05
                                 values = 0,0,sd,C12
                             p = [x,y]; p.sort(); p=tuple(p)
@@ -1394,7 +1457,8 @@ class Topology:
                     values = 0.0,C12
                 elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
                 elif cmap_func==2: values = 6*eps[p]*((sig[p])**10),5*eps[p]*((sig[p])**12)
-                elif cmap_func in (5,6):
+                elif cmap_func in (5,6,7):
+                    assert self.opt.opensmog
                     func,sd = 6,0.05
                     if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
@@ -1429,12 +1493,10 @@ class Topology:
         eps,sig = data.Interactions(nonbond=self.opt.nonbond)
         pairs,repul_C12 = [],[]
 
-        if len(data.P_atn) > 0:
-            cmap_func=self.cmap["nucl"].func
-            if cmap_func in (5,6):
-                fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
-            else: fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
+        fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
 
+        if len(data.P_atn) > 0:
+            cmap_func=self.cmap["nucl"].nbfunc
             #if excl_rule == 2 and type in (3,5):
             for x in self.excl_volume:
                 if x.startswith(("P","S","B")):
@@ -1443,8 +1505,9 @@ class Topology:
                             func=1
                             if excl_rule==1: C12 = self.fconst.Kr_nucl*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                             elif excl_rule==2: C12=self.fconst.Kr_nucl*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12
-                            if cmap_func in (1,2): values = 0,C12
-                            elif cmap_func in (5,6):
+                            values = 0,C12
+                            if cmap_func in (5,6,7):
+                                assert self.opt.opensmog
                                 func,sd = 6,0.05
                                 values = 0,0,sd,C12
                             p = [x,y]; p.sort(); p=tuple(p)
@@ -1473,7 +1536,8 @@ class Topology:
                     values = 0.0,C12
                 elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
                 elif cmap_func==2: values = 6*eps[p]*((sig[p])**10),5*eps[p]*((sig[p])**12)
-                elif cmap_func in (5,6):
+                elif cmap_func in (5,6,7):
+                    assert self.opt.opensmog
                     func,sd = 6,0.05
                     if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
@@ -1727,15 +1791,40 @@ class Topology:
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
-                if self.opt.opensmog:
-                    self.prot_xmlfile.write_pairs_xml(
+                if cmap.func==6:
+                    if self.opt.opensmog:
+                        self.prot_xmlfile.write_pairs_xml(
                             pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
                             name="contacts%d_Gaussian-12"%c,\
                             expression="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd)
-                    continue
-                I,J = 1+np.transpose(pairs)
-                for x in range(pairs.shape[0]): 
-                    fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
+                        continue
+                    I,J = 1+np.transpose(pairs)
+                    for x in range(pairs.shape[0]): 
+                        fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
+                elif cmap.func==7:
+                    if self.opt.opensmog:
+                        N_dist_values=dist.shape[1]
+                        expr="(1+(C12/(r^12)))"
+                        for i in range(N_dist_values): expr+="*(1-G%d)"%i
+                        expr="eps*(%s - 1)"%expr
+                        for i in range(N_dist_values):
+                            expr="%s;G%d=exp(-((r-r0%d)^2)/(2*(sd%d^2)))"%(expr,i,i,i)
+                        params={"eps":eps,"C12":c12}
+                        dist=np.transpose(dist)
+                        for i in range(N_dist_values):
+                            params["r0%d"%i]=dist[i]
+                            params["sd%d"%i]=sd*np.ones(len(dist[i]))
+                        self.prot_xmlfile.write_pairs_xml(pairs=pairs,params=params,expression=expr,\
+                                                    name="contacts%d_%dGaussian-12"%(c,N_dist_values))
+                        continue
+                    I,J = 1+np.transpose(pairs)
+                    for x in range(pairs.shape[0]):
+                        assert len(dist[x])<=2, "Error GROMACS 4.5.4 SBM version supports maximim two distances for Gaussians"
+                        if len(dist[x])==1:func=6
+                        else: func=7
+                        fout.write(" %5d %5d %5d %.3f"%(I[x],J[x],func,eps[x]))
+                        for r0 in dist[x]: fout.write(" %e %e"%(r0,sd))
+                        fout.write(" %e\n"%c12[x])
         return 
 
     def __write_nucleicacid_bonds(self,fout,data,func):
@@ -1869,7 +1958,7 @@ class Topology:
             assert func!=3, "Error, func 3 not encoded yes. WIP"
             for pairs,chains,dist,eps in data.contacts:
                 I,J = 1+np.transpose(pairs)
-        elif cmap.func in (5,6):
+        elif cmap.func in (5,6,7):
             fout.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             func = 6
             sd = 0.05
@@ -1880,14 +1969,40 @@ class Topology:
                 J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
-                if self.opt.opensmog:
-                    self.nucl_xmlfile.write_pairs_xml(
-                            pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
-                            name="contacts%d_Gaussian-12"%c,\
-                            expression="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd)
-                I,J = 1+np.transpose(pairs)
-                for x in range(pairs.shape[0]): 
-                    fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
+                if cmap.func==6:
+                    if self.opt.opensmog:
+                        self.nucl_xmlfile.write_pairs_xml(
+                                pairs=pairs,params={"r0":dist,"eps":eps,"C12":c12},\
+                                name="contacts%d_Gaussian-12"%c,\
+                                expression="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd)
+                    I,J = 1+np.transpose(pairs)
+                    for x in range(pairs.shape[0]): 
+                        fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
+                elif cmap.func==7:
+                    if self.opt.opensmog:
+                        N_dist_values=dist.shape[1]
+                        expr="(1+(C12/(r^12)))"
+                        for i in range(N_dist_values): expr+="*(1-G%d)"%i
+                        expr="eps*(%s - 1)"%expr
+                        for i in range(N_dist_values):
+                            expr="%s;G%d=exp(-((r-r0%d)^2)/(2*(sd%d^2)))"%(expr,i,i,i)
+                        params={"eps":eps,"C12":c12}
+                        dist=np.transpose(dist)
+                        for i in range(N_dist_values):
+                            params["r0%d"%i]=dist[i]
+                            params["sd%d"%i]=sd*np.ones(len(dist[i]))
+                        self.prot_xmlfile.write_pairs_xml(pairs=pairs,params=params,expression=expr,\
+                                                    name="contacts%d_%dGaussian-12"%(c,N_dist_values))
+                        continue
+                    I,J = 1+np.transpose(pairs)
+                    for x in range(pairs.shape[0]):
+                        assert len(dist[x])<=2, "Error GROMACS 4.5.4 SBM version supports maximim two distances for Gaussians"
+                        if len(dist[x])==1:func=6
+                        else: func=7
+                        fout.write(" %5d %5d %5d %.3f"%(I[x],J[x],func,eps[x]))
+                        for r0 in dist[x]: fout.write(" %e %e"%(r0,sd))
+                        fout.write(" %e\n"%c12[x])
+
         return 
 
     def __write_exclusions(self,fout,data):
@@ -1970,9 +2085,9 @@ class Topology:
         if self.opt.opensmog: return #don't write table
         table = Tables()
         if self.cmap["prot"].func == 2 or self.cmap["nucl"].func == 2 or self.cmap["inter"].func == 2 :
-            table.__write_pair_table__(coulomb=charge,ljtype=2)
+            table.write_pair_table(coulomb=charge,ljtype=2)
         if self.cmap["prot"].func == 1 or self.cmap["nucl"].func == 1 or self.cmap["inter"].func == 1:
-            if charge.debye: table.__write_pair_table__(coulomb=charge,ljtype=1)
+            if charge.debye: table.write_pair_table(coulomb=charge,ljtype=1)
 
         return 0
 
@@ -2219,6 +2334,7 @@ class Reddy2017(Denesyuk2013_Chakraborty2018):
     def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         ##add non-bonded r6 term in sop-sc model for all non-bonded non-native interactions.
+        assert self.cmap["prot"].nbfunc==1
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
         assert type==2 and excl_rule == 2
@@ -2294,7 +2410,7 @@ class Reddy2017(Denesyuk2013_Chakraborty2018):
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
-                Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
+                Tables().write_bond_table(X=r,index=table_idx[r0],V=V,V_1=V_1)
                 fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
         self.tableb_ndx=max(table_idx.values())
         return 
@@ -2413,6 +2529,7 @@ class Baul2019(Reddy2017):
     def __write_protein_nonbondparams(self,fout,type,excl_rule,data):
         print (">> Writing nonbond_params section")
         fout.write("\n%s\n"%("[ nonbond_params ]"))
+        assert self.cmap["prot"].nbfunc==1
         fout.write('%s\n' % ('; i    j     func C6  C12'))
         assert type==2 and excl_rule == 2
         pairs, = [],
@@ -2789,7 +2906,7 @@ class Baratam2024(Reddy2017):
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
-                Tables().__write_bond_table__(X=r,index=table_idx[r0],V=V,V_1=V_1)
+                Tables().write_bond_table(X=r,index=table_idx[r0],V=V,V_1=V_1)
                 fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
         self.tableb_ndx=max(table_idx.values())
         return 
