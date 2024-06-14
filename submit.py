@@ -78,7 +78,7 @@ class ContactMap(Dict):
 	func=2 		# LJ 10-12
 	nbfunc=-1	# LJ 10-12
 	W=False 		#Equal weights 
-	file=str()	# no cmap file
+	file=list()	# no cmap file
 	custom_pairs=False
 
 class Charge(Dict):
@@ -903,21 +903,25 @@ def main():
 		if not args.outtop: topfile="opensmog.top"
 		if not args.outgro: grofile="opensmog.gro"
 		
-	#write CG file
 	nfiles=len(pdbdata)
 	for i in range(nfiles):
-		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 		if args.cmap:
 			cmap_files=pdbdata[i].cmapSplit(cmap=args.cmap[i])
 			prot_contmap.file[i]=cmap_files["prot"]
 			nucl_contmap.file[i]=cmap_files["nucl"]
 			if not args.cmap_i:
 				inter_contmap.file=cmap_files["inter"]			
+		if prot_contmap.type!=0: prot_contmap.file.append("")
+		if nucl_contmap.type!=0: nucl_contmap.file.append("")
 	if inter_contmap.type!=-1:
 		check_inter_contmap=len(open(inter_contmap.file).readlines())
 		if check_inter_contmap==0:
 			inter_contmap.file=""
 			inter_contmap.type=-1
+
+	#write CG file
+	for i in range(nfiles):
+		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
 		
 	if args.clementi2000:
 		top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

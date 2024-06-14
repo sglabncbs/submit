@@ -1067,7 +1067,7 @@ class MergeTop:
         if opt.control_run: assert(len(self.data)==1)
         Ninp,self.data=len(parsed_top),temp_data
         del(temp_data)
-
+        
         inter_contacts=list()   #list for loading inter-PDB contacts 
         self.mol_surface_atoms = [[] for x in range(Ninp)] #lsit of atoms in interface contacts
         if len(nmol_list)>1:    #more than 1 input files
@@ -1078,7 +1078,7 @@ class MergeTop:
                     assert self.inter_cmap.type == 0, \
                         "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
 
-            self.data[0].Pairs(cmap=self.inter_cmap,group="inter")
+            self.data[0].Pairs(cmap=self.inter_cmap,group="inter",writefile=False)
             inter_contacts = self.data[0].contacts.copy()
             self.data[0].contacts=[]
             opt.inter_symmetrize=True
@@ -1105,7 +1105,8 @@ class MergeTop:
                 if "prot" in tag_list[x]:cmap=self.prot_cmap
                 elif "nucl" in tag_list[x]:cmap=self.nucl_cmap
                 else: print (tag_list[x])
-                cmap.file[file_ndx]=tag_list[x]+".CGcont"
+                print (int(self.data[x].file_ndx),pdb_input_ndx[x])
+                cmap.file[pdb_input_ndx[x]]=tag_list[x]+".CGcont"
                 cmap.type=0
                 self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4],writefile=False)
                 # if nbfunc and contfunc are not same, then cannot add sym contacts to neighbout list

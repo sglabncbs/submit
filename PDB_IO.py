@@ -315,9 +315,11 @@ class PDB_IO:
                     prev_resname,prev_resnum = resname,resnum
                 if line.startswith(("TER","END")):
                     if resname in self.prot.amino_acid_dict:
+                        if prot_lines[-1].startswith("TER"): continue
                         self.original_chain_order.append(('prot',prot_lines[-1][21]))
                         prot_lines.append(line)
                     elif resname in self.nucleotide_dict:
+                        if nucl_lines[-1].startswith("TER"): continue
                         self.original_chain_order.append(('nucl',nucl_lines[-1][21]))
                         nucl_lines.append(line)
                     prev_resname,prev_resnum = str(),0
