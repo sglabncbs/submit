@@ -1105,7 +1105,6 @@ class MergeTop:
                 if "prot" in tag_list[x]:cmap=self.prot_cmap
                 elif "nucl" in tag_list[x]:cmap=self.nucl_cmap
                 else: print (tag_list[x])
-                print (int(self.data[x].file_ndx),pdb_input_ndx[x])
                 cmap.file[pdb_input_ndx[x]]=tag_list[x]+".CGcont"
                 cmap.type=0
                 self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4],writefile=False)
