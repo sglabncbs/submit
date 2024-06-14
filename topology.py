@@ -752,7 +752,7 @@ class MergeTop:
         for pairs,chains,eps,sig in inp:
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
-            I,J=1+np.transpose(pairs)    
+            I,J=1+np.transpose(pairs)
             I=[self.molatnum2new_atomtypes[C1[x]][I[x]] for x in range(I.shape[0])]
             J=[self.molatnum2new_atomtypes[C2[x]][J[x]] for x in range(J.shape[0])]
             func=1
@@ -1112,7 +1112,7 @@ class MergeTop:
                 if cmap.func != nbfunc: add_intra_2_neighlist[x]=False
                 #if adding to neighbour list get surface atoms to be excluded from rep term in nonbond params
                 if add_intra_2_neighlist[x]:
-                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=self.data[0].contacts.copy(),tag=tag_list[x])
+                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=self.data[x].contacts.copy(),tag=tag_list[x])
 
         if opt.opensmog: 
             #nonbond tag and subtag
