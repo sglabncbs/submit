@@ -255,10 +255,6 @@ def main():
 	parser.add_argument("--CB_com","-CB_com", action='store_true', default=False,help='Put C-beta at side-chain COM (no hydrogens). Default: False')
 	parser.add_argument("--CB_far", "-CB_far", action='store_true', help="Place C-beta on farthest non-hydrogen atom. Default: False")
 
-	#
-	parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
-	parser.add_argument("--native_ca","-native_ca", help='Native file with only C-alphas. Just grep pdb. ')
-	
 	#input
 	parser.add_argument("--aa_pdb","-aa_pdb", nargs='+', help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
 	parser.add_argument("--cg_pdb","-cg_pdb", nargs='+', help='User input coarse grained pdbfile')
@@ -316,9 +312,11 @@ def main():
 	#disabled for now
 	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
+	
 	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
 	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts.')
+	parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
 
 	#extras
 	parser.add_argument("--interface","-interface", action='store_true', default=False, help='Takes input for Nucleiotide_Protein interface from file nucpro_interface.input.')
@@ -561,6 +559,7 @@ def main():
 
 	if args.denesyuk2013 or args.chakraborty2018:
 		print (">>> Using TIS model. \n\t 1) Denesyuk & Thirumalai 2013 for RNA. \n\t 2) Chakraborty & Thirumalai 2018 for DNA.")
+		print ("Currently this model is work in progress");exit()
 		CGlevel["prot"]=2
 		args.denesyuk2013=True
 		bond_function=8
@@ -587,9 +586,9 @@ def main():
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
-
 	if args.banerjee2023:
 		print (">>> Using Banerjee & Gosavi 2023 self-peptide approach.")
+		print ("Currently this models is work in progress");exit()
 		assert args.aa_pdb, "Error no pdb input --aa_pdb"
 		assert args.idp_seq, "Error no peptide seq/range given. See example/Banjerjee2023"
 		#fixed params can't be overwritten
@@ -602,6 +601,13 @@ def main():
 		prot_contmap.contfunc=2	# LJ 10-12
 
 	""" presets end here """
+
+	""" Work in progress """
+
+	assert not (args.hpstrength or args.hphobic or args.hpdist or args.hpdist or args.dsb),\
+		"Sorry, these options are still not implemented"
+
+	"""####"""
 
 	if args.uniqtype: uniqtype=True
 	if args.excl_rule: 
