@@ -393,15 +393,19 @@ class Preprocess:
         if group.lower() in ("p","prot","protein"): tagforfile,group="prot","prot"
         elif group.lower() in ("n","nucl","nucleic","rna","dna"): tagforfile,group="nucl","nucl"
         elif group.lower() == ("a","all"): tagforfile,group="all","all"
-        elif group.lower() in ("i","inter"): tagforfile,group="interProtNucl","inter"
+        elif group.lower() in ("i","inter"): tagforfile,group="inter","inter"
         tagforfile+=self.file_ndx
 
         if cmap.type == -1: return  # Generating top without pairs 
 
         elif cmap.type == 0:        # Use pairs from user input in format cid_i, atnum_i, cid_j, atnum_j, weight_ij (opt), dist_ij (opt)
-            assert cmap.file != ""
-            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap.file)
-            with open(cmap.file) as fin:
+            if self.file_ndx=="": file_ndx=0
+            else: file_ndx=int(self.file_ndx)
+            if group=="inter": infile=cmap.file
+            else: infile=cmap.file[file_ndx]
+            assert infile != ""
+            print ("> Using cmap file (c1 a1 c2 a2 w d)",cmap.file[file_ndx])
+            with open(infile) as fin:
                 for line in fin:
                     line = line.split()
                     c1,a1,c2,a2 = line[:4]
@@ -430,9 +434,11 @@ class Preprocess:
             pairs += temp_p; chains += temp_c; weights += temp_w; distances += temp_d
             del (temp_p,temp_c,temp_d,temp_w)
             if writefile:
+                print (tagforfile,cmap.file[file_ndx])
                 fcg=open(tagforfile+".CGcont","w+")
                 temp_c=list()
                 for c in chains:
+                    print (c)
                     c=[y.split("_") for y in c]
                     if len(c[0])==2:
                         assert tagforfile.startswith(c[0][0])
@@ -442,6 +448,7 @@ class Preprocess:
                         assert tagforfile.startswith(c[1][0])
                         c[1][0]=tagforfile
                     else: c[1]=[tagforfile,c[1]]
+                    print (c)
                     c=tuple(["_".join(y) for y in c])
             if cmap.func!=7:
                 pairs=np.int_(pairs); weights=np.float_(weights); distances=np.float_(distances)
@@ -1058,6 +1065,7 @@ class MergeTop:
                     temp_data.append(self.data[i])
         
         #counting nucl and prot data as separate inputs (all nucl first followed by all prots in their input order)
+        if opt.control_run: assert(len(self.data)==1)
         Ninp,self.data=len(parsed_top),temp_data
         del(temp_data)
 
@@ -1070,7 +1078,7 @@ class MergeTop:
                 if not opt.control_run:     #determining contacts only supported with control runs
                     assert self.inter_cmap.type == 0, \
                         "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
-                if opt.control_run: assert len(self.data)==1
+
             self.data[0].Pairs(cmap=self.inter_cmap,group="inter")
             inter_contacts = self.data[0].contacts.copy()
             self.data[0].contacts=[]
@@ -1098,7 +1106,7 @@ class MergeTop:
                 if "prot" in tag_list[x]:cmap=self.prot_cmap
                 elif "nucl" in tag_list[x]:cmap=self.nucl_cmap
                 else: print (tag_list[x])
-                cmap.file=tag_list[x]+".CGcont"
+                cmap.file[file_ndx]=tag_list[x]+".CGcont"
                 cmap.type=0
                 self.data[x].Pairs(cmap=cmap,group=tag_list[x][:4],writefile=False)
                 # if nbfunc and contfunc are not same, then cannot add sym contacts to neighbout list

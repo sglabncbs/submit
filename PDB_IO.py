@@ -233,6 +233,7 @@ class PDB_IO:
         self.nucl.xyz, self.nucl.res, self.nucl.atn, self.nucl.ter, self.nucl.cid, self.nucl.deoxy = [],[],[],[],[],[]
         self.prot.xyz, self.prot.res, self.prot.atn, self.prot.ter, self.prot.cid = [],[],[],[],[]
         self.nucl.lines,self.prot.lines = [],[]
+        self.original_chain_order = []
         self.nucl.seq, self.prot.seq = str(),str()
         return
        
@@ -313,15 +314,23 @@ class PDB_IO:
                     elif resname in self.nucleotide_dict: nucl_lines.append("ATOM".ljust(6)+line[6:])
                     prev_resname,prev_resnum = resname,resnum
                 if line.startswith(("TER","END")):
-                    if resname in self.prot.amino_acid_dict: prot_lines.append(line)
-                    elif resname in self.nucleotide_dict: nucl_lines.append(line)
+                    if resname in self.prot.amino_acid_dict:
+                        self.original_chain_order.append(('prot',prot_lines[-1][21]))
+                        prot_lines.append(line)
+                    elif resname in self.nucleotide_dict:
+                        self.original_chain_order.append(('nucl',nucl_lines[-1][21]))
+                        nucl_lines.append(line)
                     prev_resname,prev_resnum = str(),0
             if len(nucl_lines) != 0:
                 nucl_lines = self.__fixNultiOcc__(pdb_lines=nucl_lines)
-                if not nucl_lines[-1].startswith(("TER","END")): nucl_lines.append("TER\n")
+                if not nucl_lines[-1].startswith(("TER","END")):
+                    self.original_chain_order.append(('nucl',nucl_lines[-1][21]))
+                    nucl_lines.append("TER\n")
             if len(prot_lines) != 0:
                 prot_lines = self.__fixNultiOcc__(pdb_lines=prot_lines)           
-                if not prot_lines[-1].startswith(("TER","END")): prot_lines.append("TER\n")
+                if not prot_lines[-1].startswith(("TER","END")):
+                    self.original_chain_order.append(('prot',prot_lines[-1][21]))
+                    prot_lines.append("TER\n")
         self.nucl.lines = nucl_lines
         self.prot.lines = prot_lines
         return infile
@@ -479,6 +488,41 @@ class PDB_IO:
             fnucl.close();fprot.close()
         return
             
+    def cmapSplit(self,cmap):
+        #if input cmap given, splitting protein and nucl sections
+        return_files={"nucl":str(),"prot":str(),"inter":str()}
+        if len(self.nucl.lines)>0: fnucl=open(cmap+".nuclcont","w+")
+        if len(self.nucl.lines)>0: fprot=open(cmap+".protcont","w+")
+        if len(self.nucl.lines)>0 and len(self.nucl.lines)>0:
+            finter=open("inter.cont","a") #append
+        with open(cmap) as fin:
+            for line in fin:
+                if line.startswith(("#","@",";")): continue
+                line=line.split()
+                c1,a1,c2,a2=line[:4]
+                a1,a2=np.int_([a1,a2])-1
+                if "p" in c1 or "n" in c1:
+                    assert "p" in c2 or "n" in c2
+                else:
+                    n1,n2=np.int_([c1,c2])-1
+                    c1="%s_%s"%(self.original_chain_order[n1][0],c1)
+                    c2="%s_%s"%(self.original_chain_order[n2][0],c2)
+                a1,a2=np.int_([a1,a2])+1
+                if c1[0]==c2[0]=="n":
+                    fnucl.write("%s %d %s %d"%(c1,a1,c2,a2))
+                    fnucl.write(len(line[4:])*" %s"%tuple(line[4:])+"\n")
+                elif c1[0]==c2[0]=="p":
+                    fprot.write("%s %d %s %d"%(c1,a1,c2,a2))
+                    fprot.write(len(line[4:])*" %s"%tuple(line[4:])+"\n")
+                elif c1[0]!=c2[0]:
+                    finter.write("%s %d %s %d"%(c1,a1,c2,a2))
+                    finter.write(len(line[4:])*" %s"%tuple(line[4:])+"\n")
+        if len(self.nucl.lines)>0: return_files["nucl"]=cmap+".nuclcont";fnucl.close()
+        if len(self.nucl.lines)>0: return_files["prot"]=cmap+".protcont";fprot.close()
+        if len(self.nucl.lines)>0 and len(self.nucl.lines)>0:
+            return_files["inter"]="inter.cont";finter.close()
+        return return_files
+
     def write_CG_protfile(self,CGlevel,CAcom,CBcom,CBfar,CBgly,nucl_pos,outgro):
         #writes coarse grain pdb and gro files
 
