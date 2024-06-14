@@ -907,10 +907,11 @@ def main():
 			nucl_contmap.file[i]=cmap_files["nucl"]
 			if not args.cmap_i:
 				inter_contmap.file=cmap_files["inter"]			
-	check_inter_contmap=len(open(inter_contmap.file).readlines())
-	if check_inter_contmap==0:
-		inter_contmap.file=""
-		inter_contmap.type=-1
+	if inter_contmap.type!=-1:
+		check_inter_contmap=len(open(inter_contmap.file).readlines())
+		if check_inter_contmap==0:
+			inter_contmap.file=""
+			inter_contmap.type=-1
 		
 	if args.clementi2000:
 		top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

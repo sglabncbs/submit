@@ -1,7 +1,8 @@
 import numpy as np
-from tqdm import trange,tqdm
 from PDB_IO import *
 from hybrid_36 import hy36encode,hy36decode
+try: from tqdm import trange,tqdm
+except: tqdm,trange=list,range
 
 class Tables:
     def __init__(self) -> None:
@@ -438,7 +439,6 @@ class Preprocess:
                 fcg=open(tagforfile+".CGcont","w+")
                 temp_c=list()
                 for c in chains:
-                    print (c)
                     c=[y.split("_") for y in c]
                     if len(c[0])==2:
                         assert tagforfile.startswith(c[0][0])
@@ -448,7 +448,6 @@ class Preprocess:
                         assert tagforfile.startswith(c[1][0])
                         c[1][0]=tagforfile
                     else: c[1]=[tagforfile,c[1]]
-                    print (c)
                     c=tuple(["_".join(y) for y in c])
             if cmap.func!=7:
                 pairs=np.int_(pairs); weights=np.float_(weights); distances=np.float_(distances)
