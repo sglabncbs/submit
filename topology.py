@@ -1568,7 +1568,7 @@ class Topology:
                 else: sig[p]=sig[p][0] #to be changed for Gaussian
                 func=1
                 if cmap_func ==-1:
-                    if excl_rule==1: c12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    if excl_rule==1: C12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = eps[p]*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = 0.0,C12
                 elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
@@ -1576,7 +1576,7 @@ class Topology:
                 elif cmap_func in (5,6,7):
                     assert self.opt.opensmog
                     func,sd = 6,0.05
-                    if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    if excl_rule==1: C12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = eps[p],sig[p],sd,C12
                 repul_C12.append(values[-1])
@@ -1597,10 +1597,10 @@ class Topology:
             elif cmap_func==2: expr="C12 - 6*epsA*(sig/r)^10"
             elif cmap_func in (5,6,7):expr="epsA*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
             if len(data.CA_atn)!=0:
-                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs,expression=expr, \
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
             if len(data.P_atn)!=0: 
-                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs,expression=expr, \
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
         return 0
 
