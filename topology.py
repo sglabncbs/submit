@@ -1200,8 +1200,9 @@ class MergeTop:
                         self.__writeInteractions(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
                                     nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                         if header=="bonds" and opt.opensmog and len(ct_tag)!=0:
+                            if ct_tag not in parsed_xml[i]: continue
                             ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
-                                        if "contacts" not in subtag.split("=")[-1].lower()]
+                                            if "contacts" not in subtag.split("=")[-1].lower()]
                             for subtag in ct_subtags:
                                 print ("> Writing %s bonds to %s contacts section."%(subtag.split('"')[1],opt.xmlfile))
                                 new_subtag=subtag.split('"');new_subtag[1]="%s_%s"%(tag_list[i],new_subtag[1])
@@ -1224,6 +1225,7 @@ class MergeTop:
                                 self.__writeSymPaIrs(fsec=fout,inp=data_list[i],nmol=nmol_list[i], \
                                     prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i],tag=tag_list[i])
                         if header=="pairs" and opt.opensmog and len(ct_tag)!=0:
+                            if ct_tag not in parsed_xml[i]: continue
                             ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
                                         if "contacts" in subtag.split("=")[-1].lower()]
                             for subtag in ct_subtags:
