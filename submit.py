@@ -110,7 +110,9 @@ class ModelDir:
 class CleanUP:
 	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str()):
 		self.createDir()
-		self.delFiles(f_suffix="refined.pdb")
+		#self.delFiles(f_suffix="refined.pdb")
+		self.delFiles(f_suffix="refined.nucl.pdb")
+		self.delFiles(f_suffix="refined.prot.pdb")
 		self.moveFiles(f_suffix=".pdb",f_middle=".refined.",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix="cont",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix=grosuffix,out_subdir="GRO_TOP_XML")
@@ -148,41 +150,42 @@ class CleanUP:
 		return
 
 	def genbox(self,grosuffix):
-		mol_list=[tuple(line.split()) \
-			 	for line in open("SuBMIT_Output/molecule_order.list")\
-				if not line.startswith(("#","@",":"))]
-		if len(mol_list)==1 and int(mol_list[0][-1])==1:
-			open("SuBMIT_Output/%s"%grosuffix,"w+").write(\
-				open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
-		else:			
-			if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
-				mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
-			else:
-				mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
-			with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
-				for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
-				fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
-				infile="_temp_0.gro"
-				fout.write('#for GROMACS v4 (<v5)\n')
-				for i in range(len(mol_list)):
-					outfile="_temp_%d.gro"%(i+1)
-					addfile="GRO_TOP_XML/%s"%mol_list[i][0]
-					if i+1==len(mol_list): outfile=grosuffix
-					command1='genbox -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
+		if "molecule_order.list" in os.listdir("SuBMIT_Output"):
+			mol_list=[tuple(line.split()) \
+				 	for line in open("SuBMIT_Output/molecule_order.list")\
+					if not line.startswith(("#","@",":"))]
+			if len(mol_list)==1 and int(mol_list[0][-1])==1:
+				open("SuBMIT_Output/%s"%grosuffix,"w+").write(\
+					open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
+			else:			
+				if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
+					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
+				else:
+					mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
+				with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
+					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
+					fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
+					infile="_temp_0.gro"
+					fout.write('#for GROMACS v4 (<v5)\n')
+					for i in range(len(mol_list)):
+						outfile="_temp_%d.gro"%(i+1)
+						addfile="GRO_TOP_XML/%s"%mol_list[i][0]
+						if i+1==len(mol_list): outfile=grosuffix
+						command1='genbox -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
 									(infile,addfile,mol_list[i][1],outfile)
-					fout.write(command1)
-					infile=outfile
-				fout.write('#for GROMACS v5 (>=v5)\n')
-				for i in range(len(mol_list)):
-					outfile="_temp_%d.gro"%(i+1)
-					addfile="GRO_TOP_XML/%s"%mol_list[i][0]
-					if i+1==len(mol_list): outfile=grosuffix
-					command1='#gmx insert-molecules -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
-									(infile,addfile,mol_list[i][1],outfile)
-					fout.write(command1)
-					infile=outfile
-				fout.write('rm _temp_*gro\n')
-				fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
+						fout.write(command1)
+						infile=outfile
+					fout.write('#for GROMACS v5 (>=v5)\n')
+					for i in range(len(mol_list)):
+						outfile="_temp_%d.gro"%(i+1)
+						addfile="GRO_TOP_XML/%s"%mol_list[i][0]
+						if i+1==len(mol_list): outfile=grosuffix
+						command1='#gmx insert-molecules -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
+										(infile,addfile,mol_list[i][1],outfile)
+						fout.write(command1)
+						infile=outfile
+					fout.write('rm _temp_*gro\n')
+					fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
 		return
 def main():
 	
@@ -317,6 +320,7 @@ def main():
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
 	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts.')
 	parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
+	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
 
 	#extras
 	parser.add_argument("--interface","-interface", action='store_true', default=False, help='Takes input for Nucleiotide_Protein interface from file nucpro_interface.input.')
@@ -836,7 +840,7 @@ def main():
 			if args.baul2019: assert args.idp_seq, "Provide --aa_pdb, --cg_pdb or --idp_seq"
 			assert args.aa_pdb or args.cg_pdb, ("Error. Provide all-atom or coarse-grain pdb. --aa_pdb/--cg_pdb")
 
-	if args.control:	#Use Protein with DNA/RNA bound at natve site
+	if args.control or args.gen_cg:	#Use Protein with DNA/RNA bound at natve site
 		opt.control_run=True
 		assert not args.custom_nuc, "Error: --custom_nuc cannot be used with --control"
 		opt.custom_nuc=False
@@ -922,39 +926,40 @@ def main():
 	#write CG file
 	for i in range(nfiles):
 		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
-		
-	if args.clementi2000:
-		top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.pal2019 or args.dlprakash:
-		if nucl_contmap.type==-1: top=Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		if nucl_contmap.type>=0:
-			print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
+
+	if not args.gen_cg:				
+		if args.clementi2000:
+			top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.pal2019 or args.dlprakash:
+			if nucl_contmap.type==-1: top=Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			if nucl_contmap.type>=0:
+				print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
+				top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.reddy2017:
+			top=Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.baul2019:
+			top=Baul2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.baratam2024:
+			assert args.aa_pdb or args.cg_pdb, "Error, SOP-MULTI needs input structure"
+			assert args.idp_seq, "Error, SOP-MULTI needs sequence and residue range for IDR"
+			idrdata=PDB_IO()
+			idrdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
+			idrdata=idrdata.prot
+			top=Baratam2024(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt,idrdata=idrdata)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+			unfolded=PDB_IO()
+			unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.bonds[0])
+			unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
+		elif args.banerjee2023:
+			top=Banerjee2023(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		else:
 			top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.reddy2017:
-		top=Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.baul2019:
-		top=Baul2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	elif args.baratam2024:
-		assert args.aa_pdb or args.cg_pdb, "Error, SOP-MULTI needs input structure"
-		assert args.idp_seq, "Error, SOP-MULTI needs sequence and residue range for IDR"
-		idrdata=PDB_IO()
-		idrdata.buildProtIDR(fasta=args.idp_seq,rad=rad,CBgly=CB_gly)
-		idrdata=idrdata.prot
-		top=Baratam2024(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt,idrdata=idrdata)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-		unfolded=PDB_IO()
-		unfolded.buildProtIDR(fasta="unfolded.fa",rad=rad,CBgly=CB_gly,topbonds=top.bonds[0])
-		unfolded.write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
-	elif args.banerjee2023:
-		top=Banerjee2023(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-	else:
-		top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
-		topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	
 	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile)
 if __name__ == '__main__':
