@@ -406,7 +406,7 @@ def main():
 		rad["CA"]=1.9			# 3.8 A excl vol rad
 		rad["CB"]=1.5			# 3.0 A excl vol rad
 		CB_far=True			# CB at farthest SC atom 
-		CB_chiral=True		# improp dihed for CAi-1 CAi+1 CAi CBi
+		CB_chiral=False		# improp dihed for CAi-1 CAi+1 CAi CBi
 		charge.CB=True		# Charge on CB
 		charge.P=True			#charge on P
 		excl_rule=2			# Excl volume Arith. Mean
