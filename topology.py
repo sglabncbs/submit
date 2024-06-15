@@ -128,6 +128,7 @@ class Preprocess:
 
     def __distances__(self,pairs,xyz0=None,xyz1=None):
         #takes pairs, retuns array of distances in nm
+        if len(pairs)==0: return []
         i,j = np.transpose(pairs)
         if xyz0 is None: xyz0 = self.cgpdb.xyz
         if xyz1 is None: xyz1 = self.cgpdb.xyz
@@ -135,6 +136,7 @@ class Preprocess:
 
     def __angles__(self,triplets):
         #takes list triplets, retuns array of angles (0-180) in deg
+        if len(triplets)==0: return []
         i,j,k = np.transpose(triplets)
         xyz = self.cgpdb.xyz
         n1 = xyz[i]-xyz[j]; n2 = xyz[k]-xyz[j]
@@ -143,6 +145,7 @@ class Preprocess:
 
     def __torsions__(self,quadruplets):
         #takes list of quadruplets, retuns array of torsion angles (0-360) in deg
+        if len(quadruplets)==0: return []
         i,j,k,l = np.transpose(quadruplets)
         xyz = self.cgpdb.xyz
         BA,BC = xyz[i]-xyz[j],xyz[k]-xyz[j]
@@ -216,11 +219,12 @@ class Preprocess:
                 # add CB entries if side-chain data exits
                 if len(self.CB_atn)!=0: pairs += [(self.CA_atn[c][x],self.CB_atn[c][x])   for x in resnum if  x  in self.CB_atn[c]]
                 #determine bond details in chain order
-                pairs = np.int_(pairs)
-                D = self.__distances__(pairs)
-                self.bonds.append((pairs,D))
+                if len(pairs)!=0:
+                    pairs = np.int_(pairs)
+                    D = self.__distances__(pairs)
+                    self.bonds.append((pairs,D))
 
-        if len(self.P_atn): #RNA/DNA exists
+        if len(self.P_atn): #RNA/DNA existss
             for c in self.P_atn:
                 if len(self.S_atn) == 0: 
                     assert len(self.B_atn) == 0
@@ -235,9 +239,10 @@ class Preprocess:
                         if x in self.P_atn[c]: pairs.append(((self.P_atn[c][x],self.S_atn[c][x])))
                         pairs.append((self.S_atn[c][x],self.B_atn[c][x]))
                         if x+1 in self.P_atn[c]: pairs.append((self.S_atn[c][x],self.P_atn[c][x+1]))
-                pairs = np.int_(pairs)
-                D = self.__distances__(pairs)
-                self.bonds.append((pairs,D))
+                if len(pairs)!=0:
+                    pairs = np.int_(pairs)
+                    D = self.__distances__(pairs)
+                    self.bonds.append((pairs,D))
         
         return
 
@@ -252,9 +257,10 @@ class Preprocess:
                 if len(self.CB_atn)!=0:
                     triplets += [(self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c]]
                     triplets += [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1])   for x in resnum if x in self.CB_atn[c] and x+1 in self.CA_atn[c]]
-                triplets = np.int_(triplets)
-                A = self.__angles__(triplets=triplets)
-                self.angles.append((triplets,A))
+                if len(triplets)!=0:
+                    triplets = np.int_(triplets)
+                    A = self.__angles__(triplets=triplets)
+                    self.angles.append((triplets,A))
 
         if len(self.P_atn) != 0: #RNA/DNA exists
             for c in self.P_atn:
@@ -276,9 +282,10 @@ class Preprocess:
                             if x+1 in self.P_atn[c]:
                                 triplets.append((self.P_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
                                 triplets.append((self.B_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
-                triplets = np.int_(triplets)
-                A = self.__angles__(triplets=triplets)
-                self.angles.append((triplets,A))
+                if len(triplets)!=0:
+                    triplets = np.int_(triplets)
+                    A = self.__angles__(triplets=triplets)
+                    self.angles.append((triplets,A))
 
         return
 
@@ -289,14 +296,16 @@ class Preprocess:
                 resnum = list(self.CA_atn[c].keys())
                 resnum.sort()
                 quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
-                quadruplets = np.int_(quadruplets)
-                T = self.__torsions__(quadruplets=quadruplets)
-                self.bb_dihedrals.append((quadruplets,T))
-                if len(self.CB_atn)!=0:
-                    quadruplets = [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c] and x in self.CB_atn[c]]
+                if len(quadruplets)!=0:
                     quadruplets = np.int_(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
-                    self.sc_dihedrals.append((quadruplets,T))
+                    self.bb_dihedrals.append((quadruplets,T))
+                if len(self.CB_atn)!=0:
+                    quadruplets = [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c] and x in self.CB_atn[c]]
+                    if len(quadruplets)!=0:
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.sc_dihedrals.append((quadruplets,T))
 
         if len(self.P_atn) != 0: #RNA/DNA exists
             if len(self.S_atn) == 0:
@@ -304,9 +313,10 @@ class Preprocess:
                     resnum = list(self.P_atn[c].keys())
                     resnum.sort()
                     quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
-                    quadruplets = np.int_(quadruplets)
-                    T = self.__torsions__(quadruplets=quadruplets)
-                    self.bb_dihedrals.append((quadruplets,T))
+                    if len(quadruplets)!=0:
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.bb_dihedrals.append((quadruplets,T))
             if len(self.S_atn) != 0:
                 psps,spsp = True,True
                 bsps,spsb = True,True
@@ -319,31 +329,35 @@ class Preprocess:
                                     self.P_atn[c][x+1],self.S_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c] and \
                                     x in self.P_atn[c] and x+1 in self.P_atn[c]]
-                        quadruplets = np.int_(quadruplets)
-                        T = self.__torsions__(quadruplets=quadruplets)
-                        self.bb_dihedrals.append((quadruplets,T))
+                        if len(quadruplets)!=0:
+                            quadruplets = np.int_(quadruplets)
+                            T = self.__torsions__(quadruplets=quadruplets)
+                            self.bb_dihedrals.append((quadruplets,T))
                     if spsp:
                         quadruplets = [(self.S_atn[c][x],self.P_atn[c][x+1], \
                                     self.S_atn[c][x+1],self.P_atn[c][x+2]) \
                                     for x in resnum if x+1 in self.S_atn[c] and \
                                     x+1 in self.P_atn[c] and x+2 in self.P_atn[c]]
-                        quadruplets = np.int_(quadruplets)
-                        T = self.__torsions__(quadruplets=quadruplets)
-                        self.bb_dihedrals.append((quadruplets,T))
+                        if len(quadruplets)!=0:
+                            quadruplets = np.int_(quadruplets)
+                            T = self.__torsions__(quadruplets=quadruplets)
+                            self.bb_dihedrals.append((quadruplets,T))
                     if bsps:
                         quadruplets = [(self.B_atn[c][x],self.S_atn[c][x], \
                                        self.P_atn[c][x+1],self.S_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
-                        quadruplets = np.int_(quadruplets)
-                        T = self.__torsions__(quadruplets=quadruplets)
-                        self.sc_dihedrals.append((quadruplets,T))
+                        if len(quadruplets)!=0:
+                            quadruplets = np.int_(quadruplets)
+                            T = self.__torsions__(quadruplets=quadruplets)
+                            self.sc_dihedrals.append((quadruplets,T))
                     if spsb:
                         quadruplets = [(self.S_atn[c][x],self.P_atn[c][x+1], \
                                     self.S_atn[c][x+1],self.B_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
-                        quadruplets = np.int_(quadruplets)
-                        T = self.__torsions__(quadruplets=quadruplets)
-                        self.sc_dihedrals.append((quadruplets,T))
+                        if len(quadruplets)!=0:
+                            quadruplets = np.int_(quadruplets)
+                            T = self.__torsions__(quadruplets=quadruplets)
+                            self.sc_dihedrals.append((quadruplets,T))
 
         return
     
@@ -354,23 +368,26 @@ class Preprocess:
                 resnum = list(self.CA_atn[c].keys())
                 resnum.sort()
                 quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
-                quadruplets = np.int_(quadruplets)
-                T = self.__torsions__(quadruplets=quadruplets)
-                self.bb_dihedrals.append((quadruplets,T))
-                if len(self.CB_atn)!=0:
-                    quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
+                if len(quadruplets)!=0:
                     quadruplets = np.int_(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
-                    self.sc_dihedrals.append((quadruplets,T))
+                    self.bb_dihedrals.append((quadruplets,T))
+                if len(self.CB_atn)!=0:
+                    quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
+                    if len(quadruplets)!=0:
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.sc_dihedrals.append((quadruplets,T))
 
         if len(self.P_atn) != 0: #RNA/DNA exists
             for c in self.P_atn:
                 resnum = list(self.P_atn[c].keys())
                 resnum.sort()
                 quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
-                quadruplets = np.int_(quadruplets)
-                T = self.__torsions__(quadruplets=quadruplets)
-                self.bb_dihedrals.append((quadruplets,T))
+                if len(quadruplets)!=0:
+                    quadruplets = np.int_(quadruplets)
+                    T = self.__torsions__(quadruplets=quadruplets)
+                    self.bb_dihedrals.append((quadruplets,T))
             if len(self.S_atn) != 0:
                 assert len(self.B_atn) > 0
                 for c in self.S_atn:
@@ -379,9 +396,10 @@ class Preprocess:
                     quadruplets = [(self.B_atn[c][x],self.S_atn[c][x], \
                                     self.S_atn[c][x+1],self.B_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c]]
-                    quadruplets = np.int_(quadruplets)
-                    T = self.__torsions__(quadruplets=quadruplets)
-                    self.sc_dihedrals.append((quadruplets,T))
+                    if len(quadruplets)!=0:
+                        quadruplets = np.int_(quadruplets)
+                        T = self.__torsions__(quadruplets=quadruplets)
+                        self.sc_dihedrals.append((quadruplets,T))
         
         return
     
@@ -449,7 +467,7 @@ class Preprocess:
                         c[1][0]=tagforfile
                     else: c[1]=[tagforfile,c[1]]
                     c=tuple(["_".join(y) for y in c])
-            if cmap.func!=7:
+            if cmap.func!=7 and len(pairs)!=0:
                 pairs=np.int_(pairs); weights=np.float_(weights); distances=np.float_(distances)
                 self.contacts.append((pairs,chains,distances,weights))
                 if writefile:
@@ -461,6 +479,7 @@ class Preprocess:
             else:
                 for max_dist_values in set([len(x) for x in distances]):
                     temp_p=np.int_([pairs[i] for i in range(len(pairs)) if len(distances[i])==max_dist_values])
+                    if len(temp_p)==0: continue
                     temp_c=[chains[i] for i in range(len(chains)) if len(distances[i])==max_dist_values]
                     temp_w=np.float_([weights[i] for i in range(len(weights)) if len(distances[i])==max_dist_values])
                     temp_d=np.float_([distances[i] for i in range(len(distances)) if len(distances[i])==max_dist_values])
@@ -502,6 +521,7 @@ class Preprocess:
 
             faa = open(tagforfile+".AAcont","w+")
             fcg = open(tagforfile+".CGcont","w+")
+            assert len(atomgroup)!=0
             cid,rnum,bb_sc = np.transpose(np.array(atomgroup))
             del (atomgroup)
 
@@ -558,14 +578,15 @@ class Preprocess:
             #cid = np.int_([contacts_dict[x][0] for x in pairs])
             chains = [contacts_dict[x][0] for x in pairs]
             pairs = np.int_(pairs)
-            if group!="inter": distances = self.__distances__(pairs=pairs)
-            elif group=="inter": distances = self.__distances__(pairs=pairs,xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz)
-            for x in range(pairs.shape[0]):
-                c,a = chains[x],pairs[x]+1
-                w,d = weights[x],distances[x]
-                fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+            if len(pairs)>0:
+                if group!="inter": distances = self.__distances__(pairs=pairs)
+                elif group=="inter": distances = self.__distances__(pairs=pairs,xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz)
+                for x in range(pairs.shape[0]):
+                    c,a = chains[x],pairs[x]+1
+                    w,d = weights[x],distances[x]
+                    fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+                self.contacts.append((pairs,chains,distances,weights))
             faa.close();fcg.close()
-            self.contacts.append((pairs,chains,distances,weights))
 
         elif cmap.type == 2:        # Calculating contacts from CG structure
             cid = []
@@ -611,24 +632,25 @@ class Preprocess:
                                 cid += [(tag+str(c1+1),tag+str(c2+1)) for x in range(len(pairs)-len(cid))]
 
             pairs = np.int_(pairs)
-            cid = np.array(cid)
-            cutoff = 0.1*cmap.cutoff
-            distances = self.__distances__(pairs)
-            contacts = np.where(np.int_(distances<=cutoff))[0]
-            pairs = pairs[contacts]
-            chains = cid[contacts]
-            distances = distances[contacts]
-            check_dist = self.__distances__(pairs)
-            for x in range(pairs.shape[0]): 
-                assert check_dist[x] == distances[x] and distances[x] < cutoff
-            weights = np.ones(pairs.shape[0])
-            with  open(tagforfile+".CGcont","w+") as fcg:
-                for x in range(pairs.shape[0]):
-                    c,a = chains[x],pairs[x]+1
-                    w,d = weights[x],distances[x]
-                    fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
-        
-            self.contacts.append((pairs,chains,distances,weights))
+            if len(pairs)>0:
+                cid = np.array(cid)
+                cutoff = 0.1*cmap.cutoff
+                distances = self.__distances__(pairs)
+                contacts = np.where(np.int_(distances<=cutoff))[0]
+                pairs = pairs[contacts]
+                chains = cid[contacts]
+                distances = distances[contacts]
+                check_dist = self.__distances__(pairs)
+                for x in range(pairs.shape[0]): 
+                    assert check_dist[x] == distances[x] and distances[x] < cutoff
+                weights = np.ones(pairs.shape[0])
+                with  open(tagforfile+".CGcont","w+") as fcg:
+                    for x in range(pairs.shape[0]):
+                        c,a = chains[x],pairs[x]+1
+                        w,d = weights[x],distances[x]
+                        fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
+            
+                self.contacts.append((pairs,chains,distances,weights))
 
         return
 
@@ -1001,7 +1023,7 @@ class MergeTop:
                         fsec.write(len(values[x])*" %e"%tuple(values[x]))
                         fsec.write("; %s(%d)-%s(%d) %5d %5d\n"%(C1[x],i,C2[x],j,I[x],J[x]))
 
-        if self.opt.opensmog:
+        if self.opt.opensmog and len(xml_pairs_data)!=0:
             I,J,eps,sig,C12=np.transpose(xml_pairs_data)
             pairs=-1+np.int_([(I[x],J[x]) for x in range(len(pairs))])
             params={"r0":sig,"eps":eps}
@@ -1297,6 +1319,7 @@ class OpenSMOGXML:
 
     def write_pairs_xml(self,pairs=[],params={},name="contacts_LJ-10-12",\
                             expression="eps*( 5*((sig/r)^12) - 6*((sig/r)^10) )"):
+        if len(pairs)==0: return
         if self.pairs_count==0: self.fxml.write(' <contacts>\n')
         self.fxml.write('  <contacts_type name="%s">\n'%name)
         self.fxml.write('   <expression expr="%s"/>\n'%expression)
@@ -1312,6 +1335,7 @@ class OpenSMOGXML:
 
     def write_dihedrals_xml(self,quads=[],params={},name="CustomDihedrals",\
                             expression="Kd*(1+cos(n*theta-theta0));theta0=theta0_deg*3.141592653589793/180"):
+        if len(quads)==0: return
         if self.pairs_count>0:
             self.fxml.write(' </contacts>\n')
             self.pairs_count=0
@@ -2145,6 +2169,7 @@ class Pal2019(Topology):
             resnum = list(data.B_atn[c].keys())
             resnum.sort()
             pairs = np.int_([(data.B_atn[c][x],data.B_atn[c][x+1]) for x in resnum if x+1 in data.B_atn[c]])
+            if len(pairs)==0: continue
             I,J = np.transpose(pairs)
             eps = np.float_([epsmat[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
             dist = np.float_([stack[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
@@ -2567,7 +2592,7 @@ class Baul2019(Reddy2017):
                             if self.opt.opensmog: continue
                             fout.write(" %s %s\t1\t%e %e\n"%(x.ljust(5),y.ljust(5),C06,C12))
         
-        if self.opt.opensmog:
+        if self.opt.opensmog and len(pairs)!=0:
             excl_rad1,excl_rad2=np.transpose([(self.excl_volume[x],self.excl_volume[y]) for x,y in pairs])
             epsmat=[epsmat[p] for p in pairs]
             eps=[eps[(x[:2],y[:2])] for x,y in pairs]
@@ -2612,7 +2637,8 @@ class Baul2019(Reddy2017):
                             pairs.append((data.CB_atn[c][x],data.CA_atn[c][y]))
                         if x in data.CB_atn[c] and y in data.CB_atn[c]:
                             pairs.append((data.CB_atn[c][x],data.CB_atn[c][y]))
-
+        
+        if len(pairs)==0: return
         I,K = np.transpose(np.int_(pairs))
         interaction_type = np.int_(\
             np.int_([x in CB_atn for x in I])+ \
@@ -2780,7 +2806,7 @@ class Baratam2024(Reddy2017):
                             if y.startswith("i"): fout.write("; IDR-IDR\n")
                             else: fout.write("; OR-IDR\n")
 
-        if self.opt.opensmog:
+        if self.opt.opensmog and len(values)!=0:
             #C06,C12 = np.transpose(values)
             #self.prot_xmlfile.write_nonbond_xml(pairs=pairs,params={"C12":C12,"C6":C06},\
             #            expression='C12(type1,type2)/(r^12) - C6(type1,type2)/(r^6)')
@@ -3017,7 +3043,8 @@ class Baratam2024(Reddy2017):
                             if x in u_data.CB_atn[c] and y in u_data.CB_atn[c]:
                                 idr_pairs.append((u_data.CB_atn[c][x],u_data.CB_atn[c][y]))
         pairs,idr_pairs=np.int_(pairs),np.int_(idr_pairs)
-
+        assert len(pairs)!=0, "Error, No structured region?"
+        
         CA_atn = {u_data.CA_atn[c][r]:self.atomtypes[u_data.CA_atn[c][r]] for c in u_data.CA_atn for r in u_data.CA_atn[c]}
         CB_atn = {u_data.CB_atn[c][r]:self.atomtypes[u_data.CB_atn[c][r]] for c in u_data.CB_atn for r in u_data.CB_atn[c]}
         all_atn = CA_atn.copy()
@@ -3043,9 +3070,9 @@ class Baratam2024(Reddy2017):
             for x in range(pairs.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
 
+        if len(idr_pairs)==0: return
         print ("> Using -C6 repulsion for IDR local beads")
         fout.write(";IDR angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
-
         I,K = np.transpose(idr_pairs)
         interaction_type = np.int_(\
             np.int_([x in CB_atn for x in I])+ \

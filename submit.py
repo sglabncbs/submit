@@ -158,6 +158,7 @@ class CleanUP:
 				open("SuBMIT_Output/%s"%grosuffix,"w+").write(\
 					open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
 			else:			
+				assert len(mol_list)!=0
 				if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
 				else:
@@ -340,6 +341,7 @@ def main():
 	prot_contmap=ContactMap()
 	nucl_contmap=ContactMap()
 	inter_contmap=ContactMap()
+	inter_contmap.type=-1 #default type
 
 	opt.nonbond=False
 	opt.interface=False
@@ -659,7 +661,7 @@ def main():
 	if args.cutofftype:
 		prot_contmap.type=int(args.cutofftype)
 		nucl_contmap.type=int(args.cutofftype)
-		inter_contmap.type=int(args.cutofftype)
+		if args.control_run: inter_contmap.type=int(args.cutofftype)
 	if args.cutofftype_p: prot_contmap.type=int(args.cutofftype_p)
 	if args.cutofftype_n: nucl_contmap.type=int(args.cutofftype_n)
 	if args.cutofftype_i: inter_contmap.type=int(args.cutofftype_i)
