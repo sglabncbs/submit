@@ -783,8 +783,8 @@ class MergeTop:
             elif cmap_func in (5,6,7):
                 assert self.opt.opensmog
                 func,sd = 6,0.05
-                I_rad = np.float_([self.excl_volume[I[x]] for x in range(I.shape[0])])
-                J_rad = np.float_([self.excl_volume[J[x]] for x in range(J.shape[0])])
+                I_rad = np.float_([self.excl_volume[I[x].split("_")[0]] for x in range(len(I))])
+                J_rad = np.float_([self.excl_volume[J[x].split("_")[0]] for x in range(len(J))])
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
                 values = eps,sig,np.ones(C12.shape[0])*sd,C12
@@ -838,7 +838,7 @@ class MergeTop:
 
         if len(eps)>0:
             fsec.write("; Custom Protein-RNA/DNA interactions\n")
-            if self.nucl_cmap.func in (5,6):
+            if self.nucl_cmap.func in (5,6,7):
                 fsec.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             for p in eps:
                 if p[0].startswith(("CA","CB")): continue
@@ -860,8 +860,8 @@ class MergeTop:
                 elif cmap_func in (5,6,7):
                     assert self.opt.opensmog
                     func,sd = 6,0.05
-                    if self.excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
-                    elif self.excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
+                    if self.excl_rule==1: c12 = (((self.excl_volume[x.split("_")[0]]**12)*(self.excl_volume[y]**12))**0.5)
+                    elif self.excl_rule==2: C12 = ((self.excl_volume[x.split("_")[0]]+self.excl_volume[y])/2.0)**12                
                     values = eps[p],sig[p],sd,C12
                 for x in self.old2new_atomtypes[p[0]]:
                     for y in self.old2new_atomtypes[p[1]]:
@@ -998,10 +998,10 @@ class MergeTop:
             func=1
             if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
             elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
-            elif cmap_func in (5,6):
+            elif cmap_func in (5,6,7):
                 func,sd = 6,0.05
-                I_rad = np.float_([self.excl_volume[self.atomtypes[C1[x]][I[x]]] for x in range(I.shape[0])])
-                J_rad = np.float_([self.excl_volume[self.atomtypes[C2[x]][J[x]]] for x in range(J.shape[0])])
+                I_rad = np.float_([self.excl_volume[self.atomtypes[C1[x]][I[x]].split("_")[0]] for x in range(I.shape[0])])
+                J_rad = np.float_([self.excl_volume[self.atomtypes[C2[x]][J[x]].split("_")[0]] for x in range(J.shape[0])])
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
                 values = eps,sig,np.ones(C12.shape[0])*sd,C12
@@ -1028,9 +1028,10 @@ class MergeTop:
             pairs=-1+np.int_([(I[x],J[x]) for x in range(len(pairs))])
             params={"r0":sig,"eps":eps}
 
+            print (cmap_func);exit()
             if cmap_func==1: expr,name="eps*( 1*((r0/r)^12) - 2*((r0/r)^10) )","symInter_contacts_LJ-06-12"
             elif cmap_func==2: expr,name="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )","symInter_contacts_LJ-10-12"
-            elif cmap_func in (5,6):
+            elif cmap_func in (5,6,7):
                 sd=0.05;params["C12"]=C12
                 expr="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
                 name="symInter_contacts_Gaussian-12"
@@ -1510,11 +1511,14 @@ class Topology:
                 if p in sig: params["sig"].append(sig[p])
                 else: params["sig"].append(0)
             assert len(params["eps_att"])==len(params["C12"])
+            if cmap_func==1: expr="C12 - 2*epsA*(sig/r)^6"
+            elif cmap_func==2: expr="C12 - 6*epsA*(sig/r)^10"
+            elif cmap_func in (5,6,7):expr="epsA*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
             if len(data.CA_atn)!=0:
-                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs,expression=expr, \
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
             if len(data.P_atn)!=0: 
-                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
+                self.nucl_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs,expression=expr, \
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])
         return 0
 
@@ -1589,6 +1593,9 @@ class Topology:
                 if p in sig: params["sig"].append(sig[p])
                 else: params["sig"].append(0)
             assert len(params["eps_att"])==len(params["C12"])
+            if cmap_func==1: expr="C12 - 2*epsA*(sig/r)^6"
+            elif cmap_func==2: expr="C12 - 6*epsA*(sig/r)^10"
+            elif cmap_func in (5,6,7):expr="epsA*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
             if len(data.CA_atn)!=0:
                 self.prot_xmlfile.write_nonbond_xml(func=cmap_func,pairs=pairs, \
                         C12=params["C12"],epsA=params["eps_att"],sig=params["sig"])

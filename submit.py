@@ -342,6 +342,7 @@ def main():
 	nucl_contmap=ContactMap()
 	inter_contmap=ContactMap()
 	inter_contmap.type=-1 #default type
+	inter_contmap.func=-1 #buffer
 
 	opt.nonbond=False
 	opt.interface=False
@@ -683,6 +684,9 @@ def main():
 	if prot_contmap.func==7 and prot_contmap.type!=0: prot_contmap.func=6
 	if nucl_contmap.func==7 and nucl_contmap.type!=0: nucl_contmap.func=6
 	if inter_contmap.func==7 and inter_contmap.type!=0: inter_contmap.func=6
+	if inter_contmap.func==-1: 
+		if CGlevel["prot"]!=0: inter_contmap.func=prot_contmap.func
+		elif CGlevel["nucl"]!=0: inter_contmap.func=nucl_contmap.func
 	assert (prot_contmap.func in [1,2,6,7])
 	assert (nucl_contmap.func in [1,2,6,7])
 	assert (inter_contmap.func in [1,2,6,7])
