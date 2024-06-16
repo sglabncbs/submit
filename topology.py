@@ -438,7 +438,7 @@ class Preprocess:
                     elif len(line)>=6:
                         pairs.append((a1,a2));chains.append((c1,c2))
                         if cmap.func!=7:
-                            w,d=np.float_(line[4:])
+                            w,d=np.float_(line[4:6])
                             weights.append(w);distances.append(d)
                         elif cmap.func==7:
                             w= np.float_(line[4])
@@ -710,8 +710,8 @@ class MergeTop:
 
     def __getSurfaceAtoms(self,contacts,tag):
         surface=list()
-        for psirs,chains,eps,sig in contacts:
-            I,J = 1+np.transpose(psirs)
+        for pairs,chains,sig,eps in contacts:
+            I,J = 1+np.transpose(pairs)
             surface += [I[x] for x in range(I.shape[0]) if chains[x][0].split("_")[0]==tag]
             surface += [J[x] for x in range(J.shape[0]) if chains[x][1].split("_")[0]==tag]
         surface=list(set(surface))
@@ -771,7 +771,7 @@ class MergeTop:
 
     def __writeSymPairs2Nonbond(self,fsec,inp,cmap_func):
         nonbond_pairs={}
-        for pairs,chains,eps,sig in inp:
+        for pairs,chains,sig,eps in inp:
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
             I,J=1+np.transpose(pairs)
@@ -787,7 +787,14 @@ class MergeTop:
                 J_rad = np.float_([self.excl_volume[J[x].split("_")[0]] for x in range(len(J))])
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
+                #print (sig[0],sig[-1]);exit()
                 values = eps,sig,np.ones(C12.shape[0])*sd,C12
+                if cmap_func==7:
+                    sig=np.transpose(sig)
+                    if len(sig)==1: sig=[sig[0],np.zeros(len(pairs))]
+                    else: assert len(sig)==2
+                    values=eps,sig[0],sig[1],np.ones(C12.shape[0])*sd,C12
+                    sig = [(sig[0][x],sig[1][x]) for x in range(sig[0].shape[0])]
             values = np.transpose(values)
             for x in range(pairs.shape[0]):
                 p=[I[x],J[x]]; p.sort(); p=tuple(p)
@@ -795,7 +802,7 @@ class MergeTop:
                 if ptype not in nonbond_pairs: nonbond_pairs[ptype]={}
                 nonbond_pairs[ptype][p]=0
                 if self.opt.opensmog:
-                    self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"sig":[sig[x]]})
+                    self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x][0]],"r1":[sig[x][1]]})
                     continue
                 fsec.write(" %10s %10s\t %5d\t"%(p[0].center(10),p[1].center(10),func))
                 fsec.write(len(values[x])*" %e"%tuple(values[x])+"\n")
@@ -987,7 +994,7 @@ class MergeTop:
         inter_exclusions=[";Inter-molecule symmetrized_interactions\n"]
         fsec.write(";Inter-molecule symmetrized_interactions\n")
         xml_pairs_data=list()
-        for pairs,chains,eps,sig in inp:
+        for pairs,chains,sig,eps in inp:
             I,J = np.transpose(pairs)
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
@@ -1277,25 +1284,25 @@ class OpenSMOGXML:
     def write_nonbond_xml(self,pairs=[],func=1,C12=[],epsA=[],sig=[],expression=str(),params={}):
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
-        print (expression)
         if len(expression)==0:
             if func==1: expression="C12(type1,type2)/(r^12) - 2*epsA(type1,type2)*(r0(type1,type2)/r)^6"
             elif func==2: expression="C12(type1,type2)/(r^12) - 6*epsA(type1,type2)*(r0(type1,type2)/r)^10"
             elif func==6: expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
             elif func==7: 
                 sd=0.05
-                expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-G0)-1)"
-                expression+="; G0=exp(-((r-r0(type1,type2))^2)/(2*(sd0(type1,type2)^2)));sd0=%e"%sd
-                expression+="; G1=exp(-((r-r1(type1,type2))^2)/(2*(sd1(type1,type2)^2)));sd0=%e"%sd
+                expression="epsA(type1,type2)*((1+R0)*(1+G0)*(1+G1)-1); R0=C12(type1,type2)/(r^12)"
+                expression+="; G0=-exp(-((r-r0(type1,type2))^2)/(2*(sd0(type1,type2)^2)));sd0=%e"%sd
+                expression+="; G1=-exp(-((r-r1(type1,type2))^2)/(2*(sd1(type1,type2)^2)));sd0=%e"%sd
         if len(C12)!=0: params["C12"]=C12
         if len(epsA)!=0: params["epsA"]=epsA
         if len(sig)!=0: params["r0"]=sig
         if func==7 and len(sig)!=0:
-            params["r0"]=[]
-            for x in sig:
+            params["r0"],params["r1"]=[],[]
+            for x in range(len(sig)):
+                if sig[x] is int(): sig[x]=[sig[x],0]
+                elif len(sig[x])==1: sig[x]=[sig[x][0],0]
                 params["r0"].append(sig[x][0])
-                if len(sig[x])==1: params["r1"].append(0)
-                else: params["r1"].append(sig[x][1])
+                params["r1"].append(sig[x][1])
         if self.add_electrostatics:
             expression="%s + %s ; %s"%(self.elec_expr,expression,self.elec_const)
             params["q1q2"]=[]
@@ -1327,7 +1334,7 @@ class OpenSMOGXML:
                 else: params["q1q2"].append(0)
         for x in range(len(pairs)):
             self.fxml.write('   <nonbond_param type1="%s" type2="%s"'%tuple(pairs[x]))
-            for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
+            for p in params:self.fxml.write(' %s="%e"'%(p,params[p][x]))
             self.fxml.write('/>\n')
         return
 
@@ -1494,7 +1501,8 @@ class Topology:
                 if p in pairs: continue
                 pairs.append(p)
                 if p not in sig: cmap_func=-1
-                else: sig[p]=sig[p][0] #to be changed for Gaussian
+                else: 
+                    if cmap_func!=7: sig[p]=sig[p][0] 
                 func=1
                 if cmap_func ==-1:
                     if excl_rule==1: c12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)

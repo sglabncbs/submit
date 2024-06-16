@@ -494,8 +494,8 @@ class PDB_IO:
         #if input cmap given, splitting protein and nucl sections
         return_files={"nucl":str(),"prot":str(),"inter":str()}
         if len(self.nucl.lines)>0: fnucl=open(cmap+".nuclcont","w+")
-        if len(self.nucl.lines)>0: fprot=open(cmap+".protcont","w+")
-        if len(self.nucl.lines)>0 and len(self.nucl.lines)>0:
+        if len(self.prot.lines)>0: fprot=open(cmap+".protcont","w+")
+        if len(self.nucl.lines)>0 and len(self.prot.lines)>0:
             finter=open("inter.cont","a") #append
         with open(cmap) as fin:
             for line in fin:
@@ -520,8 +520,8 @@ class PDB_IO:
                     finter.write("%s %d %s %d"%(c1,a1,c2,a2))
                     finter.write(len(line[4:])*" %s"%tuple(line[4:])+"\n")
         if len(self.nucl.lines)>0: return_files["nucl"]=cmap+".nuclcont";fnucl.close()
-        if len(self.nucl.lines)>0: return_files["prot"]=cmap+".protcont";fprot.close()
-        if len(self.nucl.lines)>0 and len(self.nucl.lines)>0:
+        if len(self.prot.lines)>0: return_files["prot"]=cmap+".protcont";fprot.close()
+        if len(self.prot.lines)>0 and len(self.nucl.lines)>0:
             return_files["inter"]="inter.cont";finter.close()
         return return_files
 
