@@ -114,6 +114,7 @@ class CleanUP:
 		self.delFiles(f_suffix="refined.nucl.pdb")
 		self.delFiles(f_suffix="refined.prot.pdb")
 		self.moveFiles(f_suffix=".pdb",f_middle=".refined.",out_subdir="RefinedPDB_CMap")
+		self.moveFiles(f_suffix=".fa.pdb",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix="cont",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix=grosuffix,out_subdir="GRO_TOP_XML")
 		self.moveFiles(f_suffix=topsuffix,out_subdir="GRO_TOP_XML")
@@ -123,6 +124,7 @@ class CleanUP:
 			self.moveFiles(f_middle=xmlsuffix)
 		self.moveFiles(f_prefix="table",f_suffix=".xvg",out_subdir="Tables")
 		self.moveFiles(f_prefix="interactions",f_suffix=".dat",out_subdir="model_params")
+		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.genbox(grosuffix=grosuffix)	
 
@@ -309,9 +311,9 @@ def main():
 	parser.add_argument("--CA_charge","-CA_charge", action='store_true', default=False, help='Put charges on CA for K,L,H,D,E. Default: False')
 	parser.add_argument("--CB_charge","-CB_charge", action='store_true', default=False, help='Put charges on CB for K,L,H,D,E. Default: False')
 	parser.add_argument("--P_charge","-P_charge", action='store_true', default=False, help='Negative charge on Phosphate bead. Default: False')
-	parser.add_argument("--iconc","-iconc", help="Solvant ion conc.(N) for Debye length calcluation. Default=0.1M")  
-	parser.add_argument("--irad","-irad", help="Solvant ion rad for Debye length calcluation. Default=1.4A")  
-	parser.add_argument("--dielec","-dielec", help="Dielectric constant of solvant. Default=70")
+	parser.add_argument("--iconc","-iconc", help="Solvent ion conc.(N) for Debye length calcluation. Default=0.1M")  
+	parser.add_argument("--irad","-irad", help="Solvent ion rad for Debye length calcluation. Default=1.4A")  
+	parser.add_argument("--dielec","-dielec", help="Dielectric constant of Solvent. Default=70")
 	
 	#disabled for now
 	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
@@ -494,8 +496,9 @@ def main():
 	if args.reddy2017:
 		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
 		CGlevel["prot"]=2
-		if args.opensmog: args.denesyuk2013=True
-		else: CGlevel["nucl"]=0
+		#if args.opensmog: args.denesyuk2013=True
+		#else: 
+		CGlevel["nucl"]=0
 		bond_function=8
 		prot_contmap.cutoff=8.0
 		prot_contmap.type=2
@@ -542,8 +545,9 @@ def main():
 	if args.baratam2024:
 		print (">>> Using Baratam & Srivastava SOP-MULTI IDR model.")
 		CGlevel["prot"]=2
-		if args.opensmog: args.denesyuk2013=True
-		else: CGlevel["nucl"]=0
+		#if args.opensmog: args.denesyuk2013=True
+		#else: 
+		CGlevel["nucl"]=0
 		bond_function=8
 		prot_contmap.cutoff=8.0
 		prot_contmap.type=2
@@ -814,7 +818,7 @@ def main():
 	if args.Bpy_rad: rad["Bpy"]=float(args.Bpy_rad)
 	if args.pistacklen: rad["stack"]=float(args.pistacklen)
 	
-	#solvant and ionic params
+	#Solvent and ionic params
 	if args.dielec:	charge.dielec=float(args.dielec)
 	if args.iconc: charge.iconc=float(args.iconc)
 	if args.irad: charge.irad=float(args.irad)
