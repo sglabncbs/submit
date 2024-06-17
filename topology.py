@@ -815,7 +815,7 @@ class MergeTop:
     def __writeNucProtParams(self,fsec,exclude={}):
         print ("> Writing user given custom nonbond_params:",self.opt.interface)
         eps,sig = self.data[0].Interactions(interface=self.opt.interface)
-        cmap_func=self.inter_cmap.func
+        cmap_func=self.inter_cmap.nbfunc
 
         pairs = []
         Krep = (self.fconst.Kr_prot+self.fconst.Kr_nucl)*0.5
@@ -840,7 +840,10 @@ class MergeTop:
                                     a=[i,j]; a.sort(); a=tuple(a)
                                     if ptype in exclude and a in exclude[ptype]: continue
                                     if self.opt.opensmog:
-                                        self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"sig":[0]})
+                                        if cmap_func==7:
+                                            self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"r0":[0],"r1":[0]})
+                                        else:
+                                            self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"r0":[0]})
                                         continue
                                     fsec.write(" %10s %10s\t %d\t"%(i.center(10),j.center(10),func))
                                     fsec.write(len(values)*" %e"%tuple(values))
@@ -848,8 +851,6 @@ class MergeTop:
 
         if len(eps)>0:
             fsec.write("; Custom Protein-RNA/DNA interactions\n")
-            if self.nucl_cmap.func in (5,6,7):
-                fsec.write(";%5s %5s %5s %5s %5s %5s %5s\n"%("i","j","func","eps","r0","sd","C12(Rep)"))
             for p in eps:
                 if p[0].startswith(("CA","CB")): continue
                 if not p[1].startswith(("CA","CB")): continue
@@ -859,7 +860,8 @@ class MergeTop:
                 if p in pairs: continue
                 pairs.append(p); ptype=p
                 if p not in sig: cmap_func=-1
-                else: sig[p]=sig[p][0] #to be changed for Gaussian
+                else: 
+                    if cmap_func!=7: sig[p]=sig[p][0]
                 func=1
                 if cmap_func ==-1:
                     if self.excl_rule==1: c12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
@@ -872,13 +874,17 @@ class MergeTop:
                     func,sd = 6,0.05
                     if self.excl_rule==1: c12 = (((self.excl_volume[x.split("_")[0]]**12)*(self.excl_volume[y]**12))**0.5)
                     elif self.excl_rule==2: C12 = ((self.excl_volume[x.split("_")[0]]+self.excl_volume[y])/2.0)**12                
+                    if cmap_func==7 and len(sig[p])==1: sig[p]=[sig[p][0],0]
                     values = eps[p],sig[p],sd,C12
                 for x in self.old2new_atomtypes[p[0]]:
                     for y in self.old2new_atomtypes[p[1]]:
                         a=[x,y]; a.sort(); a=tuple(a)
                         if ptype in exclude and a in exclude[ptype]:continue
                         if self.opt.opensmog:
-                            self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"sig":[sig[p]]})
+                            if cmap_func==7:
+                                self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"r0":[sig[p][0]],"r1":[sig[p][1]]})
+                            else:
+                                self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"r0":[sig[p]]})
                             continue
                         fsec.write(" %10s %10s\t %d\t"%(x.center(10),y.center(10),func))
                         fsec.write(len(values)*" %e"%tuple(values))
@@ -1060,7 +1066,6 @@ class MergeTop:
                     expr="eps*((1+R12)*(1-G0)*(1-G1)-1); R0=C12/(r^12)"
                     expr+=";G0=exp(-((r-r0)^2)/(2*(sd0^2)));sd0=%e"%sd
                     expr+=";G1=exp(-((r-r1)^2)/(2*(sd1^2)));sd0=%e"%sd
-            for x in params: print (params[x].shape)
             self.xmlfile.write_pairs_xml(pairs=pairs,name=name,params=params,expression=expr)
 
         return inter_exclusions
