@@ -318,6 +318,8 @@ def main():
 	#disabled for now
 	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
+	parser.add_argument("--sym_intra","--sym_intra", action='store_true', default=False, help='Intra-chain Symmetrised SBM is generated.')
+
 	
 	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
@@ -889,6 +891,9 @@ def main():
 	for i in range(len(pdbdata)):
 		if len(pdbdata[i].prot.lines)==0: Nmol["prot"][i]=0
 		if len(pdbdata[i].nucl.lines)==0: Nmol["nucl"][i]=0
+
+	if args.sym_intra:
+		opt.intra_symmetrize=True
 	if args.dswap:
 		opt.intra_symmetrize=True
 		for i in range(len(pdbdata)):
