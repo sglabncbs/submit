@@ -802,7 +802,10 @@ class MergeTop:
                 if ptype not in nonbond_pairs: nonbond_pairs[ptype]={}
                 nonbond_pairs[ptype][p]=0
                 if self.opt.opensmog:
-                    self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x][0]],"r1":[sig[x][1]]})
+                    if cmap_func==7:
+                        self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x][0]],"r1":[sig[x][1]]})
+                    else:
+                        self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x]]})
                     continue
                 fsec.write(" %10s %10s\t %5d\t"%(p[0].center(10),p[1].center(10),func))
                 fsec.write(len(values[x])*" %e"%tuple(values[x])+"\n")
@@ -1012,6 +1015,13 @@ class MergeTop:
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
                 values = eps,sig,np.ones(C12.shape[0])*sd,C12
+                if cmap_func==7:
+                    sig=np.transpose(sig)
+                    if len(sig)==1: sig=[sig[0],np.zeros(len(pairs))]
+                    else: assert len(sig)==2
+                    values=eps,sig[0],sig[1],np.ones(C12.shape[0])*sd,C12
+                    sig = [(sig[0][x],sig[1][x]) for x in range(sig[0].shape[0])]
+    
             values = np.transpose(values)
             I,J = 1 + np.transpose(pairs)
             for x in range(pairs.shape[0]):
@@ -1024,24 +1034,33 @@ class MergeTop:
                         if C1[x]==C2[x] and i==j: continue
                         inter_exclusions.append(" %5s %5s ; %s(%d)-%s(%d) %5d %5d\n"%(sym_I[x][i],sym_J[x][j],C1[x],i,C2[x],j,I[x],J[x]))
                         if self.opt.opensmog:
-                            xml_pairs_data.append((sym_I[x][i],sym_J[x][j],eps[x],sig[x],values[x][-1]))
+                            if cmap_func==7:
+                                xml_pairs_data.append((sym_I[x][i],sym_J[x][j],eps[x],sig[x][0],sig[x][1],values[x][-1]))
+                            else:
+                                xml_pairs_data.append((sym_I[x][i],sym_J[x][j],eps[x],sig[x],values[x][-1]))
                             continue
                         fsec.write(" %5s %5s\t%d\t"%(sym_I[x][i],sym_J[x][j],func))
                         fsec.write(len(values[x])*" %e"%tuple(values[x]))
                         fsec.write("; %s(%d)-%s(%d) %5d %5d\n"%(C1[x],i,C2[x],j,I[x],J[x]))
 
         if self.opt.opensmog and len(xml_pairs_data)!=0:
-            I,J,eps,sig,C12=np.transpose(xml_pairs_data)
-            pairs=-1+np.int_([(I[x],J[x]) for x in range(len(pairs))])
-            params={"r0":sig,"eps":eps}
+            if cmap_func==7: I,J,eps,sig0,sig1,C12=np.transpose(xml_pairs_data)
+            else: I,J,eps,sig0,C12=np.transpose(xml_pairs_data)
+            pairs=-1+np.int_([(I[x],J[x]) for x in range(len(xml_pairs_data))])
+            params={"eps":eps,"r0":sig0}
 
-            print (cmap_func);exit()
             if cmap_func==1: expr,name="eps*( 1*((r0/r)^12) - 2*((r0/r)^10) )","symInter_contacts_LJ-06-12"
             elif cmap_func==2: expr,name="eps*( 5*((r0/r)^12) - 6*((r0/r)^10) )","symInter_contacts_LJ-10-12"
             elif cmap_func in (5,6,7):
-                sd=0.05;params["C12"]=C12
+                sd=0.05
                 expr="eps*((1+(C12/(r^12)))*(1-exp(-((r-r0)^2)/(2*(sd^2))))-1); sd=%e"%sd
                 name="symInter_contacts_Gaussian-12"
+                if cmap_func==7:
+                    params["r1"]=sig1
+                    expr="eps*((1+R12)*(1-G0)*(1-G1)-1); R0=C12/(r^12)"
+                    expr+=";G0=exp(-((r-r0)^2)/(2*(sd0^2)));sd0=%e"%sd
+                    expr+=";G1=exp(-((r-r1)^2)/(2*(sd1^2)));sd0=%e"%sd
+            for x in params: print (params[x].shape)
             self.xmlfile.write_pairs_xml(pairs=pairs,name=name,params=params,expression=expr)
 
         return inter_exclusions
@@ -1285,14 +1304,14 @@ class OpenSMOGXML:
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
         if len(expression)==0:
+            sd=0.05
             if func==1: expression="C12(type1,type2)/(r^12) - 2*epsA(type1,type2)*(r0(type1,type2)/r)^6"
             elif func==2: expression="C12(type1,type2)/(r^12) - 6*epsA(type1,type2)*(r0(type1,type2)/r)^10"
             elif func==6: expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
             elif func==7: 
-                sd=0.05
-                expression="epsA(type1,type2)*((1+R0)*(1+G0)*(1+G1)-1); R0=C12(type1,type2)/(r^12)"
-                expression+="; G0=-exp(-((r-r0(type1,type2))^2)/(2*(sd0(type1,type2)^2)));sd0=%e"%sd
-                expression+="; G1=-exp(-((r-r1(type1,type2))^2)/(2*(sd1(type1,type2)^2)));sd0=%e"%sd
+                expression="epsA(type1,type2)*((1+R12)*(1-G0)*(1-G1)-1); R12=C12(type1,type2)/(r^12)"
+                expression+="; G0=exp(-((r-r0(type1,type2))^2)/(2*(sd0(type1,type2)^2)));sd0=%e"%sd
+                expression+="; G1=exp(-((r-r1(type1,type2))^2)/(2*(sd1(type1,type2)^2)));sd0=%e"%sd
         if len(C12)!=0: params["C12"]=C12
         if len(epsA)!=0: params["epsA"]=epsA
         if len(sig)!=0: params["r0"]=sig
@@ -1856,6 +1875,7 @@ class Topology:
                         fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
                 elif cmap.func==7:
                     if self.opt.opensmog:
+                        #if len(dist.shape)==1: dist=np.float_
                         N_dist_values=dist.shape[1]
                         expr="(1+(C12/(r^12)))"
                         for i in range(N_dist_values): expr+="*(1-G%d)"%i
