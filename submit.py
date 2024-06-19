@@ -164,7 +164,8 @@ class CleanUP:
 				if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
 				else:
-					mol_list=[("%s%s_%s"%(x[1],x[0],grosuffix),int(x[2])) for x in mol_list]
+					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
+					print (mol_list)
 				with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
 					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
 					fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
