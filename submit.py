@@ -207,7 +207,7 @@ def main():
 	parser.add_argument("--baidya2022","-baidya2022","--sopsc_idp2","-sopsc_idp2",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
 	parser.add_argument("--baratam2024","-baratam2024","--sop-multi","-sop-multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB")
 	parser.add_argument("--banerjee2023","-banerjee2023","--selfpeptide","-selfpeptide",action="store_true",help="Banerjee & Gosavi 2023 Self-Peptide model")
-	parser.add_argument("--virusassembly","-virusassembly","--virusassem","-virusassem",action="store_true",help="Preset for structure based virus assembly (inter-Symmetrized)")
+	parser.add_argument("--virusassembly","-virusassembly","--capsid","-capsid",action="store_true",help="Preset for structure based virus assembly (inter-Symmetrized)")
 	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
 
 	#input options for protein
@@ -434,7 +434,7 @@ def main():
 		ModelDir("pal2019/inter_nbcb.stackparams.dat").copy2("interactions.interface.dat")
 
 	if args.virusassembly:
-		print (">>> Using template virus assembly preset.")
+		print (">>> Using template capsid assembly preset.")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb."
 		CGlevel["prot"]=2		# CB-CA
 		CGlevel["nucl"]=3		# P-S-B
@@ -458,7 +458,8 @@ def main():
 		inter_contmap.type=0
 		charge.debye=True		# Use DH-electrostatics
 		charge.dielec=70		# dielectric constant
-		charge.iconc=0.01		# concentration
+		charge.iconc=0.1		# concentration
+		charge.dielec=78		# dielec constant
 		opt.P_stretch=False	
 
 	if args.dlprakash:
