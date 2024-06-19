@@ -63,7 +63,7 @@ class Tables:
         self.Bk,self.inv_dl=Bk,inv_dl
         if len(r)==0: return
         V = K_elec*np.exp(-inv_dl*r)/r
-        #(1/K_elecd) * V/dr = (1/r)*[d/dr (exp(-inv_dl*r)) ]
+        #(1/K_elec) * dV/dr = (1/r)*[d/dr (exp(-inv_dl*r)) ]
         #                       + exp(-inv_dl*r)*[d/dr (1/r)]
         #                   = (1/r)*exp(-inv_dl*r)*(-inv_dl)
         #                       + exp(-inv_dl*r)*(-1/r**2)
@@ -72,7 +72,7 @@ class Tables:
         #                   = -[inv_dl.r + 1]*exp(-inv_dl*r)/r**2
         # for not debye, if Bk = 1 and inv_dl = 0
         # V_1 = K_elec*(-1)*(1/r**2) = -K_elec/r**2
-        V_1 = K_elec*(-inv_dl*r-1)*np.exp(-inv_dl*r)/r**2
+        V_1 = K_elec*(-inv_dl*r-1)*np.exp(-inv_dl*r)/(r**2)
         return V,V_1
         
     def write_pair_table(self,ljtype,coulomb):
@@ -1298,7 +1298,7 @@ class OpenSMOGXML:
         self.nb_count,self.pairs_count,self.dihed_count=0,0,0
         self.add_electrostatics=False
         self.coulomb=coulomb
-        if coulomb.P or coulomb.CA or coulomb.CB or coulomb.inter:
+        if coulomb.P or coulomb.CA or coulomb.CB:
             self.add_electrostatics=True
             K_elec,D=coulomb.inv_4pieps/coulomb.caltoj,coulomb.dielec
             T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float_([]))
@@ -1346,14 +1346,15 @@ class OpenSMOGXML:
             if self.coulomb.P:neg+=["P"]
             neg,pos=tuple(neg),tuple(pos)
             for p in pairs:
-                if (p[0].startswith(neg) or p[0].endswith(neg)) and "CBP" in p[0]:
+                if (p[0].startswith(neg) or p[0].endswith(neg)) and "CBP" not in p[0]:
                     if (p[1].startswith(neg) or p[1].endswith(neg)) and "CBP" not in p[1]:
-                        params["q1q2"].append(1)
+                        if "CB" in p[1]: params["q1q2"].append(1)
+                        if "P" in p[1]: params["q1q2"].append(int(self.coulomb.PP))
                     elif p[1].startswith(pos) or p[1].endswith(pos): params["q1q2"].append(-1)
                     else: params["q1q2"].append(0)
                 elif p[0].startswith(pos) or p[0].endswith(pos):
                     if p[1].startswith(pos) or p[1].endswith(pos): params["q1q2"].append(1)
-                    elif p[1].startswith(neg) or p[1].endswith(neg): params["q1q2"].append(-1)
+                    elif p[1].startswith(neg) or p[1].endswith(neg) and "CBP" not in p[1]: params["q1q2"].append(-1)
                     else: params["q1q2"].append(0)
                 else: params["q1q2"].append(0)
         for x in range(len(pairs)):
@@ -1680,7 +1681,9 @@ class Topology:
         print (">> Writing atoms section")
         fout.write("\n%s\n"%("[ atoms ]"))
         fout.write("%s\n"%(";nr  type  resnr residue atom  cgnr"))
-        Q = {"P":-1}
+
+        if inc_charge:Q = {"P":-1}
+        else: Q=dict()
 
         prev_resnum,seqcount,rescount="",0,0
         assert ".nucl." in cgfile
@@ -2844,7 +2847,8 @@ class Baratam2024(Reddy2017):
                         C06 = 2*eps[p]*epsmat[q]*(sig)**6
                         C12 = 1*eps[p]*epsmat[q]*(sig)**12
                         ptype=tuple(p)
-                        p = [x,y]; p.sort(); p = tuple(p)
+                        if "i" in x and "i" in y: p=[x,y]; p.sort(); p=tuple(p)
+                        else: p=(x,y)
                         if p not in pairs:
                             pairs.append(p)
                             values.append((eps[ptype]*epsmat[q],sig,C12))  #values.append((C06,C12))

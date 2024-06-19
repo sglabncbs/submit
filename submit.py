@@ -85,7 +85,7 @@ class Charge(Dict):
 	CA=False
 	CB=False
 	P=False
-	inter=False
+	PP=False
 	debye=False
 	dielec=78
 	iconc=0.1 				#M L-1               
@@ -108,7 +108,9 @@ class ModelDir:
 		return 1
 
 class CleanUP:
-	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str()):
+	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[]):
+		self.coulomb=coulomb
+		self.enrgrps=enrgrps
 		self.createDir()
 		#self.delFiles(f_suffix="refined.pdb")
 		self.delFiles(f_suffix="refined.nucl.pdb")
@@ -126,6 +128,7 @@ class CleanUP:
 		self.moveFiles(f_prefix="interactions",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
+		self.renameTables()
 		self.genbox(grosuffix=grosuffix)	
 
 	def createDir(self):
@@ -143,6 +146,43 @@ class CleanUP:
 					os.replace(filename,"%s/%s/%s"%(common_dir,out_subdir,filename))
 		return
 	
+	def renameTables(self):
+		tabledir="SuBMIT_Output/Tables"
+		tablelist=[x for x in os.listdir(tabledir) if "lj" in x.lower()]
+		if len(tablelist)==0: return
+		if len(self.enrgrps)<=1: return
+		self.enrgrps.remove("Protein")
+		fgrp=open("%s/%s"%(tabledir,"energy_groups.list"),"w+")
+		for t1 in tablelist:
+			if "Prot" in t1 or "NA" in t1: continue
+			t="%s/%s"%(tabledir,t1)
+			if self.coulomb.CA or self.coulomb.CB:
+				if "_coul_" in t:
+					fgrp.write("Protein_Protein\t:\t%s\n"%t1)
+					outfile=str().join(t.split(".")[:-1]+["_Protein_Protein.xvg"]).split("_coul_")
+					with open("_".join(outfile),"w+") as fout: fout.write(open(t).read())
+					if self.coulomb.P:
+						for g1 in self.enrgrps:
+							fgrp.write("%s_Protein\t:\t%s\n"%(g1,t1))
+							outfile=str().join(t.split(".")[:-1]+["_%s_Protein.xvg"%g1]).split("_coul_")
+							with open("_".join(outfile),"w+") as fout: fout.write(open(t).read())
+			if self.coulomb.P and self.coulomb.PP:
+				if "_coul_" in t:
+					g1=self.enrgrps[0]
+					for g2 in self.enrgrps:
+						fgrp.write("%s_%s\t:\t%s\n"%(g1,g2,t1))
+						outfile=str().join(t.split(".")[:-1]+["_%s_%s.xvg"%(g1,g2)]).split("_coul_")
+						with open("_".join(outfile),"w+") as fout: fout.write(open(t).read())
+			if self.coulomb.P and not self.coulomb.PP:
+				if "_coul_" not in t:
+					g1=self.enrgrps[0]
+					for g2 in self.enrgrps:
+						fgrp.write("%s_%s\t:\t%s\n"%(g1,g2,t1))
+						outfile=str().join(t.split(".")[:-1]+["_%s_%s.xvg"%(g1,g2)])
+						with open(outfile,"w+") as fout: fout.write(open(t).read())
+		fgrp.close()	
+		return
+
 	def delFiles(self,f_suffix=str(),f_prefix=str(),f_middle=str()):
 		if len(f_prefix)+len(f_middle)+len(f_suffix)==0: return
 		for filename in os.listdir():
@@ -191,6 +231,7 @@ class CleanUP:
 					fout.write('rm _temp_*gro\n')
 					fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
 		return
+
 def main():
 	
 	""" loading arguments here """
@@ -312,6 +353,7 @@ def main():
 	parser.add_argument("--CA_charge","-CA_charge", action='store_true', default=False, help='Put charges on CA for K,L,H,D,E. Default: False')
 	parser.add_argument("--CB_charge","-CB_charge", action='store_true', default=False, help='Put charges on CB for K,L,H,D,E. Default: False')
 	parser.add_argument("--P_charge","-P_charge", action='store_true', default=False, help='Negative charge on Phosphate bead. Default: False')
+	parser.add_argument("--PPelec","-PPelec", action='store_true', default=False, help='Add electrostatic repulsions for  Phosphate-Phosphate beads. Default: False')
 	parser.add_argument("--iconc","-iconc", help="Solvent ion conc.(N) for Debye length calcluation. Default=0.1M")  
 	parser.add_argument("--irad","-irad", help="Solvent ion rad for Debye length calcluation. Default=1.4A")  
 	parser.add_argument("--dielec","-dielec", help="Dielectric constant of Solvent. Default=70")
@@ -746,7 +788,9 @@ def main():
 	if args.CB_charge:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		charge.CB=True
-	if args.P_charge: charge.P=True
+	if args.P_charge: 
+		charge.P=True
+		if args.PPelec: charge.PP=True
 
 	if args.CA_com:CA_com=True
 
@@ -978,6 +1022,10 @@ def main():
 			top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 	
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile)
+	groups=list()
+	if sum(Nmol['prot'])!=0: groups.append("Protein")
+	if sum(Nmol['nucl'])!=0:
+		groups+=([["RNA","DNA"][int(y)] for x in range(nfiles) for y in pdbdata[x].nucl.deoxy])
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups)
 if __name__ == '__main__':
     main()
