@@ -871,7 +871,7 @@ def main():
 	if args.iconc: charge.iconc=float(args.iconc)
 	if args.irad: charge.irad=float(args.irad)
 	if args.debye: charge.debye=True
-	if args.debye_temp: charge.debye_temp=float(args.T)
+	if args.debye_temp: charge.debye_temp=float(args.debye_temp)
 	if args.debye_length: charge.inv_dl=1.0/float(args.debye_length)
 
 	#input structure file
