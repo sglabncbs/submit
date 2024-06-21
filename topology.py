@@ -1415,6 +1415,7 @@ class Topology:
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
+        self.mass=1.0
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -1672,7 +1673,7 @@ class Topology:
                     if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
                     if atype=="CB": atype+=seq[seqcount][rescount]
                     if atype not in Q: Q[atype] = 0
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
@@ -1706,7 +1707,7 @@ class Topology:
                     if atype.endswith("'"): atype="S"+codon
                     elif atype.startswith("N"): atype="B"+codon
                     if atype not in Q: Q[atype] = 0
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
@@ -2397,6 +2398,7 @@ class Reddy2017(Topology):
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
+        self.mass=(1.8e-22)*(6.022e+23) #g to amu
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -2487,8 +2489,8 @@ class Reddy2017(Topology):
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
-                if r0-R>0:r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
-                else: r=0.001*np.int_(range(int(1000*(0+0.001)),int(1000*(r0+R-0.001))))
+                if r0-R>0:r=0.001*np.int_(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
+                else: r=0.001*np.int_(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
@@ -2605,6 +2607,7 @@ class Baul2019(Reddy2017):
         self.eps_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
+        self.mass=(1.8e-22)*(6.022e+23) #g to amu
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -2732,10 +2735,20 @@ class Baratam2024(Reddy2017):
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
+        self.mass=self.__mass_dict() #g/mol or amu
         self.tableb_ndx = 0
         self.bonds = []
+    
+    def __mass_dict(self):
+        d={  "CA":56.0440, "CBG":57.0510, "CBA":15.0340, "CBR":101.150,\
+            "CBK":73.1360, "CBH":81.0950, "CBD":58.0350, "CBE":72.0620,\
+            "CBS":31.0330, "CBT":45.0600, "CBN":58.0590, "CBQ":61.0800,\
+            "CBC":47.0990, "CBP":41.0710, "CBI":57.1140, "CBL":57.1140,\
+            "CBM":75.1520, "CBF":91.1300, "CBW":130.166, "CBY":107.129,\
+            "CBV":43.0870 }
+        return d
 
-    def __write_unfolded_cgpdb__(self,rad,data):
+    def __write_unfolded_cgpdb(self,rad,data):
         print ("> Writing unfolded CG-PDB file")
         self.ordered=data.allatpdb.prot
         residues=set(self.idrdata.res+self.ordered.res)
@@ -2775,7 +2788,7 @@ class Baratam2024(Reddy2017):
 
     def write_protein_atomtypes(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
-        self.__write_unfolded_cgpdb__(rad=rad,data=data)
+        self.__write_unfolded_cgpdb(rad=rad,data=data)
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12\n"))
@@ -2895,11 +2908,13 @@ class Baratam2024(Reddy2017):
                     atype=atname
                     if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
                     if atype=="CB": atype+=seq[seqcount][rescount]
+                    if resname=="GLY" and atype=="CA": atype="CBG"
                     if atype not in Q: Q[atype] = 0
+                    mass=self.mass[atype]
                     if atinfo in self.idrdata.res:
                         Q[atype+"i"]=Q[atype]
                         atype=atype+"i"
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],1.0))
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],mass))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
@@ -2984,9 +2999,9 @@ class Baratam2024(Reddy2017):
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
                 if r0-R>0:
-                    r=0.001*np.int_(range(int(1000*(r0-R+0.001)),int(1000*(r0+R-0.001))))
+                    r=0.001*np.int_(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
                 else:
-                    r=0.001*np.int_(range(int(1000*(0+0.001)),int(1000*(r0+R-0.001))))
+                    r=0.001*np.int_(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
@@ -3010,7 +3025,6 @@ class Baratam2024(Reddy2017):
         eps_bbbb = 0.5*self.fconst.caltoj
         eps_bbsc = 0.5*self.fconst.caltoj
         Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
-        
         old2new_atn=dict()
         for c in self.unfolded_data.CA_atn:
             for r in self.unfolded_data.CA_atn[c]:
@@ -3034,7 +3048,7 @@ class Baratam2024(Reddy2017):
 
             scscmat.update({(all_atn[I[x]],all_atn[J[x]]):0.0 for x in range(I.shape[0]) if (all_atn[I[x]],all_atn[J[x]]) not in scscmat})
             eps_scsc = np.float_([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
-            eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz
+            eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
             eps = np.float_(eps)
             eps = eps_bbbb*np.int_(interaction_type==0) \
                 + eps_bbsc*np.int_(interaction_type==1) \
