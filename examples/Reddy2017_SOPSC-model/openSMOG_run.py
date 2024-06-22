@@ -3,7 +3,7 @@ import sys
 
 #setting MD params
 simul_prefix = "Output"
-dt = 0.0005 #ps
+dt = 0.010 #ps
 collision_rate = 1.0 #ps-1
 r_cutoff = 3.0 #nm 
 T_in_K =300 #K

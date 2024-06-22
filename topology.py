@@ -3041,13 +3041,20 @@ class Baratam2024(Reddy2017):
             
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
+            temp_p,temp_c,temp_d,temp_w=[],[],[],[]
+            for x in range(len(pairs)):
+                if "i" in all_atn[pairs[x][0]] or "i" in all_atn[pairs[x][1]]: continue
+                temp_p.append(pairs[x]);temp_c.append(chains[x])
+                temp_d.append(dist[x]);temp_w.append(eps[x])
+            pairs,chains,dist,eps=temp_p,temp_c,temp_d,temp_w
+                
             I,J = np.transpose(pairs)
             interaction_type = np.int_(\
                 np.int_([x in CB_atn for x in I])+ \
                 np.int_([x in CB_atn for x in J]))
 
-            scscmat.update({(all_atn[I[x]],all_atn[J[x]]):0.0 for x in range(I.shape[0]) if (all_atn[I[x]],all_atn[J[x]]) not in scscmat})
-            eps_scsc = np.float_([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
+            scscmat.update({(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")):0.0 for x in range(I.shape[0]) if (all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")) not in scscmat})
+            eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i"))] for x in range(I.shape[0])])
             eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
             eps = np.float_(eps)
             eps = eps_bbbb*np.int_(interaction_type==0) \

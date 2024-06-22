@@ -1,5 +1,5 @@
 integrator = sd ;Run control: Use Langevin Dynamics protocols.
-dt = 0.0005 ;time step in reduced units.
+dt = 0.010 ;time step in reduced units.
 nsteps = 5000000 ;number of integration steps
 nstxout = 1000 ;frequency to write coordinates to output trajectory .trr file.
 nstvout = 1000 ;frequency to write velocities to output trajectory .trr file
