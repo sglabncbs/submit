@@ -2734,7 +2734,7 @@ class Baratam2024(Reddy2017):
         self.eps_idr_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
-        self.atomtypes = []
+        self.atomtypes,self.domains = [],{}
         self.mass=self.__mass_dict() #g/mol or amu
         self.tableb_ndx = 0
         self.bonds = []
@@ -2751,9 +2751,20 @@ class Baratam2024(Reddy2017):
     def __write_unfolded_cgpdb(self,rad,data):
         print ("> Writing unfolded CG-PDB file")
         self.ordered=data.allatpdb.prot
-        residues=set(self.idrdata.res+self.ordered.res)
-        residues = [x for x in residues if "CA" in x]        
-        residues.sort()
+        residues = dict()
+        for x in self.ordered.res: residues[x]=1
+        for x in self.idrdata.res: residues[x]=0
+        #residues=set(self.idrdata.res+self.ordered.res)
+        domains = {x:residues[x] for x in residues if "CA" in x}
+        residues = list(domains.keys()); residues.sort()
+        prev_dx,dx=0,0
+        for x in residues: 
+            if prev_dx==0 and domains[x]!=0: dx+=1
+            if domains[x]!=0: domains[x]=dx
+            prev_dx=domains[x]
+        #for x in residues: print (x,domains[x])
+        self.domains=domains.copy()
+
         chain,prev_rnum=0,0
         outfasta="unfolded.fa"
 
@@ -2791,24 +2802,31 @@ class Baratam2024(Reddy2017):
         self.__write_unfolded_cgpdb(rad=rad,data=data)
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
-        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12\n"))
+        fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12")+"\n")
 
         assert len(data.CA_atn)!=0 and type==2
-        self.excl_volume["CA"] = 2*rad["CA"]
-        self.excl_volume["CAi"] = self.excl_volume["CA"]
-        C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
-        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-        fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CAi".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-        for s in seq+self.idrdata.seq:
+        for atinfo in self.domains:
+            d=self.domains[atinfo]
+            d=[str(d),"i"][d==0]
+            bead="CA"+d
+            if bead not in self.excl_volume:
+                self.excl_volume[bead]=2*rad["CA"]
+                C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
+                fout.write(" %7s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))            
+        for atinfo in self.domains:
+            s=self.idrdata.amino_acid_dict[atinfo[2]]
+            d=self.domains[atinfo]
+            d=[str(d),"i"][d==0]
             bead = "CB"+s
-            if bead in self.excl_volume or s == " ": continue
+            dbead=bead+d
+            if dbead in self.excl_volume or s == " ": continue
             C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
-            self.excl_volume[bead] = 2*rad[bead]
-            fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
-            if s in self.idrdata.seq:
-                self.excl_volume[bead+"i"]=self.excl_volume[bead]
-                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead+"i".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
-        
+            self.excl_volume[dbead] = 2*rad[bead]
+            fout.write(" %7s %8.3f %8.3f %s %e %e; %s\n"%(dbead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,bead))
+            #if s in self.idrdata.seq:
+                #self.excl_volume[bead+"i"]=self.excl_volume[bead]
+                #fout.write(" %7s %8.3f %8.3f %s %e %e; %s\n"%(str(bead+"i").ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+          
         return 0
 
     def write_protein_nonbondparams(self,fout,type,excl_rule,data):
@@ -2821,8 +2839,13 @@ class Baratam2024(Reddy2017):
         pairs,values = [],[]
         for x in self.excl_volume:
             if x.startswith(("CA","CB")) and x[-1]!="i":
+                if x.startswith("CA"): dx=int(x[2:])
+                elif x.startswith("CB"): dx=int(x[3:])
                 for y in self.excl_volume:
                     if y.startswith(("CA","CB")) and y[-1]!="i":
+                        if y.startswith("CA"): dy=int(y[2:])
+                        elif y.startswith("CB"): dy=int(y[3:])
+                        if dx!=dy: continue
                         sig=(self.excl_volume[x]+self.excl_volume[y])/2.0
                         eps = -1*self.fconst.Kr_prot
                         C06 = eps*(sig)**6
@@ -2851,12 +2874,37 @@ class Baratam2024(Reddy2017):
         epsmat.update({("CA","CA"):1.0})
 
         for x in self.excl_volume:
+            if x.startswith(("CA","CB")) and x[-1]!="i":
+                if x.startswith("CA"): dx=int(x[2:])
+                elif x.startswith("CB"): dx=int(x[3:])
+                for y in self.excl_volume:
+                    if y.startswith(("CA","CB")) and y[-1]!="i":
+                        if y.startswith("CA"): dy=int(y[2:])
+                        elif y.startswith("CB"): dy=int(y[3:])
+                        if dy<=dx: continue
+                        sig = (self.excl_volume[x]+self.excl_volume[y])/2.0
+                        p = [x[:2],y[:2]]; p.sort(); p = tuple(p)
+                        q=(x.strip("i0123456789"),y.strip("i0123456789"))
+                        C06 = 2*eps[p]*epsmat[q]*(sig)**6
+                        C12 = 1*eps[p]*epsmat[q]*(sig)**12
+                        ptype=tuple(p)
+                        if "i" in x and "i" in y: p=[x,y]; p.sort(); p=tuple(p)
+                        else: p=(x,y)
+                        if p not in pairs:
+                            pairs.append(p)
+                            values.append((eps[ptype]*epsmat[q],sig,C12))  #values.append((C06,C12))
+                            if self.opt.opensmog: continue
+                            fout.write(" %s %s\t1\t%e %e "%(x.ljust(5),y.ljust(5),C06,C12))
+                            if y.startswith("i"): fout.write("; IDR-IDR\n")
+                            else: fout.write("; OR-IDR\n")
+
+        for x in self.excl_volume:
             if x.startswith(("CA","CB")) and x[-1]=="i":
                 for y in self.excl_volume:
                     if y.startswith(("CA","CB")):
                         sig = (self.excl_volume[x]+self.excl_volume[y])/2.0
                         p = [x[:2],y[:2]]; p.sort(); p = tuple(p)
-                        q=(x.strip("i"),y.strip("i"))
+                        q=(x.strip("i0123456789"),y.strip("i0123456789"))
                         C06 = 2*eps[p]*epsmat[q]*(sig)**6
                         C12 = 1*eps[p]*epsmat[q]*(sig)**12
                         ptype=tuple(p)
@@ -2897,6 +2945,7 @@ class Baratam2024(Reddy2017):
         seq=["_%s_"%x for x in seq.split()]
         self.atomtypes=[]
         with open(cgfile) as fin:
+            prev_atype,dx="i",0
             for line in fin:
                 if line.startswith("ATOM"):
                     atnum=hy36decode(5,line[6:11])
@@ -2914,8 +2963,16 @@ class Baratam2024(Reddy2017):
                     if atinfo in self.idrdata.res:
                         Q[atype+"i"]=Q[atype]
                         atype=atype+"i"
+                    if not atype.endswith("i"):
+                        if prev_atype.endswith("i"): dx+=1
+                        Q[atype+str(dx)]=Q[atype]
+                        atype=atype+str(dx)
+                    if "CA" in atinfo:
+                        if atype.endswith("i"): assert self.domains[atinfo]==0
+                        else: assert(self.domains[atinfo]==dx)
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],mass))
                     self.atomtypes.append(atype)
+                    prev_atype=atype
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
 
@@ -3076,6 +3133,7 @@ class Baratam2024(Reddy2017):
                             expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
                 continue
             I,J = 1+np.transpose(pairs)
+            dist=np.float_(dist)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
             for x in range(pairs.shape[0]): 
@@ -3085,7 +3143,7 @@ class Baratam2024(Reddy2017):
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         func=1
         data.Angles()
-        diam = self.excl_volume.copy()
+        diam = {k.strip("i0123456789"):self.excl_volume[k] for k in self.excl_volume}
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
         
         eps_bbbb = 1.0*self.fconst.caltoj
@@ -3124,7 +3182,8 @@ class Baratam2024(Reddy2017):
         I,K = np.transpose(pairs)   
         interaction_type = np.int_(np.int_([x in CB_atn for x in I])+ np.int_([x in CB_atn for x in K]))
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+        sig = 0.5*np.float_([diam[x.strip("i0123456789")]+diam[y.strip("i0123456789")] \
+                                                                    for x,y in sig])
         assert 2 not in interaction_type
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
             + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
