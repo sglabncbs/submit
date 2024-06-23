@@ -3143,9 +3143,10 @@ class Baratam2024(Reddy2017):
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         func=1
         data.Angles()
-        diam = {k.strip("i0123456789"):self.excl_volume[k] for k in self.excl_volume}
+        diam = {k.strip("0123456789"):self.excl_volume[k] for k in self.excl_volume}
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
-        
+        diam.update({k:self.excl_volume[k] for k in self.excl_volume})
+
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
         eps_scsc = 1.0*self.fconst.caltoj
@@ -3182,8 +3183,7 @@ class Baratam2024(Reddy2017):
         I,K = np.transpose(pairs)   
         interaction_type = np.int_(np.int_([x in CB_atn for x in I])+ np.int_([x in CB_atn for x in K]))
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-        sig = 0.5*np.float_([diam[x.strip("i0123456789")]+diam[y.strip("i0123456789")] \
-                                                                    for x,y in sig])
+        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
         assert 2 not in interaction_type
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
             + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
