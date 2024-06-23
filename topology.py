@@ -3110,8 +3110,9 @@ class Baratam2024(Reddy2017):
                 np.int_([x in CB_atn for x in I])+ \
                 np.int_([x in CB_atn for x in J]))
 
-            scscmat.update({(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")):0.0 for x in range(I.shape[0]) if (all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")) not in scscmat})
-            eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i"))] for x in range(I.shape[0])])
+            scscmat.update({(all_atn[I[x]].strip("i0123456789"),all_atn[J[x]].strip("i0123456789")):0.0 for x in range(I.shape[0])\
+                             if (all_atn[I[x]].strip("i0123456789"),all_atn[J[x]].strip("i0123456789")) not in scscmat})
+            eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i0123456789"))] for x in range(I.shape[0])])
             eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
             eps = np.float_(eps)
             eps = eps_bbbb*np.int_(interaction_type==0) \
