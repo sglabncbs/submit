@@ -238,147 +238,133 @@ def main():
 	parser=argparse.ArgumentParser(description="Generate GROMACS and OpenSMOG potential files for Protein + Nucleic Acids SBM models.")
 	
 	#Predefined Models
-	parser.add_argument("--clementi2000","-clementi2000","--calpha_go2000","-calpha_go2000",action="store_true",help="Clementi et. al. 2000 CA-only model")
-	parser.add_argument("--azia2009","-azia2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model")
-	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model")
-	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB")
-	parser.add_argument("--denesyuk2013","-denesyuk2013","--rna_tis2013","-rna_tis2013",action="store_true",help="Denesyuk & Thirumalai 2013 Three Interaction Site TIS P-S-B model")
-	parser.add_argument("--chakraborty2018","-chakraborty2018","--dna_tis2018","-dna_tis2018",action="store_true",help="Chakraborty & Thirumalai 2018 Three Interaction Site TIS P-S-B model")
-	parser.add_argument("--baul2019","-baul2019","--sop_idp2019","-sop_idp2019",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB")
-	parser.add_argument("--baidya2022","-baidya2022","--sop_idp","-sopsc_idp",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB")
-	parser.add_argument("--baratam2024","-baratam2024","--sop_multi","-sop_multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB")
+	parser.add_argument("--clementi2000","-clementi2000","--calpha_go2000","-calpha_go2000",action="store_true",help="Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
+	parser.add_argument("--azia2009","-azia2009","--levy2009","-levy2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model. 10.1016/j.jmb.2009.08.010")
+	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model. 10.1371/journal.pcbi.1006768")
+	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB. 10.1021/acs.jpcb.6b13100")
+	parser.add_argument("--denesyuk2013","-denesyuk2013","--rna_tis2013","-rna_tis2013",action="store_true",help="Denesyuk & Thirumalai 2013 Three Interaction Site TIS P-S-B model. 10.1021/jp401087x")
+	parser.add_argument("--chakraborty2018","-chakraborty2018","--dna_tis2018","-dna_tis2018",action="store_true",help="Chakraborty & Thirumalai 2018 Three Interaction Site TIS P-S-B model. 10.1021/acs.jctc.8b00091")
+	parser.add_argument("--baul2019","-baul2019","--sop_idp2019","-sop_idp2019",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB. 10.1021/acs.jpcb.9b02575")
+	parser.add_argument("--baidya2022","-baidya2022","--sop_idp2022","-sop_idp2022",action="store_true",help="Baidya & Reddy 2022 SOP-SC-IDP CA-CB. 10.1021/acs.jpclett.2c01972")
+	parser.add_argument("--baratam2024","-baratam2024","--sop_multi","-sop_multi",action="store_true",help="Baratam & Srivastava 2024 SOP-MULTI CA-CB. 10.1101/2024.04.29.591764")
 	parser.add_argument("--sop_idr","-sop_idr",action="store_true",help="Reddy-Thiruamalai(SOPSC) + Baidya-Reddy(SOPIDP) hybrid CA-CB")
-	parser.add_argument("--banerjee2023","-banerjee2023","--selfpeptide","-selfpeptide",action="store_true",help="Banerjee & Gosavi 2023 Self-Peptide model")
+	parser.add_argument("--banerjee2023","-banerjee2023","--selfpeptide","-selfpeptide",action="store_true",help="Banerjee & Gosavi 2023 Self-Peptide model. 10.1021/acs.jpcb.2c05917")
 	parser.add_argument("--virusassembly","-virusassembly","--capsid","-capsid",action="store_true",help="Preset for structure based virus assembly (inter-Symmetrized)")
-	parser.add_argument("--dlprakash","-dlprakash",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
+	parser.add_argument("--dlprakash","-dlprakash","--duplexpair","-duplexpair",action="store_true",help="Codon pairs (duplex based weight) for Pal2019")
 
-	#input options for protein
-	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius for C-alpha (same for all beads) in Angstrom. Default: 4.0A")
-	parser.add_argument("--CA_com","-CA_com",action='store_true',help="Place C-alpha at COM of backbone. Default: False")
-	parser.add_argument("--CB_rad","-CB_rad",type=float, help="User defined radius for C-beta (same for all beads) in Angstrom for prot_cg 2. Default: Statistically Derived for each AA-residue")
-	parser.add_argument('--CB_radii',"-CB_radii",action='store_true', help='User defined C-beta radii from radii.dat (AA-3-letter-code       radius-in-Angsrtom)')
-	parser.add_argument("--Kb_prot","-Kb_prot","--Kb","-Kb", help="User defined force constant K_bond for Proteins")
-	parser.add_argument("--Ka_prot","-Ka_prot","--Ka","-Ka", help="User defined force constant K_angle for Proteins")
-	parser.add_argument("--Kd_bb_prot","-Kd_bb_prot","--Kd","-Kd", help="User defined force constant K_dihedral for Proteins")
-	parser.add_argument("--Kd_sc_prot","-Kd_sc_prot","--Kd_chiral","-Kd_chiral", help="User defined force constant K_dihedral for Proteins")
-	parser.add_argument("--mulfac_prot","-mulfac_prot", help="User defined Multiplicity scale factor of K_dihedral/mulfac_prot for Proteins")
-	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality. Default: False")
+	#Input structures or sequences
+	parser.add_argument("--aa_pdb","-aa_pdb", nargs='+', help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
+	parser.add_argument("--cg_pdb","-cg_pdb", nargs='+', help='User input coarse grained pdbfile')
+	parser.add_argument("--idp_seq","-idp_seq",help="User input sequence fasta file for building/extracting IDRs/segments etc.")
+	parser.add_argument("--nmol","-nmol", nargs='+', help="Include nmol number of molecules in the topology. List of integers. Defatul1 1 per input pdbfile")
+
+	#output
+	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
+	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.top')
+	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.gro')
+	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
+	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
+
+	#level of coarse-graining
+	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
+	parser.add_argument("--nucl_cg", "-nucl_cg", type=int, help="Level of Amino-acid coarse-graining 1 for P-only, 3 for P-S-B, 5 for P-S-3B. Dafault: 3 (P-S-B)")
+
+	#protein CG paramters
+	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-alpha (same for all beads) in Angstrom. Default: 1.9 Å")
+	parser.add_argument("--CA_com","-CA_com",action="store_true",help="Place C-alpha at COM of backbone. Default: False")
+	parser.add_argument("--CB_rad","-CB_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-beta (same for all beads) in Angstrom. Default: 1.5 Å")
+	parser.add_argument("--CB_radii","-CB_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
+	parser.add_argument("--CB_com","-CB_com", action="store_true", default=False,help="Put C-beta at side-chain COM. Default: False")
+	parser.add_argument("--CB_far", "-CB_far", action="store_true", help="Place C-beta on farthest non-hydrogen atom. Default: False")
+	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality (CAi-1:CAi+1:CAi:CBi). Default: False")
+	parser.add_argument("--CB_gly","--CB_GLY","-CB_gly","-CB_GLY",action="store_true",default=False,help="Add C-beta for glycine (pdb-file must have H-atoms). Default: Flase")
+	#RNA/DNA CG paramters
+	parser.add_argument("--P_rad","-P_rad", type=float, help="User defined radius for Backbone Phosphate bead. Default= 1.9 Å")
+	parser.add_argument("--S_rad","-S_rad", type=float, help="User defined radius for Backbone Sugar bead. Default= 1.9 Å")
+	parser.add_argument("--Bpu_rad","-Bpu_rad", type=float, help="User defined radius for N-Base Purine bead. Default=1.5 Å")
+	parser.add_argument("--Bpy_rad","-Bpy_rad", type=float, help="User defined radius for N-Base Pyrimidine bead. Default=1.5 Å")
+	parser.add_argument("--Bpu_pos","-Bpu_pos", help="Put input atom of Purine [N1,C2,H2-N2,N3,C4,C5,C6,O6-N6,N7,C8,N9,COM] as position of B. Default=COM(Center_of_Mass)")
+	parser.add_argument("--Bpy_pos","-Bpy_pos", help="Put input atom of Pyrimidine [N1,C2,O2,N3,C4,O4-N4,C5,C6,COM] as position of B. Default=COM(Center_of_Mass)")
+	parser.add_argument("--S_pos"  ,"-S_pos"  , help="Put input atom of Sugar [C1',C2',C3',C4',C5',H2'-O2',O3',O4',O5',COM] as position of S. Default=COM(Center_of_Mass)")
+	parser.add_argument("--P_pos"  ,"-P_pos"  , help="Put input atom of Phosphate [P,OP1,OP2,O5',COM] group as position of P. Default=COM(Center_of_Mass)")
+
+	#protein ff paramters
+	parser.add_argument("--Kb_prot","-Kb_prot","--Kb","-Kb", type=float, help="User defined force constant K_bond for Proteins. Default: 200.0 ε/Å^2 (ε = 1KJ/mol)")
+	parser.add_argument("--Ka_prot","-Ka_prot","--Ka","-Ka", type=float, help="User defined force constant K_angle for Proteins. Default: 40.0 ε/rad^2 (ε = 1KJ/mol)")
+	parser.add_argument("--Kd_bb_prot","-Kd_bb_prot","--Kd","-Kd", type=float, help="User defined force constant K_dihedral for Proteins. Default: 1.0 ε (ε = 1KJ/mol)")
+	parser.add_argument("--Kd_sc_prot","-Kd_sc_prot","--Kd_chiral","-Kd_chiral", type=float, help="User defined force constant K_dihedral for Proteins. Default: Use Ka_prot value")
+	parser.add_argument("--mulfac_prot","-mulfac_prot", type=float, help="User defined Multiplicity scaling factor of K_dihedral/mulfac_prot for Proteins. Default: 2")
+	parser.add_argument("--Kr_prot", "-Kr_prot", type=float, help="Krepulsion. Default=1.0 ε")
 	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for large systems)")
-	parser.add_argument("--bfunc","-bfunc",help="Bond function 1: harnomic, 7: FENE. Default: 1 (Harmonic)")
-	parser.add_argument("--idp_seq","-idp_seq",help="User input sequence for building/extracting IDRs/segments etc.")
+	parser.add_argument("--bfunc","-bfunc", type=int, help="Bond function 1: harnomic. Default: 1 (Harmonic)")
+	#RNA/DNA ff paramters
+	parser.add_argument("--Kb_nucl","-Kb_nucl","--nKb","-nKb", type=float, help="User defined force constant K_bond for RNA/DNA. Default: 200.0 ε/Å^2 (ε = 1KJ/mol)")
+	parser.add_argument("--Ka_nucl","-Ka_nucl","--nKa","-nKa", type=float, help="User defined force constant K_angle for RNA/DNA. Default: 40.0 ε/rad^2 (ε = 1KJ/mol)")
+	parser.add_argument("--Kd_sc_nucl","-Kd_sc_nucl","--nKd","-nKd", type=float, help="User defined force constant K_dihedral for Bi-Si-Si+1-Bi+1. Default: 0.5 ε (ε = 1KJ/mol)")
+	parser.add_argument("--Kd_bb_nucl","-Kd_bb_nucl","--P_nKd","-P_nKd", type=float, help="User defined force constant K_dihedral for Backbone Pi-Pi+1-Pi+2-Pi+3. Default: 0.7 ε (ε = 1KJ/mol)")
+	parser.add_argument("--P_stretch","-P_stretch",help="Stretch the backbone dihedral to 180 degrees. Default=Use native  backbone dihedral")
+	parser.add_argument("--mulfac_nucl","-mulfac_nucl", type=float, help="User defined Multiplicity scale factor of K_dihedral for Nucleic Acids. Default: 1")
+	parser.add_argument("--Kr_nucl", "-Kr_nucl", type=float, help="Krepulsion. Default: 1.0 ε") 
 
 	#native  determining contacts parameters
-	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5A")
+	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
 	parser.add_argument("--cutofftype","-cutofftype",type=int,help="-1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
-	parser.add_argument("--W_cont","-W_cont",action="store_true",help="Weight (and normalize) CG contacts based on all atom contacts")
+	parser.add_argument("--W_cont","-W_cont",action="store_true",help="Weight (and normalize) CG contacts based on all atom contact pairs")
 	parser.add_argument("--cmap","-cmap",nargs='+',help="User defined cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling","-scaling", help="User defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
-	parser.add_argument("--nbfunc","-nbfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18 (3: modified gmx5), (6&7: OpenSMOG)6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for proteins
-	parser.add_argument("--cutoff_p","-cutoff_p",type=float,help="User defined Cut-off (in Angstrom) for Protein contact-map generation. Default: 4.5A")
+	parser.add_argument("--cutoff_p","-cutoff_p",type=float,help="User defined Cut-off (in Angstrom) for Protein contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
 	parser.add_argument("--cutofftype_p","-cutofftype_p",type=int,help="For Proteins: -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_p","-W_cont_p",action="store_true",help="Weight (and normalize) Protein CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_p","-cmap_p",nargs='+',help="User defined Protein cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_p","-scaling_p", help="User defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for RNA/DNA
-	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default: 4.5A")
+	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
 	parser.add_argument("--cutofftype_n","-cutofftype_n",type=int,help="For RNA/DNA. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_n","-W_cont_n",action="store_true",help="Weight (and normalize) RNA/DNA CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_n","-cmap_n",nargs='+',help="User defined RNA/DNA cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_n","-scaling_n", help="User RNA/DNA defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#inter Protein-RNA/DNA
-	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5A")
+	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
 	parser.add_argument("--cutofftype_i","-cutofftype_i",type=int,help="For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_i","-W_cont_i",action="store_true",help="Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_i","-cmap_i",help="User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_i","-scaling_i", help="User Protein RNA/DNA interface defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_i","-contfunc_i",type=int,help="Protein RNA/DNA interface. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 
-	#atom type 1: CA only. 2: Ca+Cb
-	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
-
-	#CB position #if prot_cg=2
-	parser.add_argument("--CB_com","-CB_com", action='store_true', default=False,help='Put C-beta at side-chain COM (no hydrogens). Default: False')
-	parser.add_argument("--CB_far", "-CB_far", action='store_true', help="Place C-beta on farthest non-hydrogen atom. Default: False")
-
-	#input
-	parser.add_argument("--aa_pdb","-aa_pdb", nargs='+', help='User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb')
-	parser.add_argument("--cg_pdb","-cg_pdb", nargs='+', help='User input coarse grained pdbfile')
-	parser.add_argument("--nmol","-nmol", nargs='+', help="Include nmol number of molecules (1 pdbfile) in the topology")
-
-	#output
-	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.top')
-	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt file). Default: gromacs.gro')
-	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt file). Default: opensmog.xml (and opensmog.top)')
-	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
-
-	#file parameters
-	parser.add_argument("--CB_gly","--CB_GLY","-CB_gly","-CB_GLY",action='store_true',default=False,help='Add C-beta for glycine (pdb-file must have H-atoms). Default: Flase ')
+	#nonbonded params
+	parser.add_argument("--nbfunc","-nbfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18 (3: modified gmx5), (6&7: OpenSMOG)6 Gauss + excl, 7 Multi Gauss  . Default: 2")
+	parser.add_argument("--excl_rule",type=int,help="Use 1: Geometric mean. 2: Arithmatic mean")
+	#for interactions
+	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
 	parser.add_argument('--mjparams',"-mjparams", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
-
-	#For Nucleotide
-	#radius for P,B,S
-	parser.add_argument("--P_rad","-P_rad", help="User defined radius for Backbone Phosphate bead. Default=3.7A")
-	parser.add_argument("--S_rad","-S_rad", help="User defined radius for Backbone Sugar bead. Default=3.7A")
-	parser.add_argument("--Bpu_rad","-Bpu_rad", help="User defined radius for N-Base Purine bead. Default=1.5A")
-	parser.add_argument("--Bpy_rad","-Bpy_rad", help="User defined radius for N-Base Pyrimidine bead. Default=1.5A")
-	
-	#atom type 1: P only. 3: P-S-B. 5: P-S-3B
-	parser.add_argument("--nucl_cg", "-nucl_cg", type=int, help="Level of Amino-acid coarse-graining 1 for P-only, 3 for P-S-B, 5 for P-S-3B. Dafault: 3 (P-S-B)")
-
-	#force constants
-	parser.add_argument("--Kb_nucl","-Kb_nucl","--nKb","-nKb", help="User defined force constant K_bond for RNA/DNA")
-	parser.add_argument("--Ka_nucl","-Ka_nucl","--nKa","-nKa", help="User defined force constant K_angle for RNA/DNA. Default=20")
-	parser.add_argument("--Kd_sc_nucl","-Kd_sc_nucl","--nKd","-nKd", help="User defined force constant K_dihedral for Bi-Si-Si+1-Bi+1. Default=0.5")
-	parser.add_argument("--Kd_bb_nucl","-Kd_bb_nucl","--P_nKd","-P_nKd", help="User defined force constant K_dihedral for Backbone Pi-Pi+1-Pi+2-Pi+3. Default=0.7")
-	parser.add_argument("--P_stretch","-P_stretch",help="Stretch the backbone dihedral to 180 degrees. Default=Use native  backbone dihedral")
-	parser.add_argument("--mulfac_nucl","-mulfac_nucl", help="User defined Multiplicity scale factor of K_dihedral for Nucleic Acids")
-
-	#positions
-	parser.add_argument("--Bpu_pos","-Bpu_pos", help="Put input atom of Purine [N1,C2,H2-N2,N3,C4,C5,C6,O6-N6,N7,C8,N9,COM] as position of B. Default=COM(Center_of_Mass)")
-	parser.add_argument("--Bpy_pos","-Bpy_pos", help="Put input atom of Pyrimidine [N1,C2,O2,N3,C4,O4-N4,C5,C6,COM] as position of B. Default=COM(Center_of_Mass)")
-	parser.add_argument("--S_pos"  ,"-S_pos"  , help="Put input atom of Sugar [C1',C2',C3',C4',C5',H2'-O2',O3',O4',O5',COM] as position of S. Default=COM(Center_of_Mass)")
-	parser.add_argument("--P_pos"  ,"-P_pos"  , help="Put input atom of Phosphate [P,OP1,OP2,O5',COM] group as position of P. Default=COM(Center_of_Mass)")
-	
-	#common
-	parser.add_argument("--pistacklen", help="pi-pi stacking length. Default=3.6A")
-
 	#electrostatic
-	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic term.")
-	parser.add_argument("--debye_temp","-debye_temp", help="Temperature for Debye length calculation. Default=298K")
-	parser.add_argument("--debye_length","-debye_length", help="Debye length. in (A)")
+	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic interactions.")
+	parser.add_argument("--debye_length","-debye_length", type=float, help="Debye length. in (Å)")
+	parser.add_argument("--debye_temp","-debye_temp", type=float, help="Temperature for Debye length calculation. Default: 298 K")
 	parser.add_argument("--CA_charge","-CA_charge", action='store_true', default=False, help='Put charges on CA for K,L,H,D,E. Default: False')
 	parser.add_argument("--CB_charge","-CB_charge", action='store_true', default=False, help='Put charges on CB for K,L,H,D,E. Default: False')
 	parser.add_argument("--P_charge","-P_charge", action='store_true', default=False, help='Negative charge on Phosphate bead. Default: False')
 	parser.add_argument("--PPelec","-PPelec", action='store_true', default=False, help='Add electrostatic repulsions for  Phosphate-Phosphate beads. Default: False')
-	parser.add_argument("--iconc","-iconc", help="Solvent ion conc.(N) for Debye length calcluation. Default=0.1M")  
-	parser.add_argument("--irad","-irad", help="Solvent ion rad for Debye length calcluation. Default=1.4A")  
-	parser.add_argument("--dielec","-dielec", help="Dielectric constant of Solvent. Default=70")
+	parser.add_argument("--iconc","-iconc", type=float, help="Solvent ion conc.(N) for Debye length calcluation. Default: 0.1 M")  
+	parser.add_argument("--irad","-irad", type=float, help="Solvent ion rad for Debye length calcluation. Default: 1.4 Å")  
+	parser.add_argument("--dielec","-dielec", type=float, help="Dielectric constant of Solvent. Default: 78")
 	
 	#disabled for now
-	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
 	parser.add_argument("--sym_intra","--sym_intra", action='store_true', default=False, help='Intra-chain Symmetrised SBM is generated.')
-
-	
-	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact.')
 	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
-	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts.')
-	parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
-	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
-
-	#extras
+	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact. Default: 1.0 ε')
+	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts. Default: 5.0 Å')
+	#parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
 	parser.add_argument("--interface","-interface", action='store_true', default=False, help='Takes input for Nucleiotide_Protein interface from file nucpro_interface.input.')
 	parser.add_argument("--custom_nuc","-custom_nuc", help='Use custom non native DNA/RNA structure Eg.: polyT.pdb. Default: Use from native structure')
 	parser.add_argument("--control", action='store_true', help='Use the native system as control. Use DNA/RNA bound to native protein site. --custom_nuc will be disabled. Default: False (Move DNA/RNA away from native binding site)')
 	#exclusion volume
-	parser.add_argument("--excl_rule",help="Use 1: Geometric mean. 2: Arithmatic mean")
-	parser.add_argument("--Kr_prot", help="Krepulsion. Default=1.0")
-	parser.add_argument("--Kr_nucl", help="Krepulsion. Default=1.0")
 
 	args=parser.parse_args()
 
@@ -691,7 +677,7 @@ def main():
 
 	""" Work in progress """
 
-	assert not (args.hpstrength or args.hphobic or args.hpdist or args.hpdist or args.dsb),\
+	assert not (args.hpstrength or args.hphobic or args.hpdist or args.hpdist),\
 		"Sorry, these options are still not implemented"
 
 	"""####"""
@@ -746,6 +732,11 @@ def main():
 	if args.cutofftype_p: prot_contmap.type=int(args.cutofftype_p)
 	if args.cutofftype_n: nucl_contmap.type=int(args.cutofftype_n)
 	if args.cutofftype_i: inter_contmap.type=int(args.cutofftype_i)
+	if not args.cutoff:
+		if prot_contmap.type==2 and not args.cutoff_p: prot_contmap.cutoff=8.0
+		if nucl_contmap.type==2 and not args.cutoff_n: nucl_contmap.cutoff=8.0
+		if inter_contmap.type==2 and not args.cutoff_i: inter_contmap.cutoff=8.0
+
 	if len(prot_contmap.file) > 0: assert prot_contmap.type == 0, "Error, Use type 0 if giving cmap file"
 	if len(nucl_contmap.file) > 0: assert nucl_contmap.type == 0, "Error, Use type 0 if giving cmap file"
 	if len(inter_contmap.file) > 0: assert inter_contmap.type == 0, "Error, Use type 0 if giving cmap file"
@@ -850,7 +841,7 @@ def main():
 	#converting A to nm
 	for x in rad: rad[x]=np.round(0.1*rad[x],3)
 
-	if args.dsb: dsb=True
+	#if args.dsb: dsb=True
 	if args.hphobic: 
 		hphobic=True
 		if args.hpdist: hpdist=args.hpdist
@@ -894,7 +885,7 @@ def main():
 	if args.S_rad: rad["S"]=float(args.S_rad)
 	if args.Bpu_rad: rad["Bpu"]=float(args.Bpu_rad)
 	if args.Bpy_rad: rad["Bpy"]=float(args.Bpy_rad)
-	if args.pistacklen: rad["stack"]=float(args.pistacklen)
+	#if args.pistacklen: rad["stack"]=float(args.pistacklen)
 	
 	#Solvent and ionic params
 	if args.dielec:	charge.dielec=float(args.dielec)
