@@ -979,7 +979,7 @@ class MergeTop:
         return
 
     def __writeSymPaIrsXML(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
-        fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
+        #fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
         for line in inp:
             line=line.split('"')
             group = []
