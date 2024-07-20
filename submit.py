@@ -57,6 +57,8 @@ class Options(Dict):
 	dsb=False
 	custom_nuc=False
 	control_run=False
+	CB_gly=False
+
 
 class Constants(Dict):
 	Kb_prot=200.0
@@ -800,7 +802,8 @@ def main():
 		skip_glycine=False
 		CB_gly=True
 		print ("WARNING: Using CB for Glycines!! Make sure the all-atom pdb contains H-atom (HB)")
-
+	opt.CB_gly=CB_gly
+	
 	if args.CB_chiral:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		CB_chiral=True

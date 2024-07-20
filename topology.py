@@ -438,11 +438,11 @@ class Preprocess:
                     elif len(line)>=6:
                         pairs.append((a1,a2));chains.append((c1,c2))
                         if cmap.func!=7:
-                            w,d=np.float_(line[4:6])
+                            w,d=np.float_(line[4:6]); d=0.1*d
                             weights.append(w);distances.append(d)
                         elif cmap.func==7:
                             w= np.float_(line[4])
-                            d=np.float_(line[5:])
+                            d=np.float_(line[5:]); d=0.1*d
                             weights.append(w);distances.append(d)
 
             if len(temp_p)!=0: 
@@ -473,7 +473,7 @@ class Preprocess:
                 if writefile:
                     for x in range(pairs.shape[0]):
                         c,a = chains[x],pairs[x]+1
-                        w,d = weights[x],distances[x]
+                        w,d = weights[x],10*distances[x]
                         fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
                     fcg.close()
             else:
@@ -487,7 +487,7 @@ class Preprocess:
                     if writefile:
                         for x in range(temp_p.shape[0]):
                             c,a = temp_c[x],temp_p[x]+1
-                            w,d = temp_w[x],temp_d[x]
+                            w,d = temp_w[x],10*temp_d[x]
                             fcg.write("%s %d %s %d %.3f"%(c[0],a[0],c[1],a[1],w))
                             fcg.write(len(d)*" %.3f"%tuple(d)+"\n")
                     del (temp_p,temp_c,temp_d,temp_w)
@@ -583,7 +583,7 @@ class Preprocess:
                 elif group=="inter": distances = self.__distances__(pairs=pairs,xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz)
                 for x in range(pairs.shape[0]):
                     c,a = chains[x],pairs[x]+1
-                    w,d = weights[x],distances[x]
+                    w,d = weights[x],10*distances[x]
                     fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
                 self.contacts.append((pairs,chains,distances,weights))
             faa.close();fcg.close()
@@ -647,7 +647,7 @@ class Preprocess:
                 with  open(tagforfile+".CGcont","w+") as fcg:
                     for x in range(pairs.shape[0]):
                         c,a = chains[x],pairs[x]+1
-                        w,d = weights[x],distances[x]
+                        w,d = weights[x],10*distances[x]
                         fcg.write("%s %d %s %d %.3f %.3f\n"%(c[0],a[0],c[1],a[1],w,d))
             
                 self.contacts.append((pairs,chains,distances,weights))
@@ -671,6 +671,7 @@ class MergeTop:
         self.mol_surface_atoms = list()
         self.old2new_atomtypes = {k:[k] for k in self.excl_volume}
         self.molatnum2new_atomtypes = {}
+        self.already_excluded_atoms={'exclusions':[]}
         self.atoms_section=str()
         if self.opt.opensmog:
             self.xmlfile=OpenSMOGXML(xmlfile=self.opt.xmlfile,coulomb=coul)
@@ -774,6 +775,18 @@ class MergeTop:
         for pairs,chains,sig,eps in inp:
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            #filtering entries in cmap files which are not present in here 
+            pairs=np.int_([pairs[x] for x in range(len(pairs)) \
+                if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
+            chains=[chains[x] for x in range(len(chains))
+                if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes]
+            sig=np.float_([sig[x] for x in range(len(sig))
+                if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
+            eps=np.float_([eps[x] for x in range(len(eps))
+                if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
+            C1,C2 = np.transpose(chains)
+            C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            #filtering complete
             I,J=1+np.transpose(pairs)
             I=[self.molatnum2new_atomtypes[C1[x]][I[x]] for x in range(I.shape[0])]
             J=[self.molatnum2new_atomtypes[C2[x]][J[x]] for x in range(J.shape[0])]
@@ -908,9 +921,12 @@ class MergeTop:
                     b2 = self.old2new_atomtypes[beads[1]]
                     for i in range(len(b1)):
                         for j in range(len(b2)):
-                            if j<i: continue
                             new_beads=[b1[i],b2[j]];new_beads.sort();new_beads=tuple(new_beads)
-                            if beads in exclude and new_beads in exclude[beads]: continue
+                            #if beads in exclude and new_beads in exclude[beads]: continue
+                            if beads in exclude:
+                                if new_beads in exclude[beads]: continue
+                                else: exclude[beads][new_beads]=0
+                            else: exclude[beads]={new_beads:0}
                             fsec.write(2*" %10s"%(new_beads[0].center(10),new_beads[1].center(10)))
                             fsec.write("\t"+len(line[2:])*" %5s"%tuple(line[2:])+"\n")
         return
@@ -929,9 +945,11 @@ class MergeTop:
                 b2 = self.old2new_atomtypes[beads[1]]
                 for i in range(len(b1)):
                     for j in range(len(b2)):
-                        if j<i: continue
                         new_beads=[b1[i],b2[j]];new_beads.sort();new_beads=tuple(new_beads)
-                        if beads in exclude and new_beads in exclude[beads]: continue
+                        if beads in exclude:
+                            if new_beads in exclude[beads]: continue
+                            else: exclude[beads][new_beads]=0
+                        else: exclude[beads]={new_beads:0}
                         fsec.write(line[0]+3*'"%s'%(new_beads[0],line[2],new_beads[1]))
                         fsec.write(len(line[4:])*'"%s'%tuple(line[4:]))
         return
@@ -944,11 +962,16 @@ class MergeTop:
                 elif y.strip().startswith(";"): fsec.write(y+"\n")
                 else:
                     line=y.strip() .split()
-                    a = [atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)]
+                    a = np.int_([atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)])
+                    if len(a)==2:self.already_excluded_atoms['exclusions'].append(tuple(a))
+                    elif len(a)>2:
+                        for a1 in a:
+                            if a1 not in self.already_excluded_atoms: self.already_excluded_atoms[a1]=[]
+                            self.already_excluded_atoms[a1]=list(set(self.already_excluded_atoms[a1]+list(a)))
                     fsec.write(nparticles*" %5d"%tuple(a))
                     fsec.write(len(line[nparticles:])*" %5s"%tuple(line[nparticles:]))
                     fsec.write("\n")
-        return
+        return 
 
     def __writeSymPaIrs(self,fsec,inp,nmol,prev_at_count,atoms_in_mol,tag,atnum_offset=0):
         fsec.write(";%s_symmetrized_interactions_%s\n"%(tag,self.nPlaces(n=3,count2str=nmol)))
@@ -1004,9 +1027,22 @@ class MergeTop:
         fsec.write(";Inter-molecule symmetrized_interactions\n")
         xml_pairs_data=list()
         for pairs,chains,sig,eps in inp:
+            C1,C2 = np.transpose(chains)
+            C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            #filtering for entries in user input cmap that are not present
+            pairs=np.int_([pairs[x] for x in range(len(pairs)) \
+                if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
+            chains=[chains[x] for x in range(len(chains))
+                if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol]
+            sig=np.float_([sig[x] for x in range(len(sig))
+                if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
+            eps=np.float_([eps[x] for x in range(len(eps))
+                if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
             I,J = np.transpose(pairs)
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            # done filtering
+
             sym_I = [1 + np.int_([I[y] + x*atoms_in_mol[C1[y]] for x in range(nmol[C1[y]])]) + \
                         atnum_offset + prev_at_count[C1[y]] for y in range(I.shape[0])]
             sym_J = [1 + np.int_([J[y] + x*atoms_in_mol[C2[y]] for x in range(nmol[C2[y]])]) + \
@@ -1037,7 +1073,10 @@ class MergeTop:
                             if C1[x]==C2[x] and i==j and sym_I[x][0]!=sym_J[x][0]:
                                 inter_exclusions.append(" %5s %5s ; %s(%d)-%s(%d) %5d %5d\n"%(sym_I[x][i],sym_J[x][i],C1[x],i,C2[x],j,I[x],J[x]))
                             continue
-                        if C1[x]==C2[x] and i==j: continue
+                        if C1[x]==C2[x]:
+                            if i==j: continue
+                            if I[x]==J[x] and i>=j: continue
+
                         inter_exclusions.append(" %5s %5s ; %s(%d)-%s(%d) %5d %5d\n"%(sym_I[x][i],sym_J[x][j],C1[x],i,C2[x],j,I[x],J[x]))
                         if self.opt.opensmog:
                             if cmap_func==7:
@@ -1124,31 +1163,34 @@ class MergeTop:
         
         inter_contacts=list()   #list for loading inter-PDB contacts 
         self.mol_surface_atoms = [[] for x in range(Ninp)] #lsit of atoms in interface contacts
-        if len(nmol_list)>1:    #more than 1 input files
-            assert self.prot_cmap.nbfunc==self.nucl_cmap.nbfunc==self.inter_cmap.nbfunc
-            nbfunc=self.inter_cmap.nbfunc
-            if self.inter_cmap.type>=0:
-                if not opt.control_run:     #determining contacts only supported with control runs
-                    assert self.inter_cmap.type == 0, \
-                        "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
 
-            self.data[0].Pairs(cmap=self.inter_cmap,group="inter",writefile=False)
-            inter_contacts = self.data[0].contacts.copy()
-            self.data[0].contacts=[]
-            opt.inter_symmetrize=True
-            # for N>3 molecules, symmeterized contacts can be added to nonbond-paramns if nbfunc is same as contact func
-            if sum(nmol_list)>5 and self.inter_cmap.nbfunc==self.inter_cmap.func:
-                add_inter_2_neighlist=True
-                for x in range(Ninp):
-                    self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=inter_contacts,tag=tag_list[x])
-            else: add_inter_2_neighlist=False
-            if self.opt.opensmog: 
-                #since all interactions have same nbfunc, there should be only 1 identical equations in all xml files
-                #if this is not true (custom added model not suited for merging), then the program wiil terminate
-                uniq_expr=set([parsed_xml[i][tag][subtag]["expr"] for i in range(Ninp) \
-                                for tag in parsed_xml[i] for subtag in parsed_xml[i][tag]\
-                                if "nonbond" in tag and "nonbond" in subtag])
-                assert len(uniq_expr)==1, "Error, Cannot use custom expressions while merging files"
+        if sum(nmol_list)>1:
+            if len(nmol_list)>1 or self.inter_cmap.file!="": #more than 1 input files or 1 molecule with interface
+                assert self.prot_cmap.nbfunc==self.nucl_cmap.nbfunc==self.inter_cmap.nbfunc
+                nbfunc=self.inter_cmap.nbfunc
+                if self.inter_cmap.type>=0:
+                    if not opt.control_run:     #determining contacts only supported with control runs
+                        assert self.inter_cmap.type == 0, \
+                            "Error, calculating inter molecule contacts only supported for --control runs with single input PDB. Provide custom file --cmap_i" 
+
+                self.data[0].Pairs(cmap=self.inter_cmap,group="inter",writefile=False)
+                inter_contacts = self.data[0].contacts.copy()
+                self.data[0].contacts=[]
+                opt.inter_symmetrize=True
+                # for N>3 molecules, symmeterized contacts can be added to nonbond-paramns if nbfunc is same as contact func
+                if sum(nmol_list)>=5 and self.inter_cmap.nbfunc==self.inter_cmap.func:
+                    add_inter_2_neighlist=True
+                    for x in range(Ninp):
+                        self.mol_surface_atoms[x] += self.__getSurfaceAtoms(contacts=inter_contacts,tag=tag_list[x])
+                else: add_inter_2_neighlist=False
+                if self.opt.opensmog: 
+                    #since all interactions have same nbfunc, there should be only 1 identical equations in all xml files
+                    #if this is not true (custom added model not suited for merging), then the program wiil terminate
+                    uniq_expr=set([parsed_xml[i][tag][subtag]["expr"] for i in range(Ninp) \
+                                    for tag in parsed_xml[i] for subtag in parsed_xml[i][tag]\
+                                    if "nonbond" in tag and "nonbond" in subtag])
+                    assert len(uniq_expr)==1, "Error, Cannot use custom expressions while merging files"
+            else: opt.inter_symmetrize=False  
         else:
            opt.inter_symmetrize=False  
         if opt.intra_symmetrize:
@@ -1230,7 +1272,7 @@ class MergeTop:
                 elif header in ["bonds","angles","dihedrals"]:
                     for i in range(Ninp):
                         self.__writeInteractions(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
-                                    nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                                        nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                         if header=="bonds" and opt.opensmog and len(ct_tag)!=0:
                             if ct_tag not in parsed_xml[i]: continue
                             ct_subtags=[subtag for subtag in parsed_xml[i][ct_tag] \
@@ -1251,7 +1293,7 @@ class MergeTop:
                     for i in range(Ninp):
                         if not opt.intra_symmetrize: 
                             self.__writeInteractions(fsec=fout,nparticles=Nparticles[header],inp=data_list[i],tag=tag_list[i], \
-                                        nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])                    
+                                                    nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])                    
                         elif opt.intra_symmetrize: 
                             if not add_intra_2_neighlist[i]:
                                 self.__writeSymPaIrs(fsec=fout,inp=data_list[i],nmol=nmol_list[i], \
@@ -1287,7 +1329,16 @@ class MergeTop:
                                 inter_exclusions_section = self.__writeInterPairs(fsec=fout,inp=inter_contacts,nmol=nmol_list,tag=tag_list,\
                                                                 prev_at_count=prev_natoms,atoms_in_mol=self.atoms_in_mol[i],neighlist=add_inter_2_neighlist)
                         else: inter_exclusions_section = []
-                    else: status = [fout.write(line) for line in inter_exclusions_section]
+                    else: 
+                        for line in inter_exclusions_section: 
+                            if line.startswith(";"): fout.write(line)
+                            else:
+                                a1,a2=np.int_(line.split()[:2])
+                                if a2 in self.already_excluded_atoms[a1]: continue
+                                if True in [a2 in self.already_excluded_atoms[b1] for b1 in self.already_excluded_atoms[a1]]: continue
+                                if (a1,a2) in self.already_excluded_atoms['exclusions']: continue
+                                if (a2,a1) in self.already_excluded_atoms['exclusions']:continue
+                                fout.write(line)
                 else:
                     status=[fout.write(i+"\n") for i in data_list[0] if i.strip() != ""]
                     
@@ -1442,6 +1493,7 @@ class Topology:
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
+        CB_gly=self.opt.CB_gly
         if len(data.CA_atn) != 0:
             assert type<=2
             self.excl_volume["CA"] = 2*rad["CA"]
@@ -1451,6 +1503,7 @@ class Topology:
                 for s in seq:
                     bead = "CB"+s
                     if bead in self.excl_volume or s == " ": continue
+                    if s=="G" and not CB_gly: continue
                     C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
                     self.excl_volume[bead] = 2*rad[bead]
                     fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
