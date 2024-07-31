@@ -25,7 +25,7 @@ $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc 
     or
 $ pytho submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
 
-#For every model, predefined parameters can be customized. For example, for chanding angle force constant in Pal 2019 model 
+#For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model 
 $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
  
 #For testing your own model or tweaking predefined ones, refer to options in --help 
