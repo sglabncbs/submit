@@ -341,9 +341,10 @@ def main():
 	parser.add_argument("--nbfunc","-nbfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18 (3: modified gmx5), (6&7: OpenSMOG)6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	parser.add_argument("--excl_rule",type=int,help="Use 1: Geometric mean. 2: Arithmatic mean")
 	#for interactions
-	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined interactions in file interactions.dat.')
+	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined pair interactions in file interactions.dat.')
 	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
 	parser.add_argument('--mjparams',"-mjparams", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
+	parser.add_argument("--interface","-interface", help='User defined multimer interface nonbonded params. Format atype1 atype2 eps sig(A)')
 	#electrostatic
 	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic interactions.")
 	parser.add_argument("--debye_length","-debye_length", type=float, help="Debye length. in (Å)")
@@ -363,7 +364,6 @@ def main():
 	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact. Default: 1.0 ε')
 	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts. Default: 5.0 Å')
 	#parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
-	parser.add_argument("--interface","-interface", action='store_true', default=False, help='Takes input for Nucleiotide_Protein interface from file nucpro_interface.input.')
 	parser.add_argument("--custom_nuc","-custom_nuc", help='Use custom non native DNA/RNA structure Eg.: polyT.pdb. Default: Use from native structure')
 	parser.add_argument("--control", action='store_true', help='Use the native system as control. Use DNA/RNA bound to native protein site. --custom_nuc will be disabled. Default: False (Move DNA/RNA away from native binding site)')
 	#exclusion volume
@@ -403,8 +403,8 @@ def main():
 	CB_radii=False
 	CB_gly=False
 	#Set default parameters for nucleotides
-	rad["P"]=3.7					#A
-	rad["S"]=3.7					#A
+	rad["P"]=1.9					#A
+	rad["S"]=1.9					#A
 	rad["Bpy"]=1.5				#A
 	rad["Bpu"]=1.5				#A
 	rad["stack"]=3.6					#A
@@ -444,6 +444,11 @@ def main():
 		CGlevel["nucl"]=3		# P-S-B
 		rad["CA"]=1.9			# 3.8 A excl vol rad
 		rad["CB"]=1.5			# 3.0 A excl vol rad
+		rad["P"]=3.7					#A
+		rad["S"]=3.7					#A
+		rad["Bpy"]=1.5				#A
+		rad["Bpu"]=1.5				#A
+		rad["stack"]=3.6					#A
 		CB_far=True			# CB at farthest SC atom 
 		CB_chiral=False		# improp dihed for CAi-1 CAi+1 CAi CBi
 		charge.CB=True		# Charge on CB
@@ -700,7 +705,11 @@ def main():
 		elif CGlevel["nucl"] == 3: print (">>> Using 3-bead P-S-B model for RNA/DNA.")
 		elif CGlevel["nucl"] == 5: print (">>> Using 2-bead P-S and 3 beads per Base for RNA/DNA.")
 
-	if args.interface: opt.interface=True
+	if args.interface: 
+		with open("interactions.interface.dat","w+") as fout:
+			fout.write(open(args.interface).read())
+		opt.interface=True
+
 	if args.Kb_prot:fconst.Kb_prot=float(args.Kb_prot)
 	if args.Ka_prot:fconst.Ka_prot=float(args.Ka_prot)
 	if args.Kd_bb_prot:fconst.Kd_prot["bb"]=float(args.Kd_bb_prot)
