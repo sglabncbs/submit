@@ -150,6 +150,11 @@ class Preprocess:
         xyz = self.cgpdb.xyz
         BA,BC = xyz[i]-xyz[j],xyz[k]-xyz[j]
         CD=xyz[l]-xyz[k];CB=BC
+
+        BABC = (np.sum((BA**2),1)**0.5)*(np.sum((BC**2),1)**0.5)
+        CBCD = (np.sum((CB**2),1)**0.5)*(np.sum((CD**2),1)**0.5)
+        angles=np.transpose([np.arccos(np.sum(BA*BC,1)/BABC),np.arccos(np.sum(CB*CD,1)/CBCD)])
+
         n1 = np.cross(BA,BC)
         n2 = np.cross(CD,BC)
         direction = np.cross(n1,n2)
@@ -1216,8 +1221,11 @@ class MergeTop:
             nb_subtag=[subtag for subtag in parsed_xml[0][nb_tag]][0]
             #contacts tag and subtag
             ct_tag=list(set([tag for i in range(Ninp) for tag in parsed_xml[i] if "contacts" in tag]))
+            mp_tag=list(set([tag for i in range(Ninp) for tag in parsed_xml[i] if "many"  in tag]))
             assert len(ct_tag)<=1
+            assert len(mp_tag)<=1
             if len(ct_tag)==1: ct_tag=ct_tag[0]
+            if len(mp_tag)==1: mp_tag=mp_tag[0]
 
         print (">> Detected %d topology file(s)"%Ninp)
         with open("molecule_order.list","w+") as fout:
@@ -1288,7 +1296,28 @@ class MergeTop:
                                 self.__writeInteractionsXML(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
                                                                 nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
                                 self.xmlfile.pairs_count+=1
-                                self.xmlfile.fxml.write("%s</%s>\n"%tuple(subtag.split()[0].split("<")))
+                                self.xmlfile.fxml.write("%s  </%s>\n"%tuple(subtag.split()[0].split("<")))
+                        if header=="dihedrals" and opt.opensmog and len(mp_tag)!=0:
+                            if mp_tag not in parsed_xml[i]: continue
+                            mp_subtags=[subtag for subtag in parsed_xml[i][mp_tag] \
+                                            if "contacts" not in subtag.split("=")[-1].lower()]
+                            if self.xmlfile.pairs_count>0: 
+                                self.xmlfile.fxml.write(' </contacts>\n')
+                                self.xmlfile.pairs_count=0
+                            if self.xmlfile.manypart_count==0: self.xmlfile.fxml.write(' <manyparticle>\n')
+                            for subtag in mp_subtags:
+                                print ("> Writing %s dihedrals to %s manyparticle section."%(subtag.split('"')[1],opt.xmlfile))
+                                new_subtag=subtag.split('"');new_subtag[1]="%s_%s"%(tag_list[i],new_subtag[1])
+                                new_subtag='"'.join(new_subtag)
+                                expr=parsed_xml[i][mp_tag][subtag]["expr"]
+                                self.xmlfile.fxml.write(new_subtag+expr)
+                                for param in parsed_xml[i][mp_tag][subtag]["params"]: self.xmlfile.fxml.write(param)
+                                xml_data=parsed_xml[i][mp_tag][subtag]["data"]
+                                self.__writeInteractionsXML(fsec=self.xmlfile.fxml,nparticles=Nparticles[header],inp=xml_data,tag=tag_list[i],\
+                                                                nmol=nmol_list[i],prev_at_count=sum(prev_natoms[:i+1]),atoms_in_mol=self.atoms_in_mol[i])
+                                self.xmlfile.manypart_count+=1
+                                self.xmlfile.fxml.write("%s  </%s>\n"%tuple(subtag.split()[0].split("<")))
+
                 elif header in ["pairs","exclusions"]:
                     for i in range(Ninp):
                         if not opt.intra_symmetrize: 
@@ -1346,7 +1375,7 @@ class OpenSMOGXML:
     def __init__(self,xmlfile,coulomb) -> None:
         self.fxml=open(xmlfile,"w+")
         self.fxml.write('<OpenSMOGforces>\n')
-        self.nb_count,self.pairs_count,self.dihed_count=0,0,0
+        self.nb_count,self.pairs_count,self.manypart_count=0,0,0
         self.add_electrostatics=False
         self.coulomb=coulomb
         if coulomb.P or coulomb.CA or coulomb.CB:
@@ -1430,29 +1459,38 @@ class OpenSMOGXML:
         self.pairs_count+=1
         return
 
-    def write_dihedrals_xml(self,quads=[],params={},name="CustomDihedrals",\
-                            expression="Kd*(1+cos(n*theta-theta0));theta0=theta0_deg*3.141592653589793/180"):
-        if len(quads)==0: return
+    def write_manyparticle_entries(self,groups,params,name,expression):
+        #writing many particle entries 
         if self.pairs_count>0:
             self.fxml.write(' </contacts>\n')
             self.pairs_count=0
-        if self.dihed_count==0: self.fxml.write(' <dihedrals>\n')
-        expression="select(check,V,V_pi);check=floor(1000*sin(angle(p1,p2,p3))*sin(angle(p2,p3,p4))),V_pi=0.0;V="+expression
-        self.fxml.write('  <dihedrals_type name="%s">\n'%name)
-        self.fxml.write('   <expression expr="%s"/>\n'%expression)
+        if self.manypart_count==0: self.fxml.write(' <manyparticle>\n')
+        nentries,nparticles=groups.shape
+        self.fxml.write('  <manyparticle_type name="%s">\n'%name)
+        self.fxml.write('   <expression expr="%d|%s"/>\n'%(nparticles,expression))
         for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
-        I,J,K,L = 1+np.transpose(quads)
-        for x in range(quads.shape[0]): 
-            self.fxml.write('   <interaction i="%d" j="%d" k="%d" l="%d"'%(I[x],J[x],K[x],L[x]))
+
+        groups=1+np.transpose(groups)
+        for x in range(nentries): 
+            self.fxml.write('   <interaction')
+            for y in range(nparticles):
+                self.fxml.write(' %s="%d"'%(chr(ord('i')+y),groups[y][x]))
             for p in params: self.fxml.write(' %s="%e"'%(p,params[p][x]))
             self.fxml.write('/>\n')
-        self.fxml.write('  </dihedrals_type>\n')
-        self.dihed_count+=1
+        self.fxml.write('  </manyparticle_type>\n')
+        self.manypart_count+=1
+        return 
+
+    def write_dihedrals_xml(self,quads=[],phi0_deg=[],params={},name="CustomDihedrals",\
+                            expression="Kd*(1+cos(n*phi-phi0));phi0=phi0_deg*3.141592653589793/180"):
+        if len(quads)==0: return
+        expression="select(check,V,V_pi);check=floor(1000*sin(angle(p1,p2,p3))*sin(angle(p2,p3,p4)));V_pi=0.0;V="+expression+";phi=dihedral(p1,p2,p3,p4)"
+        self.write_manyparticle_entries(params=params,name=name,expression=expression,groups=quads)        
         return
 
     def __del__(self):
         if self.pairs_count>0:self.fxml.write(' </contacts>\n')
-        elif self.dihed_count>0: self.fxml.write(' </dihedrals>\n')
+        elif self.manypart_count>0: self.fxml.write(' </manyparticle>\n')
         self.fxml.write('</OpenSMOGforces>\n')
         self.fxml.close()
 
@@ -1823,11 +1861,11 @@ class Topology:
         func = 1
         for c in range(len(data.bb_dihedrals)):
             quads,diheds = data.bb_dihedrals[c]
-            #if self.opt.opensmog:
-            #    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
-            #                            expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
-            #                            params={"theta0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
-            #    continue
+            if self.opt.opensmog and self.opt.dihed2xml:
+                self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
+                                    expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
+                                    params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+                continue
             I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
@@ -1838,11 +1876,12 @@ class Topology:
             fout.write("; %5s %5s %5s %5s %5s %5s %5s \n" % (";ai","aj","ak","al","func","phi0(deg)","Kd"))
             for c in range(len(data.sc_dihedrals)):
                 quads,diheds = data.sc_dihedrals[c]
-                #if self.opt.opensmog:
-                #    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
-                #                        expression="Kd*((theta-theta0)^2);theta0=theta0_deg*3.141592653589793/180",\
-                #                        params={"theta0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
-                #    continue
+
+                if self.opt.opensmog and self.opt.dihed2xml:
+                    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
+                                        expression="Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                                        params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
+                    continue
                 I,J,K,L = 1+np.transpose(quads)
                 for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_sc))
         return
@@ -2020,11 +2059,11 @@ class Topology:
         for c in range(len(data.bb_dihedrals)):
             quads,diheds = data.bb_dihedrals[c]
             if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
-            #if self.opt.opensmog:
-            #    self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
-            #                            expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
-            #                            params={"theta0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
-            #    continue
+            if self.opt.opensmog and self.opt.dihed2xml:
+                self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
+                                expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
+                                params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+                continue
             I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
@@ -2033,11 +2072,11 @@ class Topology:
         if len(data.S_atn):
             for c in range(len(data.sc_dihedrals)):
                 quads,diheds = data.sc_dihedrals[c]
-                #if self.opt.opensmog:
-                #   self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
-                #                        expression="Kd*(1-cos(theta-theta0)) + (Kd/f)*(1-cos(3*(theta-theta0)));theta0=theta0_deg*3.141592653589793/180",\
-                #                        params={"theta0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0]),"fc":mfac*np.ones(quads.shape[0])})
-                #   continue
+                if self.opt.opensmog and self.opt.dihed2xml:
+                    self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
+                                    expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
+                                    params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+                    continue
                 I,J,K,L = 1+np.transpose(quads)
                 diheds += phase
                 for x in range(quads.shape[0]):
@@ -2435,8 +2474,8 @@ class Denesyuk2013_Chakraborty2018(Topology):
                 quads1=np.int_(quads1)
                 values=np.transpose(values)
                 self.nucl_xmlfile.write_dihedrals_xml(quads=quads1,name="base_stacking%d_"%c,\
-                                params={"r0":values[0],"theta0":values[1]},\
-                                 expression="eps/(Kl*(r-r0)^2 + Kd*(theta-theta0)^2;Kd=%d'Kl=%d"%(Kl,Kd))
+                                params={"r0":values[0],"phi0":values[1]},\
+                                 expression="eps/(Kl*(r-r0)^2 + Kd*(phi-phi0)^2;Kd=%d'Kl=%d"%(Kl,Kd))
 
         return 
 

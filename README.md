@@ -105,6 +105,9 @@ Output Arguments:
   --opensmog, -opensmog
                         Generate files ,xml and .top files for openSMOG.
                         Default: False
+  --dihed2xml, -dihed2xml
+                        Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for
+                        OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False
 
 Coarse-Graining Paramters:-
 
@@ -294,6 +297,8 @@ Force-field Paramters:-
                         Use Betancourt-Thirumalai interaction matrix.
   --mjparams, -mjparams
                         Use Miyazawa-Jernighan interaction matrix.
+  --interface INTERFACE, -interface INTERFACE
+                        User defined multimer interface nonbonded params. Format atype1 atype2 eps sig(A)
   --debye, -debye       Use Debye-Huckel electrostatic interactions.
   --debye_length DEBYE_LENGTH, -debye_length DEBYE_LENGTH
                         Debye length. in (Å)
@@ -327,9 +332,6 @@ Force-field Paramters:-
   --hpdist HPDIST, -hpdist HPDIST
                         Equilibrium distance for hydrophobic contacts.
                         Default: 5.0 Å
-  --interface, -interface
-                        Takes input for Nucleiotide_Protein interface from
-                        file nucpro_interface.input.
   --custom_nuc CUSTOM_NUC, -custom_nuc CUSTOM_NUC
                         Use custom non native DNA/RNA structure Eg.:
                         polyT.pdb. Default: Use from native structure

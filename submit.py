@@ -42,6 +42,7 @@ from topology import *
 class Options(Dict):
 	opensmog=False
 	xmlfile=str()
+	dihed2xml=False
 	uniqtype=False
 	btparams=False
 	mjmap=False
@@ -266,6 +267,7 @@ def main():
 	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.gro')
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
+	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
 
 	#level of coarse-graining
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -1001,7 +1003,10 @@ def main():
 		else: opt.xmlfile="opensmog.xml"
 		if not args.outtop: topfile="opensmog.top"
 		if not args.outgro: grofile="opensmog.gro"
-		
+	if args.dihed2xml:
+		assert opt.opensmog, "Error --dihed2xml only suuported with --opensmog flag, with modified version of OpenSMOG:https://github.com/sglabncbs/OpenSMOGmod"
+		opt.dihed2xml = True
+
 	nfiles=len(pdbdata)
 	for i in range(nfiles):
 		if args.cmap:
