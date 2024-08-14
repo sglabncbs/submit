@@ -1858,14 +1858,30 @@ class Topology:
         fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
 
         data.Impropers()
+        
+        if self.opt.opensmog and self.opt.dihed2xml:
+            #backbone
+            temp_q,temp_d=[],[]
+            for quads,diheds in  data.bb_dihedrals:
+                temp_q+=list(quads);temp_d+=list(diheds)
+            quads,diheds=np.int_(temp_q),np.float_(temp_d)
+            self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals",\
+                        expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                        params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+            #sihedchain
+            if chiral and len(data.CB_atn) != 0:
+                temp_q,temp_d=[],[]
+                for quads,diheds in  data.sc_dihedrals:
+                    temp_q+=list(quads);temp_d+=list(diheds)
+                quads,diheds=np.int_(temp_q),np.float_(temp_d)
+                self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
+                            expression="Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                            params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
+            del(temp_q,temp_d)
+            return 
         func = 1
         for c in range(len(data.bb_dihedrals)):
             quads,diheds = data.bb_dihedrals[c]
-            if self.opt.opensmog and self.opt.dihed2xml:
-                self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
-                                    expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
-                                    params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
-                continue
             I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
@@ -1876,12 +1892,6 @@ class Topology:
             fout.write("; %5s %5s %5s %5s %5s %5s %5s \n" % (";ai","aj","ak","al","func","phi0(deg)","Kd"))
             for c in range(len(data.sc_dihedrals)):
                 quads,diheds = data.sc_dihedrals[c]
-
-                if self.opt.opensmog and self.opt.dihed2xml:
-                    self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
-                                        expression="Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
-                                        params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
-                    continue
                 I,J,K,L = 1+np.transpose(quads)
                 for x in range(quads.shape[0]):fout.write(" %5d %5d %5d %5d %5d %e %e\n"%(I[x],J[x],K[x],L[x],func,diheds[x],Kd_sc))
         return
@@ -2055,15 +2065,32 @@ class Topology:
 
         data.Impropers()
 
+        if self.opt.opensmog and self.opt.dihed2xml:
+            #backbone
+            temp_q,temp_d=[],[]
+            for quads,diheds in  data.bb_dihedrals:
+                if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
+                temp_q+=list(quads);temp_d+=list(diheds)
+            quads,diheds=np.int_(temp_q),np.float_(temp_d)
+            self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals",\
+                        expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                        params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+            #sidechain
+            if len(data.S_atn):
+                temp_q,temp_d=[],[]
+                for quads,diheds in  data.sc_dihedrals:
+                    temp_q+=list(quads);temp_d+=list(diheds)
+                quads,diheds=np.int_(temp_q),np.float_(temp_d)
+                self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
+                            expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                            params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+            del(temp_d,temp_q)
+            return
+        
         func = 1
         for c in range(len(data.bb_dihedrals)):
             quads,diheds = data.bb_dihedrals[c]
             if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
-            if self.opt.opensmog and self.opt.dihed2xml:
-                self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals%d_n1"%c,\
-                                expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
-                                params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
-                continue
             I,J,K,L = 1+np.transpose(quads)
             diheds += phase
             for x in range(quads.shape[0]):
@@ -2072,11 +2099,6 @@ class Topology:
         if len(data.S_atn):
             for c in range(len(data.sc_dihedrals)):
                 quads,diheds = data.sc_dihedrals[c]
-                if self.opt.opensmog and self.opt.dihed2xml:
-                    self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals%d_n1"%c,\
-                                    expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*3.141592653589793/180",\
-                                    params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
-                    continue
                 I,J,K,L = 1+np.transpose(quads)
                 diheds += phase
                 for x in range(quads.shape[0]):
@@ -2562,16 +2584,18 @@ class Reddy2017(Topology):
         table_idx = dict()
         if self.opt.opensmog:
             fout.write(";%5s %5s %5s %5s %5s; for excl\n"%("ai", "aj", "func", "r0", "Kb=0.0"))
-            for c in range(len(data.bonds)):
-                pairs,dist=data.bonds[c]
-                I,J = 1+np.transpose(pairs) 
-                print (">Writing chain %d Bonds as OpenSMOG contacts"%c)
-                self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
-                            name="FENE_bonds%d_R=0.2"%c,\
+            temp_p,temp_d=[],[]
+            for pairs,dist in data.bonds:
+                temp_p+=list(pairs);temp_d+=list(dist)
+            pairs,dist=np.int_(temp_p),np.float_(temp_d)
+            I,J = 1+np.transpose(pairs) 
+            print (">Writing FENE Bonds as OpenSMOG contacts")
+            self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
+                            name="FENE_bonds_R=0.2",\
                             expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
-                for i in range(pairs.shape[0]): 
-                    r0 = np.round(dist[i],3)
-                    fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
+            for i in range(pairs.shape[0]): 
+                r0 = np.round(dist[i],3)
+                fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
             return
         #else:
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))

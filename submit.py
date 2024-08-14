@@ -132,7 +132,7 @@ class CleanUP:
 		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.renameTables()
-		self.genbox(grosuffix=grosuffix)	
+		self.genbox(grosuffix=grosuffix,topsuffix=topsuffix)	
 
 	def createDir(self):
 		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
@@ -194,7 +194,7 @@ class CleanUP:
 					os.remove(filename)
 		return
 
-	def genbox(self,grosuffix):
+	def genbox(self,grosuffix,topsuffix):
 		if "molecule_order.list" in os.listdir("SuBMIT_Output"):
 			mol_list=[tuple(line.split()) \
 				 	for line in open("SuBMIT_Output/molecule_order.list")\
@@ -211,14 +211,16 @@ class CleanUP:
 					print (mol_list)
 				with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
 					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
+					fout.write("seed=1997 #default for gromacs 4.5.4\n")
 					fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
+					fout.write('echo -e "pbc = xyz" > pbcBox.mdp\n')
 					infile="_temp_0.gro"
 					fout.write('#for GROMACS v4 (<v5)\n')
 					for i in range(len(mol_list)):
 						outfile="_temp_%d.gro"%(i+1)
 						addfile="GRO_TOP_XML/%s"%mol_list[i][0]
-						if i+1==len(mol_list): outfile=grosuffix
-						command1='genbox -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
+						#if i+1==len(mol_list): outfile=grosuffix
+						command1='genbox -seed ${seed} -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
 									(infile,addfile,mol_list[i][1],outfile)
 						fout.write(command1)
 						infile=outfile
@@ -226,12 +228,16 @@ class CleanUP:
 					for i in range(len(mol_list)):
 						outfile="_temp_%d.gro"%(i+1)
 						addfile="GRO_TOP_XML/%s"%mol_list[i][0]
-						if i+1==len(mol_list): outfile=grosuffix
+						#if i+1==len(mol_list): outfile=grosuffix
 						command1='#gmx insert-molecules -cp %s -ci %s -nmol %d -try 100 -o %s\n'%\
 										(infile,addfile,mol_list[i][1],outfile)
 						fout.write(command1)
 						infile=outfile
-					fout.write('rm _temp_*gro\n')
+					outfile=grosuffix
+					command2='grompp -f pbcBox.mdp -c %s -p %s -o _temp_.tpr  -po _temp_.mdp\n'%(infile,topsuffix)
+					command3='echo 0 | trjconv -f %s -s _temp_.tpr -o %s -pbc mol -ur rect\n'%(infile,outfile)
+					fout.write(command2+command3)
+					fout.write('rm pbcBox.mdp _temp_*\n')
 					fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
 		return
 
