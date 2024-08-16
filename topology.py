@@ -438,7 +438,7 @@ class Preprocess:
                         c1,a1,c2,a2 = c2,a2,c1,a1
                     if len(line) < 6:
                         w,d = 1.0,0.0
-                        if len(line)==5: w = np.float(line[4])
+                        if len(line)==5: w = float(line[4])
                         temp_p.append((a1,a2));temp_w.append(w);temp_c.append((c1,c2))
                     elif len(line)>=6:
                         pairs.append((a1,a2));chains.append((c1,c2))
