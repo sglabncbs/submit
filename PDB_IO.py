@@ -298,8 +298,79 @@ class PDB_IO:
                 fixed_lines.append(line)
         return fixed_lines
 
+    def __gro2pdbLines__(self,infile):
+        with open(infile) as fin:
+            outfile=infile+".pdb"
+            fout=open(outfile,"w+")
+            natoms=int([fin.readline() for i in range(2)][1])
+            for a in range(natoms):
+                line=fin.readline()
+                atnum=a+1
+                atname=line[10:15].strip()
+                if atname.startswith("H") and not self.CBgly: continue
+                resname,resnum =  line[5:10].strip(),int(line[0:5])
+                XYZ=10*np.float_([line[20:28],line[28:36],line[36:44]])
+                line="ATOM".ljust(6)+hy36encode(5,atnum)+" "+atname.center(4)\
+                    +" "+resname.ljust(3)+" "+"A"+hy36encode(4,resnum)+4*" "\
+                    +"%8.3f%8.3f%8.3f\n"%tuple(XYZ)
+                fout.write(line)
+            fout.write("END")
+            fout.close()
+        return outfile
+
+    def __cif2pdbLines__(self,infile,A_or_L="auth"):
+        with open(infile) as fin:
+            outfile=infile+".pdb"
+            fout=open(outfile,"w+")
+            atom_data=dict()
+            data_field=0
+            write_pdb=False
+            prev_cid,prev_line=0,str()
+            for line in fin:
+                if line.startswith("_"):
+                    write_pdb=False
+                    if line.startswith("_atom_site."): #not __atom_sties
+                        assert prev_line.startswith(("loop_","_atom_site."))
+                        write_pdb = True
+                        atom_data[line.split(".")[1].strip()] = data_field
+                        data_field += 1
+                else:
+                    if write_pdb: 
+                        a=line.split()
+                        if a[atom_data["group_PDB"]].strip() in ("ATOM","HETATM","TER","END","MODEL"):
+                            if a[atom_data[A_or_L+"_seq_id"]]==".":a[atom_data[A_or_L+"_seq_id"]]=0
+                            new_line=[a[atom_data["group_PDB"]].ljust(6),                              #0-5ATOM
+                                    hy36encode(5,int(a[atom_data["id"]])).rjust(5),                   #6-10atom number
+                                    " ",a[atom_data[A_or_L+"_atom_id"]].strip().strip('"').center(4),  #11 blankn #12-15 atomname
+                                    " ",a[atom_data[A_or_L+"_comp_id"]].strip().rjust(3),             #16 blank #17-19 residue name
+                                    " ",a[atom_data[A_or_L+"_asym_id"]].strip()[0].rjust(1),          #20 blank # 21 chain. if cid is 2-letter then use first one
+                                    hy36encode(4,int(a[atom_data[A_or_L+"_seq_id"]])).rjust(4),       #22-25 residue number
+                                    " "*4]                                                            #26-29 blank
+                            XYZ=np.float_([a[atom_data["Cartn_x"]],a[atom_data["Cartn_y"]],a[atom_data["Cartn_z"]]])
+                            occ_bf=np.float_([a[atom_data["occupancy"]],a[atom_data["B_iso_or_equiv"]]])
+                            if prev_cid != 0 and prev_cid != a[atom_data["label_asym_id"]].strip():
+                                fout.write("TER\n")
+                            prev_cid = a[atom_data["label_asym_id"]].strip()
+                            fout.write(len(new_line)*"%s"%tuple(new_line))
+                            fout.write(3*"%8.3f"%tuple(XYZ)+2*"%6.2f"%tuple(occ_bf)+"\n")
+                prev_line=line
+            fout.write("END")
+            fout.close()
+        return outfile
+
     def __readLnes__(self,infile):
         nucl_lines = list(); prot_lines = list()
+        if not infile.endswith((".pdb",".pdb1")):
+            if infile.endswith(".gro"): 
+                print (">> Converting input GRO file to PDB")
+                infile=self.__gro2pdbLines__(infile)
+            elif infile.endswith("cif"):
+                print (">> Converting input mmCIF file to PDB")
+                infile=self.__cif2pdbLines__(infile)
+            else: 
+                print ("Error! Only .gro, .pdb and .cif structure files are supported.")
+                exit()
+
         with open(infile) as fin:
             prev_resname,prev_resnum = str(),0
             for line in fin:
