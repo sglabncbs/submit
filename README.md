@@ -23,7 +23,7 @@ $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/ba
 #CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
 $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
     or
-$ pytho submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
+$ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
 
 #For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model 
 $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
