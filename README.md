@@ -23,7 +23,7 @@ $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/ba
 #CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
 $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
     or
-$ pytho submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
+$ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
 
 #For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model 
 $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
@@ -98,6 +98,7 @@ Output Arguments:
   --outgro OUTGRO, -outgro OUTGRO
                         Name for output .gro file.(tool adds prefix nucl_ and
                         prot_ for independednt files). Default: gromacs.gro
+  --box BOX, -box BOX   Width of a periodic cubic box. Default: 500.0 Å
   --outxml OUTXML, -outxml OUTXML
                         Name for output .xml (openSMOG) file.(tool adds prefix
                         nucl_ and prot_ for independednt files). Default:

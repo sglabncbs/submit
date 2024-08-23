@@ -111,7 +111,7 @@ class ModelDir:
 		return 1
 
 class CleanUP:
-	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[]):
+	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[],box_width=500.0,fillstatus=False):
 		self.coulomb=coulomb
 		self.enrgrps=enrgrps
 		self.createDir()
@@ -132,7 +132,8 @@ class CleanUP:
 		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.renameTables()
-		self.genbox(grosuffix=grosuffix,topsuffix=topsuffix)	
+		if not fillstatus:
+			self.genbox(grosuffix=grosuffix,topsuffix=topsuffix,box_width=box_width)	
 
 	def createDir(self):
 		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
@@ -194,7 +195,7 @@ class CleanUP:
 					os.remove(filename)
 		return
 
-	def genbox(self,grosuffix,topsuffix):
+	def genbox(self,grosuffix,topsuffix,box_width):
 		if "molecule_order.list" in os.listdir("SuBMIT_Output"):
 			mol_list=[tuple(line.split()) \
 				 	for line in open("SuBMIT_Output/molecule_order.list")\
@@ -208,9 +209,8 @@ class CleanUP:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
 				else:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
-					print (mol_list)
-				with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
-					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
+				with open('SuBMIT_Output/genbox_commands.sh','w+') as fout:
+					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,0.1*box_width))
 					fout.write("seed=1997 #default for gromacs 4.5.4\n")
 					fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
 					fout.write('echo -e "pbc = xyz" > pbcBox.mdp\n')
@@ -1086,7 +1086,7 @@ def main():
 
 	fill=Fill_Box(outgro=grofile,radii=rad,box_width=opt.box_width,order=molecule_order)
 	if fill.status: print ("> Combined topology and structure files generated!!!")
-	else: print ("> Combined topology file(s) generated but falied to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box-width --box")
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups)
+	else: print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=opt.box_width,fillstatus=fill.status)
 if __name__ == '__main__':
     main()
