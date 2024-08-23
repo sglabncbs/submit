@@ -28,7 +28,7 @@
 	this program.
 
 usage: python submit.py --help
-(Author: Digvijay L. Prakash & Shachi S. Gosavi)
+(Author: Digvijay L. Prakash, Arkadeep Banerjee & Shachi Gosavi)
 """
 
 import os
@@ -36,10 +36,11 @@ import argparse
 import numpy as np
 from typing import NamedTuple, Dict
 from pathlib import Path
-from PDB_IO import PDB_IO,Nucl_Data,Prot_Data
+from PDB_IO import PDB_IO,Nucl_Data,Prot_Data,Fill_Box
 from topology import *
 
 class Options(Dict):
+	box_width=500.0
 	opensmog=False
 	xmlfile=str()
 	dihed2xml=False
@@ -59,7 +60,6 @@ class Options(Dict):
 	custom_nuc=False
 	control_run=False
 	CB_gly=False
-
 
 class Constants(Dict):
 	Kb_prot=200.0
@@ -274,6 +274,7 @@ def main():
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
+	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å')
 
 	#level of coarse-graining
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -415,7 +416,6 @@ def main():
 	rad["S"]=1.9					#A
 	rad["Bpy"]=1.5				#A
 	rad["Bpu"]=1.5				#A
-	rad["stack"]=3.6					#A
 	opt.P_stretch=False
 
 	charge.CA=False
@@ -456,7 +456,6 @@ def main():
 		rad["S"]=3.7					#A
 		rad["Bpy"]=1.5				#A
 		rad["Bpu"]=1.5				#A
-		rad["stack"]=3.6					#A
 		CB_far=True			# CB at farthest SC atom 
 		CB_chiral=False		# improp dihed for CAi-1 CAi+1 CAi CBi
 		charge.CB=True		# Charge on CB
@@ -995,6 +994,10 @@ def main():
 		if inter_contmap.type not in (-1,0): inter_contmap.type=-1
 
 	#output grofiles
+	if args.box: 
+		assert float(args.box)>0
+		opt.box_width=float(args.box)
+
 	if args.outgro: grofile=str(args.outgro)
 	else: grofile="gromacs.gro"
 
@@ -1032,7 +1035,7 @@ def main():
 	#write CG file
 	for i in range(nfiles):
 		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
-
+	
 	if not args.gen_cg:				
 		if args.clementi2000:
 			top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
@@ -1074,6 +1077,16 @@ def main():
 	if sum(Nmol['prot'])!=0: groups.append("Protein")
 	if sum(Nmol['nucl'])!=0:
 		groups+=([["RNA","DNA"][int(y)] for x in range(nfiles) for y in pdbdata[x].nucl.deoxy])
+
+	
+	#write combined file
+	molecule_order=[]
+	molecule_order+=[(pdbdata[i].nucl.outgro,Nmol['nucl'][i]) for i in range(len(Nmol['nucl'])) if Nmol['nucl'][i]>0]
+	molecule_order+=[(pdbdata[i].prot.outgro,Nmol['prot'][i]) for i in range(len(Nmol['prot'])) if Nmol['prot'][i]>0]
+
+	fill=Fill_Box(outgro=grofile,radii=rad,box_width=opt.box_width,order=molecule_order)
+	if fill.status: print ("> Combined topology and structure files generated!!!")
+	else: print ("> Combined topology file(s) generated but falied to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box-width --box")
 	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups)
 if __name__ == '__main__':
     main()
