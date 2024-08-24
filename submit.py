@@ -728,7 +728,7 @@ def main():
 	if args.cutoff:
 		prot_contmap.cutoff=float(args.cutoff)
 		nucl_contmap.cutoff=float(args.cutoff)
-		inter_contmap=float(args.cutoff)
+		inter_contmap.cutoff=float(args.cutoff)
 	if args.cutoff_p: prot_contmap.cutoff=float(args.cutoff_p)
 	if args.cutoff_n: nucl_contmap.cutoff=float(args.cutoff_n)
 	if args.cutoff_i: inter_contmap.cutoff=float(args.cutoff_n)
@@ -746,7 +746,7 @@ def main():
 	if args.cutofftype:
 		prot_contmap.type=int(args.cutofftype)
 		nucl_contmap.type=int(args.cutofftype)
-		if args.control_run: inter_contmap.type=int(args.cutofftype)
+		#if args.control_run: inter_contmap.type=int(args.cutofftype)
 	if args.cutofftype_p: prot_contmap.type=int(args.cutofftype_p)
 	if args.cutofftype_n: nucl_contmap.type=int(args.cutofftype_n)
 	if args.cutofftype_i: inter_contmap.type=int(args.cutofftype_i)
