@@ -292,6 +292,9 @@ Force-field Paramters:-
                         Default: 2
   --excl_rule EXCL_RULE
                         Use 1: Geometric mean. 2: Arithmatic mean
+  --nbshift, -nbshift   (with --opensmog) Shift the potential (V(r)) by a
+                        constant (V(r_c)) such that it is zero at cutoff
+                        (r_c). Default: False
   --interaction, -interaction
                         User defined interactions in file interactions.dat.
   --btparams, -btparams
