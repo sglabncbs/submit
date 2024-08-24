@@ -1,6 +1,9 @@
 import numpy as np
 import random as rnd
 from hybrid_36 import hy36encode,hy36decode
+import math
+try: from tqdm import trange,tqdm
+except: tqdm,trange=list,range
 
 class Nucl_Data:
     def __init__(self) -> None:
@@ -602,7 +605,7 @@ class PDB_IO:
         det = CoarseGrain()
         
         if len(self.prot.lines) != 0:
-            prot_grofile = "prot%s_%s"%(self.file_ndx,outgro)
+            self.prot.outgro = "prot%s_%s"%(self.file_ndx,outgro)
             #default CA position: CA-atom
             if CAcom: self.prot.CA = det.get_CA_COM(reslist=self.prot.res,XYZ=self.prot.xyz)
             else: self.prot.CA = det.get_CA_atom(reslist=self.prot.res,XYZ=self.prot.xyz)
@@ -610,8 +613,8 @@ class PDB_IO:
             self.prot.CA_atn = dict()
             with open(self.prot.bb_file,"w+") as fout:
                 atcount,prev_chain = 0,0
-                fgro = open(prot_grofile,"w+")
-                fgro.write("CG file %s for GROMACS\n%d\n"%(prot_grofile,len(self.prot.CA)))
+                fgro = open(self.prot.outgro,"w+")
+                fgro.write("CG file %s for GROMACS\n%d\n"%(self.prot.outgro,len(self.prot.CA)))
                 self.prot.group = []
                 for res in self.prot.CA: 
                     self.prot.CA_atn[res] = atcount
@@ -634,8 +637,8 @@ class PDB_IO:
                 self.prot.sc_file = ".".join(self.prot.pdbfile.split(".")[:-1]+["native_CB.pdb"])
                 self.prot.CB_atn = dict()
                 with open(self.prot.sc_file,"w+") as fout:
-                    fgro = open(prot_grofile,"w+")
-                    fgro.write("CG file %s for GROMACS\n%d\n"%(prot_grofile,len(self.prot.CA)+len(self.prot.CB)))
+                    fgro = open(self.prot.outgro,"w+")
+                    fgro.write("CG file %s for GROMACS\n%d\n"%(self.prot.outgro,len(self.prot.CA)+len(self.prot.CB)))
                     atcount,prev_chain = 0,0
                     for res in self.prot.CA:
                         if res[0]!=prev_chain: fout.write("TER\n")
@@ -661,14 +664,14 @@ class PDB_IO:
                     fgro.close()
 
         if len(self.nucl.lines) != 0:   
-            nucl_grofile = "nucl%s_%s"%(self.file_ndx,outgro)
+            self.nucl.outgro = "nucl%s_%s"%(self.file_ndx,outgro)
             self.nucl.P = det.get_P_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["P"])
             self.nucl.bb_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P.pdb"])
             self.nucl.P_atn = dict()
             with open(self.nucl.bb_file,"w+") as fout:
                 atcount,prev_chain = 0,0
-                fgro = open(nucl_grofile,"w+")
-                fgro.write("CG file %s for GROMACS\n%d\n"%(nucl_grofile,len(self.nucl.P)))
+                fgro = open(self.nucl.outgro,"w+")
+                fgro.write("CG file %s for GROMACS\n%d\n"%(self.nucl.outgro,len(self.nucl.P)))
                 for res in self.nucl.P: 
                     self.nucl.P_atn[res] = atcount
                     atcount+=1
@@ -697,8 +700,8 @@ class PDB_IO:
                 self.nucl.B_atn,self.nucl.S_atn = dict(),dict()
                 self.nucl.sc_file = ".".join(self.nucl.pdbfile.split(".")[:-1]+["native_P-S-B.pdb"])
                 with open(self.nucl.sc_file,"w+") as fout:
-                    fgro = open(nucl_grofile,"w+")
-                    fgro.write("CG file %s for GROMACS\n"%(nucl_grofile))
+                    fgro = open(self.nucl.outgro,"w+")
+                    fgro.write("CG file %s for GROMACS\n"%(self.nucl.outgro))
                     fgro.write("%d\n"%(len(self.nucl.P)+len(self.nucl.S)+sum([len(self.nucl.B[x]) for x in self.nucl.B])))
                     atcount,prev_chain = 0,0
                     for res in self.nucl.P:
@@ -848,3 +851,172 @@ class PDB_IO:
         self.pdbfile=self.__refinePDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb
+    
+class Fill_Box:
+    def __init__(self,radii,box_width,outgro,order) -> None:
+        self.max_excl=2*max(radii.values())
+        self.box_width=0.1*box_width # A to nm
+        self.nmol=[n for f,n in order]
+        self.infiles=[f for f,n in order]
+        self.gro_data,self.gro_xyz,self.diam=[],[],[]
+        self.get_gro_data()
+        self.golden_ratio=1.618
+        self.trans_vec = dict()
+        self.sorted_item_size=self.sort_by_size()
+        self.status=self.check_min_space()
+        self.write_merged_gro(outgro)
+
+    def get_gro_data(self):
+        for grofile in self.infiles:
+            with open(grofile) as fin:
+                natoms=int([fin.readline() for i in range(2)][1])
+                lines=[fin.readline() for i in range(natoms)]
+                XYZ=np.float_([(l[20:28],l[28:36],l[36:44]) for l in lines])
+                XYZ=XYZ-np.mean(XYZ,0)
+            self.diam.append(np.sum((np.max(XYZ,0)-np.min(XYZ,0))**2)**0.5)
+            self.gro_xyz.append(XYZ)
+            self.gro_data.append(lines)
+
+    def sort_by_size(self):
+        temp_dict = dict()
+        for k in range(len(self.diam)):
+            v=self.diam[k]
+            if v not in temp_dict: temp_dict[v]=[]
+            temp_dict[v].append(k)
+        outp_list=list(temp_dict.keys())
+        outp_list.sort(reverse=True)
+        outp_list=[v for k in outp_list for v in temp_dict[k]]
+        return(outp_list)
+
+    def check_min_space(self):  
+        return self.box_width**3 > sum([self.nmol[k]*(self.diam[k]**3) for k in range(len(self.diam))])
+
+    def gridofy(self,grid_X,grid_Y,grid_Z):
+        # axis 0 increments by 1 @ every N steps 
+        # axis 1 increments by 1 @ every 1 step
+        # axis 2 increments by 1 @ every N^2 steps
+        grid_3D=(np.array(np.meshgrid(grid_X, grid_Y, grid_Z)).T.reshape(-1, 3))  #same as grid_3D = np.stack(np.meshgrid(grid, grid, grid), axis=-1).reshape(-1, 3))
+        #for x in range(len(grid_3D)): 
+            ##testing for minimum cell_width = 1 and box_width = 50
+            #assert (x == 50*(int(grid_3D[x][0])) + 1*(int(grid_3D[x][1])) + 50*50*(int(grid_3D[x][2])))
+        return grid_3D
+    
+    def grid_3Dndx_to_1Dndx(self,X,Y,Z):
+        N=self.max_cells_1D
+        return [(N*x)+(1*y)+(N*N*z) for x in range(X[0],X[1]) for y in range(Y[0],Y[1]) for z in range(Z[0],Z[1])]
+
+    def get_grid(self):
+        space,min_size=self.box_width,self.golden_ratio #min(self.diam)
+        grid,cell_width=np.linspace(0, space, num=math.floor(space/min_size), endpoint=False, retstep=True)
+        grid_3D=self.gridofy(grid,grid,grid) 
+        return (grid_3D, round(cell_width,3))
+
+    def update_available_positions(self,selected_positions):
+        #print ("before", len(self.empty_positions))
+        for pos in selected_positions: self.empty_positions.remove(pos)
+        #print ("after", len(self.empty_positions))
+        return
+
+    def check_overlap(self,temp_position):
+        for t in temp_position:
+            if t not in self.empty_positions: return True
+        return False
+
+    def find_possible_positions(self,R):
+        """
+        possible_positions = list()
+        for x in range(0, N-R+1):
+            for y in range(0, N-R+1):
+                for z in range(0, N-R+1):
+                    temp_position=self.grid_3Dndx_to_1Dndx(X=[x,x+R],Y=[y,y+R],Z=[z,z+R])
+                    if not self.check_overlap(temp_position):
+                        possible_positions.append((x,y,z))
+        assert len(possible_positions) > 0, "ERROR: insufficient space, increase box size"
+        x,y,z=random.choice(possible_positions)
+        return self.grid_3Dndx_to_1Dndx(X=[x,x+R],Y=[y,y+R],Z=[z,z+R])
+        """
+        N=self.max_cells_1D
+        overlap=True
+        max_trials=8192
+        while overlap and max_trials:
+            x,y,z=rnd.choices(range(0, N-R+1),k=3)
+            position=self.grid_3Dndx_to_1Dndx(X=[x,x+R],Y=[y,y+R],Z=[z,z+R])
+            overlap=self.check_overlap(position)
+            max_trials-=1
+        #assert max_trials, "ERROR: insufficient space, increase box size"
+        if max_trials==0: position=[]
+        return position
+
+    def find_empty_position(self,k,center_largest_item):
+        size = self.diam[k]
+        required_cells_1D = math.ceil(float(size)/self.cell_width)
+        if center_largest_item:
+            middle_cells_1D = [math.ceil(((self.max_cells_1D-required_cells_1D))/2),math.ceil((self.max_cells_1D+required_cells_1D)/2)]
+            selected_positions=self.grid_3Dndx_to_1Dndx(X=middle_cells_1D,Y=middle_cells_1D,Z=middle_cells_1D)
+        else:
+            selected_positions=self.find_possible_positions(R=required_cells_1D)
+        self.update_available_positions(selected_positions)
+        return selected_positions
+
+    def assign_translation(self):
+        total_items=len(self.diam)
+        self.cell_vectors,self.cell_width=self.get_grid()
+        self.empty_positions=list(range(len(self.cell_vectors)))
+        assert len(self.empty_positions)==len(np.unique(list(self.empty_positions)))
+        all_positions=np.array([np.unique(self.cell_vectors[:,0]), np.unique(self.cell_vectors[:,1]), np.unique(self.cell_vectors[:,2])])
+        self.max_cells_1D=all_positions.shape[1]
+        for i in range(len(self.sorted_item_size)):
+            item=self.sorted_item_size[i]
+            print ("Filling %d copies of %s"%(self.nmol[i],self.infiles[item]))
+            for c in tqdm(range(0,self.nmol[i])):
+                selected_positions=self.find_empty_position(k=item, center_largest_item=(i+c==0))
+                if len(selected_positions)==0: return 0
+                self.trans_vec[item,c]=np.mean(self.cell_vectors[selected_positions],0)
+        return 1
+
+    def assign_rotation(self,XYZ):
+        #getting random angles for rotation around x, y and z axes
+        a=np.float_(rnd.choices(range(0,360,2),k=3))*np.pi/180.0
+        rotmat_x = np.array([[1,            0,             0],
+                             [0, np.cos(a[0]), -np.sin(a[0])],
+                             [0, np.sin(a[0]),  np.cos(a[0])]])
+        rotmat_y = np.array([[np.cos(a[1]),  0, np.sin(a[1])],
+                             [           0,  1,            0],
+                             [-np.sin(a[1]), 0,  np.cos(a[1])]])
+        rotmat_z= np.array([[np.cos(a[2]), -np.sin(a[2]),    0],
+                             [np.sin(a[2]),  np.cos(a[2]),    0],
+                             [0,                        0,    1]])
+        XYZ=np.matmul(XYZ,rotmat_x)
+        XYZ=np.matmul(XYZ,rotmat_y)
+        XYZ=np.matmul(XYZ,rotmat_z)
+        return XYZ
+                
+    def write_merged_gro(self,outgro):
+        print (">>> writing combined structure file %s"%outgro)
+        #translate
+        if self.status:
+            self.status=bool(self.assign_translation())
+        else: return 0
+        if not self.status:
+            print ('ERROR: insufficient space, increase the box width or run "genbox_commands.sh" script (requires GROMACS) generated by SuBMIT.')
+            return 0
+
+        #write merged gro file  
+        fout=open(outgro,"w+")
+        fout.write("Merged CG file %s:%s\n"%(outgro,\
+                    ", ".join(["%dX%s"%(self.nmol[i],self.infiles[i])\
+                                for i in range(len(self.nmol))])))
+        fout.write("%d\n"%sum([len(self.gro_data[i])*self.nmol[i] for i in range(len(self.nmol))]))
+        #fout.write()
+        #loading individual gro data
+        atcount=0
+        for i in range(len(self.nmol)):
+            lines=self.gro_data[i]
+            for c in range(0,self.nmol[i]):
+                XYZ=self.trans_vec[(i,c)]+self.assign_rotation(self.gro_xyz[i])
+                for x in range(len(lines)):
+                    atcount+=1
+                    fout.write(lines[x][:15]+str(atcount%10**5).rjust(5)+3*"%8.3f"%tuple(XYZ[x])+"\n")
+        fout.write(3*"%8.3f"%(self.box_width,self.box_width,self.box_width))
+        fout.write("\n")
+        fout.close()

@@ -28,7 +28,7 @@
 	this program.
 
 usage: python submit.py --help
-(Author: Digvijay L. Prakash & Shachi S. Gosavi)
+(Author: Digvijay L. Prakash, Arkadeep Banerjee & Shachi Gosavi)
 """
 
 import os
@@ -36,10 +36,11 @@ import argparse
 import numpy as np
 from typing import NamedTuple, Dict
 from pathlib import Path
-from PDB_IO import PDB_IO,Nucl_Data,Prot_Data
+from PDB_IO import PDB_IO,Nucl_Data,Prot_Data,Fill_Box
 from topology import *
 
 class Options(Dict):
+	box_width=500.0
 	opensmog=False
 	xmlfile=str()
 	dihed2xml=False
@@ -59,7 +60,6 @@ class Options(Dict):
 	custom_nuc=False
 	control_run=False
 	CB_gly=False
-
 
 class Constants(Dict):
 	Kb_prot=200.0
@@ -111,7 +111,7 @@ class ModelDir:
 		return 1
 
 class CleanUP:
-	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[]):
+	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[],box_width=500.0,fillstatus=False):
 		self.coulomb=coulomb
 		self.enrgrps=enrgrps
 		self.createDir()
@@ -132,7 +132,8 @@ class CleanUP:
 		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.renameTables()
-		self.genbox(grosuffix=grosuffix,topsuffix=topsuffix)	
+		if not fillstatus:
+			self.genbox(grosuffix=grosuffix,topsuffix=topsuffix,box_width=box_width)	
 
 	def createDir(self):
 		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
@@ -194,7 +195,7 @@ class CleanUP:
 					os.remove(filename)
 		return
 
-	def genbox(self,grosuffix,topsuffix):
+	def genbox(self,grosuffix,topsuffix,box_width):
 		if "molecule_order.list" in os.listdir("SuBMIT_Output"):
 			mol_list=[tuple(line.split()) \
 				 	for line in open("SuBMIT_Output/molecule_order.list")\
@@ -208,9 +209,8 @@ class CleanUP:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
 				else:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
-					print (mol_list)
-				with open('SuBMIT_Output/genbox_command.sh','w+') as fout:
-					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,50.0))
+				with open('SuBMIT_Output/genbox_commands.sh','w+') as fout:
+					for i in "xyz":fout.write("box_%s=%.3f\n"%(i,0.1*box_width))
 					fout.write("seed=1997 #default for gromacs 4.5.4\n")
 					fout.write('echo -e "EMPTY GROFILE\\n0\\n$box_x $box_y $box_z" > _temp_0.gro\n')
 					fout.write('echo -e "pbc = xyz" > pbcBox.mdp\n')
@@ -274,6 +274,7 @@ def main():
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
+	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å')
 
 	#level of coarse-graining
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -415,7 +416,6 @@ def main():
 	rad["S"]=1.9					#A
 	rad["Bpy"]=1.5				#A
 	rad["Bpu"]=1.5				#A
-	rad["stack"]=3.6					#A
 	opt.P_stretch=False
 
 	charge.CA=False
@@ -456,7 +456,6 @@ def main():
 		rad["S"]=3.7					#A
 		rad["Bpy"]=1.5				#A
 		rad["Bpu"]=1.5				#A
-		rad["stack"]=3.6					#A
 		CB_far=True			# CB at farthest SC atom 
 		CB_chiral=False		# improp dihed for CAi-1 CAi+1 CAi CBi
 		charge.CB=True		# Charge on CB
@@ -729,7 +728,7 @@ def main():
 	if args.cutoff:
 		prot_contmap.cutoff=float(args.cutoff)
 		nucl_contmap.cutoff=float(args.cutoff)
-		inter_contmap=float(args.cutoff)
+		inter_contmap.cutoff=float(args.cutoff)
 	if args.cutoff_p: prot_contmap.cutoff=float(args.cutoff_p)
 	if args.cutoff_n: nucl_contmap.cutoff=float(args.cutoff_n)
 	if args.cutoff_i: inter_contmap.cutoff=float(args.cutoff_n)
@@ -747,7 +746,7 @@ def main():
 	if args.cutofftype:
 		prot_contmap.type=int(args.cutofftype)
 		nucl_contmap.type=int(args.cutofftype)
-		if args.control_run: inter_contmap.type=int(args.cutofftype)
+		#if args.control_run: inter_contmap.type=int(args.cutofftype)
 	if args.cutofftype_p: prot_contmap.type=int(args.cutofftype_p)
 	if args.cutofftype_n: nucl_contmap.type=int(args.cutofftype_n)
 	if args.cutofftype_i: inter_contmap.type=int(args.cutofftype_i)
@@ -995,6 +994,10 @@ def main():
 		if inter_contmap.type not in (-1,0): inter_contmap.type=-1
 
 	#output grofiles
+	if args.box: 
+		assert float(args.box)>0
+		opt.box_width=float(args.box)
+
 	if args.outgro: grofile=str(args.outgro)
 	else: grofile="gromacs.gro"
 
@@ -1032,7 +1035,7 @@ def main():
 	#write CG file
 	for i in range(nfiles):
 		pdbdata[i].write_CG_protfile(CGlevel=CGlevel,CAcom=CA_com,CBcom=CB_com,CBfar=CB_far,CBgly=CB_gly,nucl_pos=nucl_pos,outgro=grofile)
-
+	
 	if not args.gen_cg:				
 		if args.clementi2000:
 			top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
@@ -1074,6 +1077,16 @@ def main():
 	if sum(Nmol['prot'])!=0: groups.append("Protein")
 	if sum(Nmol['nucl'])!=0:
 		groups+=([["RNA","DNA"][int(y)] for x in range(nfiles) for y in pdbdata[x].nucl.deoxy])
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups)
+
+	
+	#write combined file
+	molecule_order=[]
+	molecule_order+=[(pdbdata[i].nucl.outgro,Nmol['nucl'][i]) for i in range(len(Nmol['nucl'])) if Nmol['nucl'][i]>0]
+	molecule_order+=[(pdbdata[i].prot.outgro,Nmol['prot'][i]) for i in range(len(Nmol['prot'])) if Nmol['prot'][i]>0]
+
+	fill=Fill_Box(outgro=grofile,radii=rad,box_width=opt.box_width,order=molecule_order)
+	if fill.status: print ("> Combined topology and structure files generated!!!")
+	else: print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=opt.box_width,fillstatus=fill.status)
 if __name__ == '__main__':
     main()

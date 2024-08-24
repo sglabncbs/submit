@@ -98,6 +98,7 @@ Output Arguments:
   --outgro OUTGRO, -outgro OUTGRO
                         Name for output .gro file.(tool adds prefix nucl_ and
                         prot_ for independednt files). Default: gromacs.gro
+  --box BOX, -box BOX   Width of a periodic cubic box. Default: 500.0 Å
   --outxml OUTXML, -outxml OUTXML
                         Name for output .xml (openSMOG) file.(tool adds prefix
                         nucl_ and prot_ for independednt files). Default:
