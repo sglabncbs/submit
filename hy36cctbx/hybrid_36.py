@@ -1,6 +1,6 @@
 """
 Note: This code is used for implementing hybrid 36 format numbering of PBD files with atom number >= 1E+6 or residue number >= 1E+5.
-      This code is not written/maintained by SuBMIT developers. 
+      and is not written by SuBMIT developers. 
 ===================================================================================================================================
                Prototype/reference implementation for
                       encoding and decoding

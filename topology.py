@@ -1,6 +1,6 @@
 import numpy as np
 from PDB_IO import *
-from hybrid_36 import hy36encode,hy36decode
+from hy36cctbx.hybrid_36 import hy36encode,hy36decode
 try: from tqdm import trange,tqdm
 except: tqdm,trange=list,range
 
@@ -679,7 +679,7 @@ class MergeTop:
         self.already_excluded_atoms={'exclusions':[]}
         self.atoms_section=str()
         if self.opt.opensmog:
-            self.xmlfile=OpenSMOGXML(xmlfile=self.opt.xmlfile,coulomb=coul)
+            self.xmlfile=OpenSMOGXML(xmlfile=self.opt.xmlfile,coulomb=coul,nbshift=self.opt.nbshift)
         self.__merge__(Nprot=Nprot,Nnucl=Nnucl,opt=opt,excl_volume=excl_volume)
         
     def nPlaces(self,n,count2str):
@@ -1372,9 +1372,10 @@ class MergeTop:
                     status=[fout.write(i+"\n") for i in data_list[0] if i.strip() != ""]
                     
 class OpenSMOGXML:
-    def __init__(self,xmlfile,coulomb) -> None:
+    def __init__(self,xmlfile,coulomb,nbshift=False) -> None:
         self.fxml=open(xmlfile,"w+")
         self.fxml.write('<OpenSMOGforces>\n')
+        self.nbshift=nbshift
         self.nb_count,self.pairs_count,self.manypart_count=0,0,0
         self.add_electrostatics=False
         self.coulomb=coulomb
@@ -1384,7 +1385,48 @@ class OpenSMOGXML:
             T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float_([]))
             self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
             self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
-            
+
+    def set_shift_var(self,expression,var):
+        #48-57: 0-9 (string), 65-90: A-Z, 95:_, 97-122: a-z, 
+        alphab=[chr(i) for i in range(48,58)]+[chr(i) for i in range(65,91)]\
+              +[chr(95)]+[chr(i) for i in range(97,123)]
+        # if a number, '_' or an alphabet  is present immedietly after/before r, 
+        #then do not consider. (example rA, r1, r_0, V_r, V8r, etc)
+        for v in var:
+            temp_expr=expression.split(v)
+            for i in range(len(temp_expr)-1):
+                if len(temp_expr[i])==0 or len(temp_expr[i+1])==0:
+                    temp_expr[i+1]='_c'+temp_expr[i+1]
+                else:
+                    if temp_expr[i][-1] not in alphab and temp_expr[i+1][0] not in alphab:
+                        temp_expr[i+1]='_c'+temp_expr[i+1]
+            expression=v.join(temp_expr)
+        return expression
+
+    def shift_nonbond_expr(self,expression):
+        #OpenMM reserves uses 'r' as default variable for distance and r_c as default varible for cutoff
+        #split the expression with r. 
+        #test expression
+        #expression='A12-B12;A12=C12(type1,type2)/(r^12);B12=6*epsA(type1,type2)*(r0(type1,type2)/r)^10'
+        og_expr=expression
+        expr_parts=expression.split(';')
+        variables=['r']
+        for x in range(len(expr_parts)):
+            part_expr=expr_parts[-1-x]
+            expr_vari=part_expr.split('=')
+            expr_shift=self.set_shift_var(expression=expr_vari[-1],var=variables)
+            if len(expr_vari)==1: 
+                expr_vari[-1]='(%s) - (%s)'%(expr_vari[-1],expr_shift)
+                part_expr="=".join(expr_vari)
+            else:
+                part_expr='%s;%s_c=%s'%(part_expr,expr_vari[0],expr_shift)
+                variables.append(expr_vari[0])
+            expr_parts[-1-x]=part_expr
+        expression=';'.join(expr_parts)
+        #input("Note: Using potential-switch (--nbswitch).\n  Original expr: %s\n  New expr: %s\nPress Enter to proceed .Ctrl+C to abort:"%(og_expr,expression))
+        print ('Note: Using potential-switch (--nbswitch).\n  Original expr: %s\n  New expr: %s'%(og_expr,expression))
+        return expression
+    
     def write_nonbond_xml(self,pairs=[],func=1,C12=[],epsA=[],sig=[],expression=str(),params={}):
         self.fxml.write(' <nonbond>\n')
         self.fxml.write('  <nonbond_bytype>\n')
@@ -1410,6 +1452,7 @@ class OpenSMOGXML:
         if self.add_electrostatics:
             expression="%s + %s ; %s"%(self.elec_expr,expression,self.elec_const)
             params["q1q2"]=[]
+        if self.nbshift: expression=self.shift_nonbond_expr(expression)
         self.fxml.write('   <expression expr="%s"/>\n'%expression)
         for p in params: self.fxml.write('   <parameter>%s</parameter>\n'%p)
         self.write_nonbond_param_entries(pairs=pairs,params=params)
@@ -2228,7 +2271,7 @@ class Topology:
                 if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata[i].prot.bb_file,refine=False)
                 elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata[i].prot.sc_file,refine=False)
                 prot_topfile = "prot%s_%s"%(fileindex,outtop)
-                if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
+                if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge,nbshift=self.opt.nbshift)
                 with open(prot_topfile,"w+") as ftop:
                     print (">>> writing Protein GROMACS toptology", prot_topfile)
                     proc_data_p = Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex)
@@ -2251,7 +2294,7 @@ class Topology:
                 if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata[i].nucl.bb_file,refine=False)
                 elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata[i].nucl.sc_file,refine=False)
                 nucl_topfile = "nucl%s_%s"%(fileindex,outtop)
-                if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge)
+                if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge,nbshift=self.opt.nbshift)
                 with open(nucl_topfile,"w+") as ftop:
                     print (">>> writing RNA/DNA GROMACS toptology", nucl_topfile)
                     proc_data_n = Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex)

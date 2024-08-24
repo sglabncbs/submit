@@ -1,6 +1,6 @@
 import numpy as np
 import random as rnd
-from hybrid_36 import hy36encode,hy36decode
+from hy36cctbx.hybrid_36 import hy36encode,hy36decode
 import math
 try: from tqdm import trange,tqdm
 except: tqdm,trange=list,range
