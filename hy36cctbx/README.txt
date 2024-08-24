@@ -8,6 +8,8 @@ this directory (hy36cctbx) are NOT under SuBMIT default license (GNU GPL v3).
 
 The script "hybrid_36.py" is an unrestricted Open Source (cctbx.sf.net). 
 A copy of the cctbx license is included (ctbx_LICENSE_2_0.txt).
+Original source code:
+https://github.com/cctbx/cctbx_project/blob/master/iotbx/pdb/hybrid_36.py
 
 ================================================================================
 
