@@ -344,3 +344,7 @@ Force-field Paramters:-
                         Default: False (Move DNA/RNA away from native binding
                         site)
 
+#Code Licenses
+
+> SuBMIT is licensed under the GNU GPL v3 (LICENSE).
+> Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  
