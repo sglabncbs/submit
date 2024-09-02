@@ -1,5 +1,5 @@
 # SuBMIT: Structure Based Model(s) Input Toolkit #
-## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Enhanced Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) ##
+## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Augmented Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) ##
 #### digvijaylp@sglabncbs ####
  
  
@@ -292,6 +292,9 @@ Force-field Paramters:-
                         Default: 2
   --excl_rule EXCL_RULE
                         Use 1: Geometric mean. 2: Arithmatic mean
+  --nbshift, -nbshift   (with --opensmog) Shift the potential (V(r)) by a
+                        constant (V(r_c)) such that it is zero at cutoff
+                        (r_c). Default: False
   --interaction, -interaction
                         User defined interactions in file interactions.dat.
   --btparams, -btparams
@@ -341,3 +344,7 @@ Force-field Paramters:-
                         Default: False (Move DNA/RNA away from native binding
                         site)
 
+#Code Licenses
+
+> SuBMIT is licensed under the GNU GPL v3 (LICENSE).
+> Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  

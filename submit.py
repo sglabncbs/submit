@@ -40,10 +40,10 @@ from PDB_IO import PDB_IO,Nucl_Data,Prot_Data,Fill_Box
 from topology import *
 
 class Options(Dict):
-	box_width=500.0
 	opensmog=False
 	xmlfile=str()
 	dihed2xml=False
+	nbshift=False
 	uniqtype=False
 	btparams=False
 	mjmap=False
@@ -271,10 +271,10 @@ def main():
 	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
 	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.top')
 	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.gro')
+	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å')
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
-	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å')
 
 	#level of coarse-graining
 	parser.add_argument("--prot_cg", "-prot_cg", type=int, help="Level of Amino-acid coarse-graining 1 for CA-only, 2 for CA+CB. Dafault: 2 (CA+CB)")
@@ -349,6 +349,7 @@ def main():
 	#nonbonded params
 	parser.add_argument("--nbfunc","-nbfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18 (3: modified gmx5), (6&7: OpenSMOG)6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	parser.add_argument("--excl_rule",type=int,help="Use 1: Geometric mean. 2: Arithmatic mean")
+	parser.add_argument("--nbshift", "-nbshift",action='store_true', help="(with --opensmog) Shift the potential (V(r)) by a constant (V(r_c)) such that it is zero at cutoff (r_c). Default: False")
 	#for interactions
 	parser.add_argument("--interaction","-interaction",action='store_true', default=False, help='User defined pair interactions in file interactions.dat.')
 	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
@@ -996,8 +997,8 @@ def main():
 	#output grofiles
 	if args.box: 
 		assert float(args.box)>0
-		opt.box_width=float(args.box)
-
+		box_width=float(args.box)
+	else: box_width=500.0
 	if args.outgro: grofile=str(args.outgro)
 	else: grofile="gromacs.gro"
 
@@ -1015,6 +1016,9 @@ def main():
 	if args.dihed2xml:
 		assert opt.opensmog, "Error --dihed2xml only suuported with --opensmog flag, with modified version of OpenSMOG:https://github.com/sglabncbs/OpenSMOGmod"
 		opt.dihed2xml = True
+	if args.nbshift:
+		assert opt.opensmog, "Error --nbshift only suuported with --opensmog flag"
+		opt.nbshift=True
 
 	nfiles=len(pdbdata)
 	for i in range(nfiles):
@@ -1084,9 +1088,9 @@ def main():
 	molecule_order+=[(pdbdata[i].nucl.outgro,Nmol['nucl'][i]) for i in range(len(Nmol['nucl'])) if Nmol['nucl'][i]>0]
 	molecule_order+=[(pdbdata[i].prot.outgro,Nmol['prot'][i]) for i in range(len(Nmol['prot'])) if Nmol['prot'][i]>0]
 
-	fill=Fill_Box(outgro=grofile,radii=rad,box_width=opt.box_width,order=molecule_order)
+	fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,order=molecule_order)
 	if fill.status: print ("> Combined topology and structure files generated!!!")
 	else: print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=opt.box_width,fillstatus=fill.status)
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=box_width,fillstatus=fill.status)
 if __name__ == '__main__':
     main()
