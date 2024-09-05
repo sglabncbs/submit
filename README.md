@@ -6,29 +6,47 @@
 ## *Examples*. 
 ### Model presets allows user to auto-select parameters based on predefined models. </br>
 ### 1. CA-SBM (Clementi 2000) 
-  <pre> $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]   </pre>
-
+ ```
+ $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]   
+ ```
 ### 2. CA-CB SOP-SC model (Reddy 2017) 
-<pre> $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] </pre>
+ ```
+ $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] 
+ ```
 ##### OR
-<pre> $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file] </pre>
- 
+ ```
+ $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file] 
+ ```
 ### 3. CA-CB SOP-SC-IDP model (Baidya 2022) 
-<pre> $ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file]  </pre>
+ ```
+ $ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file]  
+ ```
 ##### OR
-<pre> $ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file] </pre>
+ ```
+ $ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file] 
+ ```
 ### 4. CA-CB SOP-SC-MULTI model (Baratam 2024) 
-<pre> $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)] </pre>
+ ```
+ $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)] 
+ ```
 ### 5. CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
-<pre> $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] </pre>
+ ```
+ $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
+ ```
 ###### OR
-<pre> $ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] </pre>
+ ```
+ $ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
+ ```
 
 ### 6. For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model  
-<pre> $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 80 </pre>
+ ```
+ $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 80 
+ ```
 
 ### For testing your own model or tweaking predefined ones, refer to optional arguments (--help )
-<pre> $ python submit.py --help  </pre>
+ ```
+ $ python submit.py --help  
+ ```
 
 ## *Optional arguments*
 <pre> -h, --help            show this help message and exit </pre>
