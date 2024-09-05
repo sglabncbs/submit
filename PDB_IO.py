@@ -5,6 +5,7 @@ import math
 try: from tqdm import trange,tqdm
 except: tqdm,trange=list,range
 
+
 class Nucl_Data:
     def __init__(self) -> None:
         self.pdbfile = ""

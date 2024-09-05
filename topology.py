@@ -4,6 +4,7 @@ from hy36cctbx.hybrid_36 import hy36encode,hy36decode
 try: from tqdm import trange,tqdm
 except: tqdm,trange=list,range
 
+
 class Tables:
     def __init__(self) -> None:
         pass

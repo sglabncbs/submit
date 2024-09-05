@@ -6,7 +6,7 @@
 
 	A toolkit for generating input files for performing Molecular Dynamics
 	Simulations (MD) of Coarse-Grain Structure Based Models (CG-SBM) on 
-	GROMACS (4.5.4/5.1.4) and/or OpenSMOG (v1.1.1)
+	GROMACS (4.5.4/4.6.7/5.1.4) and/or OpenSMOG (v1.1.1)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
