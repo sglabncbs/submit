@@ -1,6 +1,7 @@
 # SuBMIT: Structure Based Model(s) Input Toolkit 
 ## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Augmented Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) 
  
+ ![alt text](https://github.com/sglabncbs/submit/blob/main/examples/SuBMIT.png)
  
 ## *Examples*. 
 ### Model presets allows user to auto-select parameters based on predefined models. </br>
