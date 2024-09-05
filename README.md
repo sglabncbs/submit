@@ -1,6 +1,5 @@
 # SuBMIT: Structure Based Model(s) Input Toolkit 
 ## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Augmented Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) 
-### digvijaylp@sglabncbs 
  
  
 ## *Examples*. 
@@ -349,3 +348,12 @@
 ## *Code Licenses*
 * SuBMIT is licensed under the GNU GPL v3 (LICENSE).
 * Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  
+
+## *Supported MD packages*
+
+* GROMACS 4.5.x: https://ftp.gromacs.org/pub/gromacs/gromacs-4.5.4.tar.gz
+* GROMACS 4.6.x: https://ftp.gromacs.org/pub/gromacs/gromacs-4.6.7.tar.gz
+* GROMACS 4.5.4 SBM1 (Gaussian contact potentials): https://smog-server.org/extension/#gauss
+* GROMACS 5.1.4: https://ftp.gromacs.org/pub/gromacs/gromacs-5.1.4.tar.gz
+* OpenSMOG v1.1.1: https://github.com/smog-server/OpenSMOG
+* OpenSMOGmod (Contact potential for >2 particles): https://github.com/sglabncbs/OpenSMOGmod
