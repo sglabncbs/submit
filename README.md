@@ -1,41 +1,40 @@
-# SuBMIT: Structure Based Model(s) Input Toolkit #
-## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Augmented Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) ##
-#### digvijaylp@sglabncbs ####
+# SuBMIT: Structure Based Model(s) Input Toolkit 
+## Package to generate Coarse-Grained Structure (.gro/.pdb) and Topology (.top/.xml) for using Augmented Structure Based Models MD Simulations on GROMACS and OpenSMOG (OpenMM based) 
+### digvijaylp@sglabncbs 
  
  
+## *Examples*. 
+### Model presets allows user to auto-select parameters based on predefined models. </br>
+### 1. CA-SBM (Clementi 2000) 
+ <pre> $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]  </pre>
+
+### 2. CA-CB SOP-SC model (Reddy 2017) 
+<pre> $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] </pre>
+##### OR
+<pre> $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file] </pre>
+ 
+### 3. CA-CB SOP-SC-IDP model (Baidya 2022) 
+<pre> $ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file]  </pre>
+##### OR
+<pre> $ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file] </pre>
+### 4. CA-CB SOP-SC-MULTI model (Baratam 2024) 
+<pre> $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)] </pre>
+### 5. CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
+<pre> $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] </pre>
+###### OR
+<pre> $ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] </pre>
+
+### 6. For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model  
+<pre> $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 80 </pre>
+
+### For testing your own model or tweaking predefined ones, refer to optional arguments (--help )
+<pre> $ python submit.py --help  </pre>
+
+## *Optional arguments*
+<pre> -h, --help            show this help message and exit </pre>
+ 
+### Preset Models:-
 <pre>
-# Model presets allows user to auto-select parameters based on predefined models 
- 
-#CA-SBM (Clementi 2000) 
-$ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file] 
- 
-#CA-CB SOP-SC model (Reddy 2017) 
-$ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file]
-$ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file]
- 
-#CA-CB SOP-SC-IDP model (Baidya 2022) 
-$ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file] 
-$ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file]
- 
-#CA-CB SOP-SC-MULTI model (Baratam 2024) 
-$ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)]
-
-#CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
-$ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
-    or
-$ python submit.py --pal2019 --aa_pdn [protein AA .pdb] [RNA/DNA AA .pdb] 
-
-#For every model, predefined parameters can be customized. For example, for changing angle force constant in Pal 2019 model 
-$ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --Ka_prot 40 
- 
-#For testing your own model or tweaking predefined ones, refer to options in --help 
-$ python submit.py --help 
- 
- 
-  -h, --help            show this help message and exit
- 
- Preset Models:-
-
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000
                         Clementi et. al. 2000 CA-only model.
                         10.1006/jmbi.2000.3693
@@ -73,9 +72,10 @@ $ python submit.py --help
                         Symmetrized)
   --dlprakash, -dlprakash, --duplexpair, -duplexpair
                         Codon pairs (duplex based weight) for Pal2019
+</pre>
 
-Input structures, sequences and count:-
-
+### Input structures, sequences and count:-
+<pre>
   --aa_pdb AA_PDB [AA_PDB ...], -aa_pdb AA_PDB [AA_PDB ...]
                         User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb
   --cg_pdb CG_PDB [CG_PDB ...], -cg_pdb CG_PDB [CG_PDB ...]
@@ -86,9 +86,9 @@ Input structures, sequences and count:-
   --nmol NMOL [NMOL ...], -nmol NMOL [NMOL ...]
                         Include nmol number of molecules in the topology. List
                         of integers. Defatul1 1 per input pdbfile
-
-Output Arguments:
-
+</pre>
+### Output Arguments:-
+<pre>
   --gen_cg, -gen_cg     Only Generate CG structure without generating topology
                         .top/.xml files
   --outtop OUTTOP, -outtop OUTTOP
@@ -109,9 +109,9 @@ Output Arguments:
   --dihed2xml, -dihed2xml
                         Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for
                         OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False
-
-Coarse-Graining Paramters:-
-
+</pre>
+### Coarse-Graining Paramters:-
+<pre>
   --prot_cg PROT_CG, -prot_cg PROT_CG
                         Level of Amino-acid coarse-graining 1 for CA-only, 2
                         for CA+CB. Dafault: 2 (CA+CB)
@@ -164,9 +164,10 @@ Coarse-Graining Paramters:-
   --P_pos P_POS, -P_pos P_POS
                         Put input atom of Phosphate [P,OP1,OP2,O5',COM] group
                         as position of P. Default=COM(Center_of_Mass)
+</pre>
 
-Force-field Paramters:-
-
+### Force-field Paramters:-
+<pre>
   --Kb_prot KB_PROT, -Kb_prot KB_PROT, --Kb KB_PROT, -Kb KB_PROT
                         User defined force constant K_bond for Proteins.
                         Default: 200.0 ε/Å^2 (ε = 1KJ/mol)
@@ -343,8 +344,8 @@ Force-field Paramters:-
                         native protein site. --custom_nuc will be disabled.
                         Default: False (Move DNA/RNA away from native binding
                         site)
+</pre>
 
-#Code Licenses
-
-> SuBMIT is licensed under the GNU GPL v3 (LICENSE).
-> Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  
+## *Code Licenses*
+* SuBMIT is licensed under the GNU GPL v3 (LICENSE).
+* Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  
