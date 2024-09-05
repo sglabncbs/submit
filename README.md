@@ -6,7 +6,7 @@
 ## *Examples*. 
 ### Model presets allows user to auto-select parameters based on predefined models. </br>
 ### 1. CA-SBM (Clementi 2000) 
- <pre> $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]  </pre>
+  <pre> $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]   </pre>
 
 ### 2. CA-CB SOP-SC model (Reddy 2017) 
 <pre> $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] </pre>
@@ -348,10 +348,9 @@
 
 ## *Code Licenses*
 * SuBMIT is licensed under the GNU GPL v3 (LICENSE).
-* Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the cctbx_project iotbx repository.  
+* Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the [cctbx_project iotbx repository](https://github.com/cctbx/cctbx_project/blob/master/iotbx/).  
 
 ## *Supported MD packages*
-
 * GROMACS 4.5.x: https://ftp.gromacs.org/pub/gromacs/gromacs-4.5.4.tar.gz
 * GROMACS 4.6.x: https://ftp.gromacs.org/pub/gromacs/gromacs-4.6.7.tar.gz
 * GROMACS 4.5.4 SBM1 (Gaussian contact potentials): https://smog-server.org/extension/#gauss
