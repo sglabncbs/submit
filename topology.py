@@ -1034,6 +1034,8 @@ class MergeTop:
         for pairs,chains,sig,eps in inp:
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            if len(set([x[-1] for x in C1]+[x[-1] for x in C2]))==1:
+                C1,C2=[x.split("0")[0] for x in C1],[x.split("0")[0] for x in C2]
             #filtering for entries in user input cmap that are not present
             pairs=np.int_([pairs[x] for x in range(len(pairs)) \
                 if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
@@ -1046,8 +1048,9 @@ class MergeTop:
             I,J = np.transpose(pairs)
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
+            if len(set([x[-1] for x in C1]+[x[-1] for x in C2]))==1:
+                C1,C2=[x.split("0")[0] for x in C1],[x.split("0")[0] for x in C2]
             # done filtering
-
             sym_I = [1 + np.int_([I[y] + x*atoms_in_mol[C1[y]] for x in range(nmol[C1[y]])]) + \
                         atnum_offset + prev_at_count[C1[y]] for y in range(I.shape[0])]
             sym_J = [1 + np.int_([J[y] + x*atoms_in_mol[C2[y]] for x in range(nmol[C2[y]])]) + \

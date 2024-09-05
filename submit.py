@@ -28,7 +28,10 @@
 	this program.
 
 usage: python submit.py --help
-(Author: Digvijay L. Prakash, Arkadeep Banerjee & Shachi Gosavi)
+
+Citation:-
+	Publication:
+	Authors: Digvijay L. Prakash, Arkadeep Banerjee & Shachi Gosavi
 """
 
 import os
@@ -111,7 +114,7 @@ class ModelDir:
 		return 1
 
 class CleanUP:
-	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[],box_width=500.0,fillstatus=False):
+	def __init__(self,grosuffix=str(),topsuffix=str(),xmlsuffix=str(),coulomb=Charge(),enrgrps=[],box_width=500.0,fillstatus=False,gen_cg=False):
 		self.coulomb=coulomb
 		self.enrgrps=enrgrps
 		self.createDir()
@@ -122,8 +125,10 @@ class CleanUP:
 		self.moveFiles(f_suffix=".fa.pdb",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix="cont",out_subdir="RefinedPDB_CMap")
 		self.moveFiles(f_suffix=grosuffix,out_subdir="GRO_TOP_XML")
-		self.moveFiles(f_suffix=topsuffix,out_subdir="GRO_TOP_XML")
-		self.moveFiles(f_middle=grosuffix);self.moveFiles(f_middle=topsuffix)
+		if not gen_cg:
+			self.moveFiles(f_suffix=topsuffix,out_subdir="GRO_TOP_XML")
+			self.moveFiles(f_middle=topsuffix)
+		self.moveFiles(f_middle=grosuffix)
 		if len(xmlsuffix)>0: 
 			self.moveFiles(f_suffix=xmlsuffix,out_subdir="GRO_TOP_XML")
 			self.moveFiles(f_middle=xmlsuffix)
@@ -133,7 +138,7 @@ class CleanUP:
 		self.moveFiles(f_middle="molecule_order.list")
 		self.renameTables()
 		if not fillstatus:
-			self.genbox(grosuffix=grosuffix,topsuffix=topsuffix,box_width=box_width)	
+			self.genbox(grosuffix=grosuffix,topsuffix=topsuffix,box_width=box_width,gen_cg=gen_cg)	
 
 	def createDir(self):
 		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
@@ -195,7 +200,7 @@ class CleanUP:
 					os.remove(filename)
 		return
 
-	def genbox(self,grosuffix,topsuffix,box_width):
+	def genbox(self,grosuffix,topsuffix,box_width,gen_cg):
 		if "molecule_order.list" in os.listdir("SuBMIT_Output"):
 			mol_list=[tuple(line.split()) \
 				 	for line in open("SuBMIT_Output/molecule_order.list")\
@@ -234,9 +239,11 @@ class CleanUP:
 						fout.write(command1)
 						infile=outfile
 					outfile=grosuffix
-					command2='grompp -f pbcBox.mdp -c %s -p %s -o _temp_.tpr  -po _temp_.mdp\n'%(infile,topsuffix)
-					command3='echo 0 | trjconv -f %s -s _temp_.tpr -o %s -pbc mol -ur rect\n'%(infile,outfile)
-					fout.write(command2+command3)
+					if not gen_cg:
+						command2='grompp -f pbcBox.mdp -c %s -p %s -o _temp_.tpr  -po _temp_.mdp\n'%(infile,topsuffix)
+						command2+='echo 0 | trjconv -f %s -s _temp_.tpr -o %s -pbc mol -ur rect\n'%(infile,outfile)
+					else: command2='mv %s %s\n'%(infile,outfile)
+					fout.write(command2)
 					fout.write('rm pbcBox.mdp _temp_*\n')
 					fout.write('echo "NOTE: at higher nmol values in smaller box (high number density), beyond a certain nmol value, genbox outputs will be Identical. To avoid this, the order of molecules in genbox commands can be shuffled."')
 		return
@@ -485,7 +492,7 @@ def main():
 		rad["CA"]=1.9			# 3.8 A excl vol rad
 		rad["CB"]=1.5			# 3.0 A excl vol rad
 		CB_far=True			# CB at farthest SC atom 
-		CB_chiral=True		# improp dihed for CAi-1 CAi+1 CAi CBi
+		#CB_chiral=True		# improp dihed for CAi-1 CAi+1 CAi CBi
 		charge.CB=True		# Charge on CB
 		charge.P=True			#charge on P
 		excl_rule=2			# Excl volume Arith. Mean
@@ -501,9 +508,8 @@ def main():
 		nucl_contmap.W=True
 		inter_contmap.type=0
 		charge.debye=True		# Use DH-electrostatics
-		charge.dielec=70		# dielectric constant
 		charge.iconc=0.1		# concentration
-		charge.dielec=78		# dielec constant
+		charge.dielec=80		# dielec constant
 		opt.P_stretch=False	
 
 	if args.dlprakash:
@@ -1087,10 +1093,19 @@ def main():
 	molecule_order=[]
 	molecule_order+=[(pdbdata[i].nucl.outgro,Nmol['nucl'][i]) for i in range(len(Nmol['nucl'])) if Nmol['nucl'][i]>0]
 	molecule_order+=[(pdbdata[i].prot.outgro,Nmol['prot'][i]) for i in range(len(Nmol['prot'])) if Nmol['prot'][i]>0]
+	if args.gen_cg:
+		with open("molecule_order.list","w+") as fout:
+			fout.write("#inp_ndx mol_typ num_mol\n")
+			for i in range(len(molecule_order)):
+				fout.write(" %7d %7s %7d\n"%(i,molecule_order[i][0].split("_")[0].rjust(7),molecule_order[i][1]))
 
 	fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,order=molecule_order)
 	if fill.status: print ("> Combined topology and structure files generated!!!")
-	else: print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=box_width,fillstatus=fill.status)
+	else: 
+		if not args.gen_cg:
+			print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
+		if args.gen_cg:
+			print ("> Failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=box_width,fillstatus=fill.status,gen_cg=args.gen_cg)
 if __name__ == '__main__':
     main()

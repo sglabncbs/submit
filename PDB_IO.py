@@ -860,7 +860,8 @@ class Fill_Box:
         self.infiles=[f for f,n in order]
         self.gro_data,self.gro_xyz,self.diam=[],[],[]
         self.get_gro_data()
-        self.golden_ratio=1.618
+        golden_ratio=1.618
+        self.voxel=golden_ratio
         self.trans_vec = dict()
         self.sorted_item_size=self.sort_by_size()
         self.status=self.check_min_space()
@@ -873,7 +874,8 @@ class Fill_Box:
                 lines=[fin.readline() for i in range(natoms)]
                 XYZ=np.float_([(l[20:28],l[28:36],l[36:44]) for l in lines])
                 XYZ=XYZ-np.mean(XYZ,0)
-            self.diam.append(np.sum((np.max(XYZ,0)-np.min(XYZ,0))**2)**0.5)
+            self.diam.append(2*np.max(np.sum((XYZ-np.mean(XYZ,0))**2,1))**0.5)
+            #self.diam.append(np.sum((np.max(XYZ,0)-np.min(XYZ,0))**2)**0.5)
             self.gro_xyz.append(XYZ)
             self.gro_data.append(lines)
 
@@ -906,8 +908,9 @@ class Fill_Box:
         return [(N*x)+(1*y)+(N*N*z) for x in range(X[0],X[1]) for y in range(Y[0],Y[1]) for z in range(Z[0],Z[1])]
 
     def get_grid(self):
-        space,min_size=self.box_width,self.golden_ratio #min(self.diam)
+        space,min_size=self.box_width,self.voxel #min(self.diam)
         grid,cell_width=np.linspace(0, space, num=math.floor(space/min_size), endpoint=False, retstep=True)
+        print (self.voxel,cell_width,self.diam)
         grid_3D=self.gridofy(grid,grid,grid) 
         return (grid_3D, round(cell_width,3))
 
@@ -967,8 +970,8 @@ class Fill_Box:
         self.max_cells_1D=all_positions.shape[1]
         for i in range(len(self.sorted_item_size)):
             item=self.sorted_item_size[i]
-            print ("Filling %d copies of %s"%(self.nmol[i],self.infiles[item]))
-            for c in tqdm(range(0,self.nmol[i])):
+            print ("Transforming %d copies of %s"%(self.nmol[item],self.infiles[item]))
+            for c in tqdm(range(0,self.nmol[item])):
                 selected_positions=self.find_empty_position(k=item, center_largest_item=(i+c==0))
                 if len(selected_positions)==0: return 0
                 self.trans_vec[item,c]=np.mean(self.cell_vectors[selected_positions],0)
