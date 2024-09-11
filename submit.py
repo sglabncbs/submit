@@ -278,7 +278,7 @@ def main():
 	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
 	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.top')
 	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.gro')
-	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å')
+	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å. Use 0 for no box.')
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
@@ -1002,7 +1002,7 @@ def main():
 
 	#output grofiles
 	if args.box: 
-		assert float(args.box)>0
+		#assert float(args.box)>0
 		box_width=float(args.box)
 	else: box_width=500.0
 	if args.outgro: grofile=str(args.outgro)
@@ -1099,13 +1099,17 @@ def main():
 			for i in range(len(molecule_order)):
 				fout.write(" %7d %7s %7d\n"%(i,molecule_order[i][0].split("_")[0].rjust(7),molecule_order[i][1]))
 
-	fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,order=molecule_order)
-	if fill.status: print ("> Combined topology and structure files generated!!!")
+	if box_width==0: fill_status=False
+	else:
+		fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,order=molecule_order)
+		fill_status=fill.status
+		box_width=500.0
+	if fill_status: print ("> Combined topology and structure files generated!!!")
 	else: 
 		if not args.gen_cg:
 			print ("> Combined topology file(s) generated but failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
 		if args.gen_cg:
 			print ("> Failed to generate combined structure file. Try using genbox_commands.sh script (requires GROMACS) or run again with --gen_cg & different box width --box")
-	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=box_width,fillstatus=fill.status,gen_cg=args.gen_cg)
+	CleanUP(grosuffix=grofile,topsuffix=topfile,xmlsuffix=opt.xmlfile,coulomb=charge,enrgrps=groups,box_width=box_width,fillstatus=fill_status,gen_cg=args.gen_cg)
 if __name__ == '__main__':
     main()

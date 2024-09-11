@@ -51,7 +51,7 @@
 ## *Optional arguments*
 <pre> -h, --help            show this help message and exit </pre>
  
-### Preset Models:-
+### Preset models:-
 <pre>
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000
                         Clementi et. al. 2000 CA-only model.
@@ -92,7 +92,7 @@
                         Codon pairs (duplex based weight) for Pal2019
 </pre>
 
-### Input structures, sequences and count:-
+### Input structures, sequences and molecule counts:-
 <pre>
   --aa_pdb AA_PDB [AA_PDB ...], -aa_pdb AA_PDB [AA_PDB ...]
                         User input all-atom pdbfile/gro/mmCIF e.g. 1qys.pdb
@@ -105,7 +105,7 @@
                         Include nmol number of molecules in the topology. List
                         of integers. Defatul1 1 per input pdbfile
 </pre>
-### Output Arguments:-
+### Output arguments:-
 <pre>
   --gen_cg, -gen_cg     Only Generate CG structure without generating topology
                         .top/.xml files
@@ -128,7 +128,7 @@
                         Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for
                         OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False
 </pre>
-### Coarse-Graining Paramters:-
+### Coarse-graining parameters:-
 <pre>
   --prot_cg PROT_CG, -prot_cg PROT_CG
                         Level of Amino-acid coarse-graining 1 for CA-only, 2
@@ -184,7 +184,7 @@
                         as position of P. Default=COM(Center_of_Mass)
 </pre>
 
-### Force-field Paramters:-
+### Force-field parameters:-
 <pre>
   --Kb_prot KB_PROT, -Kb_prot KB_PROT, --Kb KB_PROT, -Kb KB_PROT
                         User defined force constant K_bond for Proteins.
@@ -364,7 +364,7 @@
                         site)
 </pre>
 
-## *Code Licenses*
+## *Code licenses*
 * SuBMIT is licensed under the GNU GPL v3 (LICENSE).
 * Files in hy36cctbx/ are licensed under an unrestricted open source license by Lawrence Berkeley National Laboratory, University of California (hy36cctbx/LICENSE_2_0.txt). These are not written or modified by SuBMIT team and are derived from the [cctbx_project iotbx repository](https://github.com/cctbx/cctbx_project/blob/master/iotbx/).  
 
