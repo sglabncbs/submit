@@ -823,8 +823,13 @@ class MergeTop:
                 if self.opt.opensmog:
                     if cmap_func==7:
                         self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x][0]],"r1":[sig[x][1]]})
-                    else:
+                    elif cmap_func in (5,6):
                         self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][-1]],"epsA":[eps[x]],"r0":[sig[x]]})
+                    elif cmap_func==2:
+                        self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][1]],"C10":[values[x][0]]})
+                    elif cmap_func==1:
+                        self.xmlfile.write_nonbond_param_entries(pairs=[p],params={"C12":[values[x][1]],"C06":[values[x][0]]})
+                    
                     continue
                 fsec.write(" %10s %10s\t %5d\t"%(p[0].center(10),p[1].center(10),func))
                 fsec.write(len(values[x])*" %e"%tuple(values[x])+"\n")
