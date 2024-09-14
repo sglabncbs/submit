@@ -510,6 +510,7 @@ def main():
 		charge.debye=True		# Use DH-electrostatics
 		charge.iconc=0.1		# concentration
 		charge.dielec=80		# dielec constant
+		opt.nbshift=True        # Use potential shift for nonbond interactions
 		opt.P_stretch=False	
 
 	if args.dlprakash:

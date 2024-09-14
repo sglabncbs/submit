@@ -280,7 +280,7 @@ class PDB_IO:
             self.prot.xyz=np.float_(self.prot.xyz); self.prot.atn=np.int_(self.prot.atn); self.prot.ter=np.int_(self.prot.ter)
         return
     
-    def __fixNultiOcc__(self,pdb_lines=list()):
+    def __fixMultiOcc__(self,pdb_lines=list()):
         multi_occ = dict()  #pdb lines hashed to atom name
         fixed_lines = list()
         for line in pdb_lines:
@@ -362,7 +362,7 @@ class PDB_IO:
             fout.close()
         return outfile
 
-    def __readLnes__(self,infile):
+    def __readLines__(self,infile):
         nucl_lines = list(); prot_lines = list()
         if not infile.endswith((".pdb",".pdb1")):
             if infile.endswith(".gro"): 
@@ -399,12 +399,12 @@ class PDB_IO:
                         nucl_lines.append(line)
                     prev_resname,prev_resnum = str(),0
             if len(nucl_lines) != 0:
-                nucl_lines = self.__fixNultiOcc__(pdb_lines=nucl_lines)
+                nucl_lines = self.__fixMultiOcc__(pdb_lines=nucl_lines)
                 if not nucl_lines[-1].startswith(("TER","END")):
                     self.original_chain_order.append(('nucl',nucl_lines[-1][21]))
                     nucl_lines.append("TER\n")
             if len(prot_lines) != 0:
-                prot_lines = self.__fixNultiOcc__(pdb_lines=prot_lines)           
+                prot_lines = self.__fixMultiOcc__(pdb_lines=prot_lines)           
                 if not prot_lines[-1].startswith(("TER","END")):
                     self.original_chain_order.append(('prot',prot_lines[-1][21]))
                     prot_lines.append("TER\n")
@@ -416,7 +416,7 @@ class PDB_IO:
         print (">>> Renumbering atoms. \n>>> The chain_id and residue number remains same,", infile)
         chain_terminal = list()
 
-        self.__readLnes__(infile=infile)
+        self.__readLines__(infile=infile)
         outfile = ".".join(infile.split(".")[:-1]+["refined"])
         self.refined_pdbfile = outfile+".pdb"
         fout = open(self.refined_pdbfile,"w+")
@@ -455,7 +455,7 @@ class PDB_IO:
     def loadfile(self, infile, refine=True, CBgly=False):
         self.CBgly=CBgly
         if refine: self.pdbfile=self.__refinePDB__(infile=infile)
-        else: self.pdbfile=self.__readLnes__(infile=infile)
+        else: self.pdbfile=self.__readLines__(infile=infile)
         self.__readPDB__()
         return infile
 
@@ -628,7 +628,7 @@ class PDB_IO:
                     
                     prev_chain = res[0]
                 fout.write("END\n")
-                fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
+                fgro.write("%8.3f%8.3f%8.3f\n"%(0,0,0))
                 fgro.close()
 
             if CGlevel["prot"] == 2:
@@ -661,7 +661,7 @@ class PDB_IO:
                         fgro.write(line+"\n")
                         prev_chain = res[0]
                     fout.write("END\n")
-                    fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
+                    fgro.write("%8.3f%8.3f%8.3f\n"%(0,0,0))
                     fgro.close()
 
         if len(self.nucl.lines) != 0:   
@@ -683,7 +683,7 @@ class PDB_IO:
                     fgro.write(line+"\n")
                     prev_chain = res[0]
                 fout.write("END\n")
-                fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
+                fgro.write("%8.3f%8.3f%8.3f\n"%(0,0,0))
                 fgro.close()
             if CGlevel["nucl"] > 1:
                 self.nucl.S = det.get_S_beads(reslist=self.nucl.res,XYZ=self.nucl.xyz,position=nucl_pos["S"])
@@ -729,7 +729,7 @@ class PDB_IO:
                             fgro.write(line+"\n")
                         prev_chain = res[0]
                     fout.write("END\n")
-                    fgro.write("%8.3f%8.3f%8.3f"%(0,0,0))
+                    fgro.write("%8.3f%8.3f%8.3f\n"%(0,0,0))
                     fgro.close()
 
         if len(self.nucl.lines) != 0:
