@@ -1436,8 +1436,15 @@ class OpenSMOGXML:
         self.fxml.write('  <nonbond_bytype>\n')
         if len(expression)==0:
             sd=0.05
-            if func==1: expression="C12(type1,type2)/(r^12) - 2*epsA(type1,type2)*(r0(type1,type2)/r)^6"
-            elif func==2: expression="C12(type1,type2)/(r^12) - 6*epsA(type1,type2)*(r0(type1,type2)/r)^10"
+            assert len(C12)!=0
+            if func==1: 
+                params["C06"]=2*np.float_(epsA)*(np.float_(sig)**6)
+                expression="C12(type1,type2)/(r^12) - C06(type1,type2)/(r^6)"
+                sig,epsA=list(),list()
+            elif func==2: 
+                params["C10"]=6*np.float_(epsA)*(np.float_(sig)**10)
+                expression="C12(type1,type2)/(r^12) - C10(type1,type2)/(r^10)"
+                sig,epsA=list(),list()
             elif func==6: expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
             elif func==7: 
                 expression="epsA(type1,type2)*((1+R12)*(1-G0)*(1-G1)-1); R12=C12(type1,type2)/(r^12)"
@@ -1446,6 +1453,7 @@ class OpenSMOGXML:
         if len(C12)!=0: params["C12"]=C12
         if len(epsA)!=0: params["epsA"]=epsA
         if len(sig)!=0: params["r0"]=sig
+        
         if func==7 and len(sig)!=0:
             params["r0"],params["r1"]=[],[]
             for x in range(len(sig)):
@@ -1669,7 +1677,7 @@ class Topology:
                     if cmap_func!=7: sig[p]=sig[p][0] 
                 func=1
                 if cmap_func ==-1:
-                    if excl_rule==1: c12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    if excl_rule==1: C12 = eps[p]*(((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = eps[p]*((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = 0.0,C12
                 elif cmap_func==1: values = 2*eps[p]*((sig[p])**6),1*eps[p]*((sig[p])**12)
@@ -1677,7 +1685,7 @@ class Topology:
                 elif cmap_func in (5,6,7):
                     assert self.opt.opensmog
                     func,sd = 6,0.05
-                    if excl_rule==1: c12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
+                    if excl_rule==1: C12 = (((self.excl_volume[x]**12)*(self.excl_volume[y]**12))**0.5)
                     elif excl_rule==2: C12 = ((self.excl_volume[x]+self.excl_volume[y])/2.0)**12                
                     values = eps[p],sig[p],sd,C12
                 repul_C12.append(values[-1])
