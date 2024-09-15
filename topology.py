@@ -866,8 +866,12 @@ class MergeTop:
                                     if self.opt.opensmog:
                                         if cmap_func==7:
                                             self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"r0":[0],"r1":[0]})
-                                        else:
+                                        elif cmap_func in (5,6):
                                             self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[-1]],"epsA":[1],"r0":[0]})
+                                        elif cmap_func==2:
+                                            self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[1]],"C10":[values[0]]})
+                                        elif cmap_func==1:
+                                            self.xmlfile.write_nonbond_param_entries(pairs=[(i,j)],params={"C12":[values[1]],"C06":[values[0]]})
                                         continue
                                     fsec.write(" %10s %10s\t %d\t"%(i.center(10),j.center(10),func))
                                     fsec.write(len(values)*" %e"%tuple(values))
@@ -907,8 +911,12 @@ class MergeTop:
                         if self.opt.opensmog:
                             if cmap_func==7:
                                 self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"r0":[sig[p][0]],"r1":[sig[p][1]]})
-                            else:
+                            elif cmap_func in (5,6):
                                 self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[-1]],"epsA":[eps[p]],"r0":[sig[p]]})
+                            elif cmap_func==2:
+                                self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[1]],"C10":[values[0]]})
+                            elif cmap_func==1:
+                                self.xmlfile.write_nonbond_param_entries(pairs=[(x,y)],params={"C12":[values[1]],"C06":[values[0]]})
                             continue
                         fsec.write(" %10s %10s\t %d\t"%(x.center(10),y.center(10),func))
                         fsec.write(len(values)*" %e"%tuple(values))
