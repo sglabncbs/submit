@@ -63,6 +63,7 @@ class Options(Dict):
 	custom_nuc=False
 	control_run=False
 	CB_gly=False
+	mass=dict()
 
 class Constants(Dict):
 	Kb_prot=200.0
@@ -288,23 +289,23 @@ def main():
 	parser.add_argument("--nucl_cg", "-nucl_cg", type=int, help="Level of Amino-acid coarse-graining 1 for P-only, 3 for P-S-B, 5 for P-S-3B. Dafault: 3 (P-S-B)")
 
 	#protein CG paramters
-	parser.add_argument("--CA_rad","-CA_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-alpha (same for all beads) in Angstrom. Default: 1.9 Å")
-	parser.add_argument("--CA_com","-CA_com",action="store_true",help="Place C-alpha at COM of backbone. Default: False")
-	parser.add_argument("--CB_rad","-CB_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-beta (same for all beads) in Angstrom. Default: 1.5 Å")
-	parser.add_argument("--CB_radii","-CB_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
-	parser.add_argument("--CB_com","-CB_com", action="store_true", default=False,help="Put C-beta at side-chain COM. Default: False")
-	parser.add_argument("--CB_far", "-CB_far", action="store_true", help="Place C-beta on farthest non-hydrogen atom. Default: False")
-	parser.add_argument("--CB_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality (CAi-1:CAi+1:CAi:CBi). Default: False")
-	parser.add_argument("--CB_gly","--CB_GLY","-CB_gly","-CB_GLY",action="store_true",default=False,help="Add C-beta for glycine (pdb-file must have H-atoms). Default: Flase")
+	parser.add_argument("--CA_rad","-CA_rad","--ca_rad","-ca_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-alpha (same for all beads) in Angstrom. Default: 1.9 Å")
+	parser.add_argument("--CA_com","-CA_com","--ca_com","-ca_com",action="store_true",help="Place C-alpha at COM of backbone. Default: False")
+	parser.add_argument("--CB_rad","-CB_rad","--cb_rad","-cb_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-beta (same for all beads) in Angstrom. Default: 1.5 Å")
+	parser.add_argument("--CB_radii","-CB_radii","--cb_radii","-cb_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
+	parser.add_argument("--CB_com","-CB_com","--cb_com","-cb_com", action="store_true", default=False,help="Put C-beta at side-chain COM. Default: False")
+	parser.add_argument("--CB_far", "-CB_far","--Cb_far", "-Cb_far", action="store_true", help="Place C-beta on farthest non-hydrogen atom. Default: False")
+	parser.add_argument("--CB_chiral","-CB_chiral","--cb_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality (CAi-1:CAi+1:CAi:CBi). Default: False")
+	parser.add_argument("--CB_gly","--cb_gly","-CB_gly","-cb_gly",action="store_true",default=False,help="Add C-beta for glycine (pdb-file must have H-atoms). Default: Flase")
 	#RNA/DNA CG paramters
-	parser.add_argument("--P_rad","-P_rad", type=float, help="User defined radius for Backbone Phosphate bead. Default= 1.9 Å")
-	parser.add_argument("--S_rad","-S_rad", type=float, help="User defined radius for Backbone Sugar bead. Default= 1.9 Å")
-	parser.add_argument("--Bpu_rad","-Bpu_rad", type=float, help="User defined radius for N-Base Purine bead. Default=1.5 Å")
-	parser.add_argument("--Bpy_rad","-Bpy_rad", type=float, help="User defined radius for N-Base Pyrimidine bead. Default=1.5 Å")
-	parser.add_argument("--Bpu_pos","-Bpu_pos", help="Put input atom of Purine [N1,C2,H2-N2,N3,C4,C5,C6,O6-N6,N7,C8,N9,COM] as position of B. Default=COM(Center_of_Mass)")
-	parser.add_argument("--Bpy_pos","-Bpy_pos", help="Put input atom of Pyrimidine [N1,C2,O2,N3,C4,O4-N4,C5,C6,COM] as position of B. Default=COM(Center_of_Mass)")
-	parser.add_argument("--S_pos"  ,"-S_pos"  , help="Put input atom of Sugar [C1',C2',C3',C4',C5',H2'-O2',O3',O4',O5',COM] as position of S. Default=COM(Center_of_Mass)")
-	parser.add_argument("--P_pos"  ,"-P_pos"  , help="Put input atom of Phosphate [P,OP1,OP2,O5',COM] group as position of P. Default=COM(Center_of_Mass)")
+	parser.add_argument("--P_rad","-P_rad","--p_rad","-p_rad", type=float, help="User defined radius for Backbone Phosphate bead. Default= 1.9 Å")
+	parser.add_argument("--S_rad","-S_rad","--s_rad","-s_rad", type=float, help="User defined radius for Backbone Sugar bead. Default= 1.9 Å")
+	parser.add_argument("--Bpu_rad","-Bpu_rad","--bpu_rad","-bpu_rad", type=float, help="User defined radius for N-Base Purine bead. Default=1.5 Å")
+	parser.add_argument("--Bpy_rad","-Bpy_rad","--bpy_rad","-bpy_rad", type=float, help="User defined radius for N-Base Pyrimidine bead. Default=1.5 Å")
+	parser.add_argument("--Bpu_pos","-Bpu_pos","--bpu_pos","-bpu_pos", help="Put input atom of Purine [N1,C2,H2-N2,N3,C4,C5,C6,O6-N6,N7,C8,N9,COM] as position of B. Default=COM(Center_of_Mass)")
+	parser.add_argument("--Bpy_pos","-Bpy_pos","--bpy_pos","-bpy_pos", help="Put input atom of Pyrimidine [N1,C2,O2,N3,C4,O4-N4,C5,C6,COM] as position of B. Default=COM(Center_of_Mass)")
+	parser.add_argument("--S_pos"  ,"-S_pos","--s_pos"  ,"-s_pos", help="Put input atom of Sugar [C1',C2',C3',C4',C5',H2'-O2',O3',O4',O5',COM] as position of S. Default=COM(Center_of_Mass)")
+	parser.add_argument("--P_pos"  ,"-P_pos","--p_pos"  ,"-p_pos", help="Put input atom of Phosphate [P,OP1,OP2,O5',COM] group as position of P. Default=COM(Center_of_Mass)")
 
 	#protein ff paramters
 	parser.add_argument("--Kb_prot","-Kb_prot","--Kb","-Kb", type=float, help="User defined force constant K_bond for Proteins. Default: 200.0 ε/Å^2 (ε = 1KJ/mol)")
@@ -362,6 +363,7 @@ def main():
 	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
 	parser.add_argument('--mjparams',"-mjparams", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
 	parser.add_argument("--interface","-interface", help='User defined multimer interface nonbonded params. Format atype1 atype2 eps sig(A)')
+	parser.add_argument("--cg_mass","-cg_radii",action="store_true", help="User defined CG bead masses from cgmass.dat (atype mas in au). Default: False")
 	#electrostatic
 	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic interactions.")
 	parser.add_argument("--debye_length","-debye_length", type=float, help="Debye length. in (Å)")
@@ -406,6 +408,7 @@ def main():
 	Nmol={"prot":[1],"nucl":[1]}
 	rad=dict()	 
 
+
 	#Set default parameters for proteins
 	#For preteins
 	
@@ -431,6 +434,7 @@ def main():
 	charge.P=False
 	excl_rule=1
 	uniqtype=False
+	CG_mass=False
 
 	#default position
 	nucl_pos=dict()
@@ -859,6 +863,10 @@ def main():
 	else:
 		aa_resi=Prot_Data().amino_acid_dict
 		rad.update({"CB"+aa_resi[x]:rad["CB"] for x in aa_resi})
+
+	if args.cg_mass:
+		CG_mass=True
+		opt.mass.update({l.split()[0]:float(l.split()[1]) for l in open("cgmass.dat") if l.strip()!=str() and not l.strip().startswith("#")})
 
 	#rad adding nucl rads
 	rad.update({"B"+b:rad["Bpu"] for b in "AG" if "B"+b not in rad})

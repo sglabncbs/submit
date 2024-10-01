@@ -433,6 +433,7 @@ class Preprocess:
             with open(infile) as fin:
                 for line in fin:
                     line = line.split()
+                    if len(line)==0: continue
                     c1,a1,c2,a2 = line[:4]
                     a1,a2 = np.int_([a1,a2])-1
                     if c1!=c2 and c2.startswith("nucl"):
@@ -1572,7 +1573,7 @@ class Topology:
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
-        self.mass=1.0
+        self.mass=opt.mass
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -1832,7 +1833,8 @@ class Topology:
                     if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
                     if atype=="CB": atype+=seq[seqcount][rescount]
                     if atype not in Q: Q[atype] = 0
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass))
+                    if atype not in self.mass: self.mass[atype]=1.00
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass[atype]))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
@@ -1866,7 +1868,8 @@ class Topology:
                     if atype.endswith("'"): atype="S"+codon
                     elif atype.startswith("N"): atype="B"+codon
                     if atype not in Q: Q[atype] = 0
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass))
+                    if atype not in self.mass: self.mass[atype]=1.00
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass[atype]))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
         return
