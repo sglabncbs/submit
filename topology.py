@@ -2128,7 +2128,6 @@ class Topology:
         Kd_bb = float(self.fconst.Kd_nucl["bb"])
         Kd_sc = float(self.fconst.Kd_nucl["sc"])
         mfac = float(self.fconst.Kd_nucl["mf"])
-
         phase = 180
 
         fout.write("\n%s\n"%("[ dihedrals ]"))
@@ -2154,7 +2153,7 @@ class Topology:
                 quads,diheds=np.int_(temp_q),np.float_(temp_d)
                 self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
                             expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
-                            params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
+                            params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
             del(temp_d,temp_q)
             return
         
