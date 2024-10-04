@@ -516,6 +516,8 @@ def main():
 		charge.dielec=80		# dielec constant
 		opt.nbshift=True        # Use potential shift for nonbond interactions
 		opt.P_stretch=False	
+		opt.Kd_nucl["bb"]=0.9
+		opt.Kd_nucl["sc"]=1.5
 
 	if args.dlprakash:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
