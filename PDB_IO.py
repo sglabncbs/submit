@@ -232,7 +232,7 @@ class PDB_IO:
         self.prot = Prot_Data()
         self.nucl.pdbfile = ""
         self.prot.pdbfile = ""
-        self.refined_pdbfile = ""
+        self.renum_pdbfile = ""
         self.pdbfile = '"'
         self.nucl.xyz, self.nucl.res, self.nucl.atn, self.nucl.ter, self.nucl.cid, self.nucl.deoxy = [],[],[],[],[],[]
         self.prot.xyz, self.prot.res, self.prot.atn, self.prot.ter, self.prot.cid = [],[],[],[],[]
@@ -370,7 +370,8 @@ class PDB_IO:
                 infile=self.__gro2pdbLines__(infile)
             elif infile.endswith("cif"):
                 print (">> Converting input mmCIF file to PDB")
-                infile=self.__cif2pdbLines__(infile)
+                try: infile=self.__cif2pdbLines__(infile)
+                except: infile=self.__cif2pdbLines__(infile,A_or_L="label")
             else: 
                 print ("Error! Only .gro, .pdb and .cif structure files are supported.")
                 exit()
@@ -412,14 +413,14 @@ class PDB_IO:
         self.prot.lines = prot_lines
         return infile
 
-    def __refinePDB__(self,infile):
+    def __renumberPDB__(self,infile):
         print (">>> Renumbering atoms. \n>>> The chain_id and residue number remains same,", infile)
         chain_terminal = list()
 
         self.__readLines__(infile=infile)
-        outfile = ".".join(infile.split(".")[:-1]+["refined"])
-        self.refined_pdbfile = outfile+".pdb"
-        fout = open(self.refined_pdbfile,"w+")
+        outfile = ".".join(infile.split(".")[:-1]+["renum"])
+        self.renum_pdbfile = outfile+".pdb"
+        fout = open(self.renum_pdbfile,"w+")
         atcount,last_count = 0,0
         nucl_lines,prot_lines = [],[]
         if len(self.nucl.lines) != 0:
@@ -452,15 +453,15 @@ class PDB_IO:
             self.prot.lines = prot_lines
         return outfile+".pdb"
 
-    def loadfile(self, infile, refine=True, CBgly=False):
+    def loadfile(self, infile, renumber=True, CBgly=False):
         self.CBgly=CBgly
-        if refine: self.pdbfile=self.__refinePDB__(infile=infile)
+        if renumber: self.pdbfile=self.__renumberPDB__(infile=infile)
         else: self.pdbfile=self.__readLines__(infile=infile)
         self.__readPDB__()
         return infile
 
-    def __call__(self, infile, refine=True):
-        self.loadfile(infile=infile,refine=refine)
+    def __call__(self, infile, renumber=True):
+        self.loadfile(infile=infile,renumber=renumber)
 
     def coordinateTransform(self):
         #when a custom nucleic acid structure is added to the pdb,
@@ -776,7 +777,7 @@ class PDB_IO:
                             if line[12:16].strip()=="CA": checkres[(c,r)]+=1
                     if sum(checkres.values())==len(checkres): break
 
-        self.pdbfile=self.__refinePDB__(infile=outpdb)
+        self.pdbfile=self.__renumberPDB__(infile=outpdb)
         self.__readPDB__()
         #if stype=="prot": self.prot.res=[tuple([index]+list(x[1:])) for x in self.prot.res]
         #if stype=="nucl": self.nucl.res=[tuple([index]+list(x[1:])) for x in self.nucl.res]
@@ -849,7 +850,7 @@ class PDB_IO:
                 fout.write("TER\n")
                 chain_count+=1
                 ca_xyz = ca_xyz + np.float_([50,0,0])
-        self.pdbfile=self.__refinePDB__(infile=outpdb)
+        self.pdbfile=self.__renumberPDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb
     

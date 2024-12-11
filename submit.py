@@ -119,12 +119,12 @@ class CleanUP:
 		self.coulomb=coulomb
 		self.enrgrps=enrgrps
 		self.createDir()
-		#self.delFiles(f_suffix="refined.pdb")
-		self.delFiles(f_suffix="refined.nucl.pdb")
-		self.delFiles(f_suffix="refined.prot.pdb")
-		self.moveFiles(f_suffix=".pdb",f_middle=".refined.",out_subdir="RefinedPDB_CMap")
-		self.moveFiles(f_suffix=".fa.pdb",out_subdir="RefinedPDB_CMap")
-		self.moveFiles(f_suffix="cont",out_subdir="RefinedPDB_CMap")
+		#self.delFiles(f_suffix="renum.pdb")
+		self.delFiles(f_suffix="renum.nucl.pdb")
+		self.delFiles(f_suffix="renum.prot.pdb")
+		self.moveFiles(f_suffix=".pdb",f_middle=".renum.",out_subdir="RenumberedPDB_CMap")
+		self.moveFiles(f_suffix=".fa.pdb",out_subdir="RenumberedPDB_CMap")
+		self.moveFiles(f_suffix="cont",out_subdir="RenumberedPDB_CMap")
 		self.moveFiles(f_suffix=grosuffix,out_subdir="GRO_TOP_XML")
 		if not gen_cg:
 			self.moveFiles(f_suffix=topsuffix,out_subdir="GRO_TOP_XML")
@@ -142,7 +142,7 @@ class CleanUP:
 			self.genbox(grosuffix=grosuffix,topsuffix=topsuffix,box_width=box_width,gen_cg=gen_cg)	
 
 	def createDir(self):
-		os.makedirs("SuBMIT_Output/RefinedPDB_CMap",exist_ok=True)
+		os.makedirs("SuBMIT_Output/RenumberedPDB_CMap",exist_ok=True)
 		os.makedirs("SuBMIT_Output/GRO_TOP_XML",exist_ok=True)
 		os.makedirs("SuBMIT_Output/model_params",exist_ok=True)
 		os.makedirs("SuBMIT_Output/Tables",exist_ok=True)
@@ -912,8 +912,8 @@ def main():
 	if args.P_stretch: opt.P_stretch=True
 
 	#Force constants
-	if args.Kb_nucl: fconst.Kb_nucl=float(args.nKb)
-	if args.Ka_nucl: fconst.Ka_nuck=float(args.nKa)
+	if args.Kb_nucl: fconst.Kb_nucl=float(args.Kb_nucl)
+	if args.Ka_nucl: fconst.Ka_nucl=float(args.Ka_nucl)
 	if args.Kd_sc_nucl: fconst.Kd_nucl["sc"]=float(args.Kd_sc_nucl)
 	if args.Kd_bb_nucl: fconst.Kd_nucl["bb"]=float(args.Kd_bb_nucl)
 	if args.mulfac_nucl:fconst.Kd_nucl["mf"]=float(args.mulfac_nucl)
@@ -940,12 +940,12 @@ def main():
 		nfiles=len(args.aa_pdb)
 		for i in range(nfiles):
 			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
-			pdbdata[-1].loadfile(infile=args.aa_pdb[i],refine=True,CBgly=CB_gly)
+			pdbdata[-1].loadfile(infile=args.aa_pdb[i],renumber=True,CBgly=CB_gly)
 	elif args.cg_pdb: 
 		nfiles=len(args.cg_pdb)
 		for i in range(nfiles):
 			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
-			pdbdata[-1].loadfile(infile=args.cg_pdb[i],refine=True,CBgly=CB_gly)
+			pdbdata[-1].loadfile(infile=args.cg_pdb[i],renumber=True,CBgly=CB_gly)
 	else:
 		pdbdata=[PDB_IO()]
 		if args.idp_seq:
@@ -965,7 +965,7 @@ def main():
 		opt.custom_nuc=True
 		if args.custom_nuc:
 			custom_nucl_file=PDB_IO()
-			custom_nucl_file.loadfile(infile=args.custom_nuc,refine=True,CBgly=CB_gly)
+			custom_nucl_file.loadfile(infile=args.custom_nuc,renumber=True,CBgly=CB_gly)
 			assert len(pdbdata)==1, \
 				"Error: --custom_nuc file is only supported with single --aa_pdb/--cg_pdb. \
 				Give your RNA/DNA file directly to --aa_pdb/--cc_pdb."

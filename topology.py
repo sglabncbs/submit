@@ -2295,8 +2295,8 @@ class Topology:
             fileindex=[str(i),str()][int(nfiles==1)]
             Data.append(Preprocess(aa_pdb=self.allatomdata[i],pdbindex=fileindex))
             if len(self.allatomdata[i].prot.lines) > 0 and self.CGlevel["prot"] in (1,2):
-                if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata[i].prot.bb_file,refine=False)
-                elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata[i].prot.sc_file,refine=False)
+                if self.CGlevel["prot"]==1: cgpdb.loadfile(infile=self.allatomdata[i].prot.bb_file,renumber=False)
+                elif self.CGlevel["prot"]==2: cgpdb.loadfile(infile=self.allatomdata[i].prot.sc_file,renumber=False)
                 prot_topfile = "prot%s_%s"%(fileindex,outtop)
                 if self.opt.opensmog: self.prot_xmlfile=OpenSMOGXML(xmlfile="prot%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge,nbshift=self.opt.nbshift)
                 with open(prot_topfile,"w+") as ftop:
@@ -2318,8 +2318,8 @@ class Topology:
                     Data[i].cgpdb_p=proc_data_p.cgpdb
                 if self.opt.opensmog: del self.prot_xmlfile
             if len(self.allatomdata[i].nucl.lines) > 0 and self.CGlevel["nucl"] in (1,3,5):
-                if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata[i].nucl.bb_file,refine=False)
-                elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata[i].nucl.sc_file,refine=False)
+                if self.CGlevel["nucl"]==1: cgpdb.loadfile(infile=self.allatomdata[i].nucl.bb_file,renumber=False)
+                elif self.CGlevel["nucl"] in (3,5): cgpdb.loadfile(infile=self.allatomdata[i].nucl.sc_file,renumber=False)
                 nucl_topfile = "nucl%s_%s"%(fileindex,outtop)
                 if self.opt.opensmog: self.nucl_xmlfile=OpenSMOGXML(xmlfile="nucl%s_%s"%(fileindex,self.opt.xmlfile),coulomb=charge,nbshift=self.opt.nbshift)
                 with open(nucl_topfile,"w+") as ftop:
