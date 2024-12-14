@@ -5,11 +5,11 @@
  
 ## *Examples*. 
 ### Model presets allows user to auto-select parameters based on predefined models. </br>
-### 1. CA-SBM (Clementi 2000) 
+### 1. CA-SBM (Clementi et al., 2000. https://doi.org/10.1006/jmbi.2000.3693) 
  ```
  $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]   
  ```
-### 2. CA-CB SOP-SC model (Reddy 2017) 
+### 2. CA-CB SOP-SC model (Reddy and Thirumalai, 2017. https://doi.org/10.1021/acs.jpcb.6b13100) 
  ```
  $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] 
  ```
@@ -17,7 +17,7 @@
  ```
  $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file] 
  ```
-### 3. CA-CB SOP-SC-IDP model (Baidya 2022) 
+### 3. CA-CB SOP-SC-IDP model (Baidya and Reddy, 2022. https://doi.org/10.1021/acs.jpclett.2c01972) 
  ```
  $ python submit.py --aa_pdb/--cg__pdb [template AA/CG .pdb file]  
  ```
@@ -25,11 +25,11 @@
  ```
  $ python submit.py --baidya2022 --idp_seq [IDP sequence .fa file] 
  ```
-### 4. CA-CB SOP-SC-MULTI model (Baratam 2024) 
+### 4. CA-CB SOP-SC-MULTI model (Baratam and Srivastava, 2024.https://doi.org/10.1021/acs.jctc.4c00579) 
  ```
  $ python submit.py --baratam2024 --idp_seq [IDP sequence .fa file (see models/baratam2024/example.fa)] 
  ```
-### 5. CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal 2019) 
+### 5. CA-CB Protein+RNA/DNA model with DH-electrostatics (Pal and Levy, 2019. https://doi.org/10.1371/journal.pcbi.1006768) 
  ```
  $ python submit.py --pal2019 --aa_pdb [protein All-atom .pdb file] --custom_nuc [RNA/DNA all-atom .pdb file] 
  ```
@@ -79,8 +79,8 @@
                         10.1021/acs.jpclett.2c01972
   --baratam2024, -baratam2024, --sop_multi, -sop_multi
                         Baratam & Srivastava 2024 SOP-MULTI CA-CB.
-                        10.1101/2024.04.29.591764
-  --sop_idr, -sop_idr   Reddy-Thiruamalai(SOPSC) + Baidya-Reddy(SOPIDP) hybrid
+                        10.1021/acs.jctc.4c00579
+  --sop_idr, -sop_idr   Reddy-Thirumalai(SOPSC) + Baidya-Reddy(SOPIDP) hybrid
                         CA-CB
   --banerjee2023, -banerjee2023, --selfpeptide, -selfpeptide
                         Banerjee & Gosavi 2023 Self-Peptide model.
