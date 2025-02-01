@@ -56,6 +56,8 @@
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000
                         Clementi et. al. 2000 CA-only model.
                         10.1006/jmbi.2000.3693
+  --afsar2008, -afsar2008, --chan2008, -chan2008
+                        Zarrine-Afsar et. al. 2008 CA-only + hydrophobic model with . 10.1073/pnas.0801874105
   --azia2009, -azia2009, --levy2009, -levy2009
                         Azia 2009 CB-CA + Debye-Huckel model.
                         10.1016/j.jmb.2009.08.010
