@@ -56,7 +56,10 @@ class Options(Dict):
 	P_stretch=False
 	codon_pairs=False
 	interactions="interactions.dat"
+	CAX=False
 	hphobic=False
+	CA_hp=False
+	CB_hp=False
 	nonbond=False
 	interface=False
 	dsb=False
@@ -256,6 +259,7 @@ def main():
 	
 	#Predefined Models
 	parser.add_argument("--clementi2000","-clementi2000","--calpha_go2000","-calpha_go2000",action="store_true",help="Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
+	parser.add_argument("--afsar2008","-afsar2008","--chan2008","-chan2008",action="store_true",help="Zarrine-Afsar et. al. 2008 CA-only + hydrophobic model with . 10.1073/pnas.0801874105")
 	parser.add_argument("--azia2009","-azia2009","--levy2009","-levy2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model. 10.1016/j.jmb.2009.08.010")
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model. 10.1371/journal.pcbi.1006768")
 	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB. 10.1021/acs.jpcb.6b13100")
@@ -314,7 +318,7 @@ def main():
 	parser.add_argument("--Kd_sc_prot","-Kd_sc_prot","--Kd_chiral","-Kd_chiral", type=float, help="User defined force constant K_dihedral for Proteins. Default: Use Ka_prot value")
 	parser.add_argument("--mulfac_prot","-mulfac_prot", type=float, help="User defined Multiplicity scaling factor of K_dihedral/mulfac_prot for Proteins. Default: 2")
 	parser.add_argument("--Kr_prot", "-Kr_prot", type=float, help="Krepulsion. Default=1.0 ε")
-	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for large systems)")
+	parser.add_argument("--uniqtype","-uniqtype",action="store_true",help="Each atom has unique atom type (only use for small systems)")
 	parser.add_argument("--bfunc","-bfunc", type=int, help="Bond function 1: harnomic. Default: 1 (Harmonic)")
 	#RNA/DNA ff paramters
 	parser.add_argument("--Kb_nucl","-Kb_nucl","--nKb","-nKb", type=float, help="User defined force constant K_bond for RNA/DNA. Default: 200.0 ε/Å^2 (ε = 1KJ/mol)")
@@ -371,6 +375,9 @@ def main():
 	parser.add_argument("--CA_charge","-CA_charge", action='store_true', default=False, help='Put charges on CA for K,L,H,D,E. Default: False')
 	parser.add_argument("--CB_charge","-CB_charge", action='store_true', default=False, help='Put charges on CB for K,L,H,D,E. Default: False')
 	parser.add_argument("--P_charge","-P_charge", action='store_true', default=False, help='Negative charge on Phosphate bead. Default: False')
+	parser.add_argument("--hphobic","-hphobic", action='store_true', default=False, help='Nake CA or CB hydrophobic for A,V,I,L,M,W,F,Y. Default: False')
+	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact. Default: 0.8 ε')
+	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts. Default: 5.0 Å')
 	parser.add_argument("--PPelec","-PPelec", action='store_true', default=False, help='Add electrostatic repulsions for  Phosphate-Phosphate beads. Default: False')
 	parser.add_argument("--iconc","-iconc", type=float, help="Solvent ion conc.(N) for Debye length calcluation. Default: 0.1 M")  
 	parser.add_argument("--irad","-irad", type=float, help="Solvent ion rad for Debye length calcluation. Default: 1.4 Å")  
@@ -379,9 +386,6 @@ def main():
 	#disabled for now
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
 	parser.add_argument("--sym_intra","--sym_intra", action='store_true', default=False, help='Intra-chain Symmetrised SBM is generated.')
-	parser.add_argument('--hphobic',"-hphobic",action='store_true',help='Generate hydrophobic contacts.')
-	parser.add_argument('--hpstrength',"-hpstrength",help='Strength with which hydrophobic contacts interact. Default: 1.0 ε')
-	parser.add_argument('--hpdist', "-hpdist", help='Equilibrium distance for hydrophobic contacts. Default: 5.0 Å')
 	#parser.add_argument("--dsb", "-dsb",action='store_true', help="Use desolvation barrier potential for contacts. Default: False")
 	parser.add_argument("--custom_nuc","-custom_nuc", help='Use custom non native DNA/RNA structure Eg.: polyT.pdb. Default: Use from native structure')
 	parser.add_argument("--control", action='store_true', help='Use the native system as control. Use DNA/RNA bound to native protein site. --custom_nuc will be disabled. Default: False (Move DNA/RNA away from native binding site)')
@@ -456,6 +460,21 @@ def main():
 		prot_contmap.cutoff=4.5	# 4.5 A
 		prot_contmap.cutofftype=1	# all-atom contacts mapped to CG
 		prot_contmap.contfunc=2	# LJ 10-12
+
+	if args.afsar2008:
+		print (">>> Using Zarrine-Afsar et. al. 2008 CA-only + hydrophobic model with . 10.1073/pnas.0801874105")
+		assert args.aa_pdb, "Error no pdb input --aa_pdb"
+		#fixed params can't be overwritten
+		CGlevel["prot"]=1		# CA_only	
+		CGlevel["nucl"]=0		# No RNA/DNA
+		rad["CA"]=2.0			# 4.0 A excl vol rad
+		prot_contmap.W=False			# not weighted 
+		prot_contmap.cutoff=4.5	# 4.5 A
+		prot_contmap.cutofftype=1	# all-atom contacts mapped to CG
+		prot_contmap.contfunc=2	# LJ 10-12
+		opt.hphobic=True
+		nonbond_function=7
+		args.opensmog=True
 
 	if args.pal2019:
 		print (">>> Using Pal & Levy 2019 model. 10.1371/journal.pcbi.1006768")
@@ -705,9 +724,8 @@ def main():
 
 	""" Work in progress """
 
-	assert not (args.hpstrength or args.hphobic or args.hpdist or args.hpdist),\
+	assert not args.uniqtype,\
 		"Sorry, these options are still not implemented"
-
 	"""####"""
 
 	if args.uniqtype: uniqtype=True
@@ -838,13 +856,37 @@ def main():
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		CB_chiral=True
 
-	if args.CA_charge: charge.CA=True
+	if args.CA_charge: 
+		assert CGlevel["prot"] != 2, ("ERROR. charge on CA is ont supported for CA+CB graining")
+		charge.CA=True
 	if args.CB_charge:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
 		charge.CB=True
 	if args.P_charge: 
 		charge.P=True
 		if args.PPelec: charge.PP=True
+
+	
+	if args.hphobic or args.hpdist or args.hpstrength:
+		if not args.hphobic: print ("WARNING! Hydrophobic parameters given without using --hphobic. Turing --hphobic ON for the given CG-level")
+		opt.hphobic=True
+	if opt.hphobic:
+		if CGlevel["prot"]==1: opt.CA_hp=True
+		elif CGlevel["prot"]==2: opt.CB_hp=True
+	if opt.hphobic: 
+		print (">>> Using non-native hydrophobic interactions with --nbfunc %d"%nonbond_function)
+		if nonbond_function!=7 or not args.opensmog:
+			input("WARNING!. Using non-native hydrophobic interactions with LJ-like potential might cause problems. Try Gaussian non-bonded interactions with OpenMOG instead  (--nbfunc 7 --opensmog). Press [enter] to contuue or ctrl+C to abort.")
+		if args.hpdist: hpdist=float(args.hpdist)
+		else: hpdist=5.0	#A
+		if args.hpstrength: hpstrength=float(args.hpstrength)
+		else: hpstrength=0.8	
+		opt.nonbond=True
+		with open("interactions.nonbond.dat","w+") as fout:
+			fout.write("#a1 a1 eps sig(A)\n")
+			for a1 in "FAMILYVW":
+				for a2 in "FAMILYVW":
+					fout.write("CB%s CB%s %.2f %.2f\n"%(a1,a2,hpstrength,hpdist))
 
 	if args.CA_com:CA_com=True
 
@@ -857,6 +899,15 @@ def main():
 			print (">>> C-beta radius given via user input. Storing in radii.dat")
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CB"]))
 		CB_radii=True	#Read CB radius from radii.dat	
+
+	if charge.CA or opt.CA_hp:
+		print (">>> Adding non-native potential for CA. Creating residue wise CA-types (refered as CBX)")
+		opt.CAX=True		
+		aa_resi=Prot_Data().amino_acid_dict
+		with open("radii.dat","w+") as fout:
+			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CA"]))
+		CB_radii=True
+		if charge.CA: charge.CB=True
 
 	if CB_radii:
 		aa_resi=Prot_Data().amino_acid_dict
@@ -879,13 +930,7 @@ def main():
 	for x in rad: rad[x]=np.round(0.1*rad[x],3)
 
 	#if args.dsb: dsb=True
-	if args.hphobic: 
-		hphobic=True
-		if args.hpdist: hpdist=args.hpdist
-		else: hpdist=5.5
-		if args.hpstrength: hpstrength=args.hpstrength
-		else: hpstrength=1
-	
+
 	if args.CB_far:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted from only-CA model. Ignoring all C-beta parameters.")
 		CB_com=False
@@ -1060,6 +1105,9 @@ def main():
 	if not args.gen_cg:				
 		if args.clementi2000:
 			top=Clementi2000(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.afsar2008:
+			top=ZarrineAfsar2008(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		elif args.pal2019 or args.dlprakash:
 			if nucl_contmap.type==-1: top=Pal2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

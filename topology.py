@@ -1600,20 +1600,25 @@ class Topology:
         #1:CA model or 2:CA+CB model
         fout.write('%s\n'%("[ atomtypes ]"))
         fout.write(6*"%s".ljust(5)%("; name","mass","charge","ptype","C6(or C10)","C12"))
+        fout.write("\n")
         CB_gly=self.opt.CB_gly
+        CAX=self.opt.CAX
         if len(data.CA_atn) != 0:
             assert type<=2
-            self.excl_volume["CA"] = 2*rad["CA"]
-            C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
-            fout.write("\n %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
-            if type == 2:
+            if not CAX:
+                self.excl_volume["CA"] = 2*rad["CA"]
+                C12 = self.fconst.Kr_prot*(2*rad["CA"])**12.0
+                fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%("CA".ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CA"))
+            if type == 2 or CAX:
                 for s in seq:
                     bead = "CB"+s
+                    temp_id=("CB","CA")[int(CAX)]
                     if bead in self.excl_volume or s == " ": continue
-                    if s=="G" and not CB_gly: continue
+                    if temp_id=="CA" and bead not in rad: rad[bead]=rad["CA"]
+                    if s=="G" and not CB_gly and not CAX: continue
                     C12 = self.fconst.Kr_prot*(2*rad[bead])**12.0
                     self.excl_volume[bead] = 2*rad[bead]
-                    fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,"CB"))
+                    fout.write(" %s %8.3f %8.3f %s %e %e; %s\n"%(bead.ljust(4),1.0,0.0,"A".ljust(4),0,C12,temp_id))
         return 
     
     def write_nucleicacid_atomtypes(self,fout,type,rad,seq,data):
@@ -1832,6 +1837,7 @@ class Topology:
                     atype=atname
                     if resnum !=prev_resnum: prev_resnum,rescount=resnum,1+rescount
                     if atype=="CB": atype+=seq[seqcount][rescount]
+                    if self.opt.CAX: atype="CB"+seq[seqcount][rescount]
                     if atype not in Q: Q[atype] = 0
                     if atype not in self.mass: self.mass[atype]=1.00
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass[atype]))
@@ -2358,6 +2364,10 @@ class Topology:
         return 0
 
 class Clementi2000(Topology):
+    def __del__(self):
+        pass
+
+class ZarrineAfsar2008(Topology):
     def __del__(self):
         pass
 
