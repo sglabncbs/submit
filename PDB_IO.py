@@ -855,15 +855,14 @@ class PDB_IO:
         return outpdb
     
 class Fill_Box:
-    def __init__(self,radii,box_width,outgro,order) -> None:
+    def __init__(self,radii,box_width,voxel_width,outgro,order) -> None:
         self.max_excl=2*max(radii.values())
         self.box_width=0.1*box_width # A to nm
         self.nmol=[n for f,n in order]
         self.infiles=[f for f,n in order]
         self.gro_data,self.gro_xyz,self.diam=[],[],[]
         self.get_gro_data()
-        golden_ratio=1.618
-        self.voxel=golden_ratio
+        self.voxel=voxel_width
         self.trans_vec = dict()
         self.sorted_item_size=self.sort_by_size()
         self.status=self.check_min_space()
@@ -912,7 +911,8 @@ class Fill_Box:
     def get_grid(self):
         space,min_size=self.box_width,self.voxel #min(self.diam)
         grid,cell_width=np.linspace(0, space, num=math.floor(space/min_size), endpoint=False, retstep=True)
-        print (self.voxel,cell_width,self.diam)
+        #print ("Voxel width %.3f"%cell_width)
+        #print ("Molecule-width list:",self.diam)
         grid_3D=self.gridofy(grid,grid,grid) 
         return (grid_3D, round(cell_width,3))
 

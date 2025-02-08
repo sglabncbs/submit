@@ -119,7 +119,10 @@
   --outgro OUTGRO, -outgro OUTGRO
                         Name for output .gro file.(tool adds prefix nucl_ and
                         prot_ for independednt files). Default: gromacs.gro
-  --box BOX, -box BOX   Width of a periodic cubic box. Default: 500.0 Å
+  --box BOX, -box BOX   Width of the cubic simulation box. Default: 500.0 Å. Use 0 for no box.
+  --voxel VOXEL, -voxel VOXEL, --box_cell VOXEL, -box_cell VOXEL
+                        Width of the minimal cubic volume unit, used to fill the simulation box.
+                        Default: 1.618 Å
   --outxml OUTXML, -outxml OUTXML
                         Name for output .xml (openSMOG) file.(tool adds prefix
                         nucl_ and prot_ for independednt files). Default:

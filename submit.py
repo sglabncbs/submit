@@ -283,7 +283,8 @@ def main():
 	parser.add_argument("--gen_cg","-gen_cg",action='store_true', help="Only Generate CG structure without generating topology .top/.xml files")
 	parser.add_argument("--outtop","-outtop",help='Gromacs topology file output name (tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.top')
 	parser.add_argument("--outgro","-outgro", help='Name for output .gro file.(tool adds prefix nucl_  and prot_ for independednt files). Default: gromacs.gro')
-	parser.add_argument("--box","-box", help='Width of a periodic cubic box. Default: 500.0 Å. Use 0 for no box.')
+	parser.add_argument("--box","-box", help='Width of the cubic simulation box. Default: 500.0 Å. Use 0 for no box.')
+	parser.add_argument("--voxel","-voxel","--box_cell","-box_cell", help='Width of the minimal cubic volume unit, used to fill the simulation box. Default: 1.618 Å')
 	parser.add_argument("--outxml","-outxml", help='Name for output .xml (openSMOG) file.(tool adds prefix nucl_  and prot_ for independednt files). Default: opensmog.xml (and opensmog.top)')
 	parser.add_argument("--opensmog", "-opensmog",action='store_true', help="Generate files ,xml and .top files for openSMOG. Default: False")
 	parser.add_argument("--dihed2xml", "-dihed2xml",action='store_true', help="Write torsions to opensmog xml. Adds conditon for angle->n*pi. Only supported for OpensMOGmod:https://github.com/sglabncbs/OpenSMOGmod. Default: False")
@@ -1061,6 +1062,10 @@ def main():
 		#assert float(args.box)>0
 		box_width=float(args.box)
 	else: box_width=500.0
+	if args.voxel:
+		assert float(args.voxel)>0, "Error, voxel width cannot be <=0."
+		voxel_width=float(args.voxel)
+	else: voxel_width=1.618 #A
 	if args.outgro: grofile=str(args.outgro)
 	else: grofile="gromacs.gro"
 
@@ -1160,7 +1165,7 @@ def main():
 
 	if box_width==0: fill_status=False
 	else:
-		fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,order=molecule_order)
+		fill=Fill_Box(outgro=grofile,radii=rad,box_width=box_width,voxel_width=voxel_width,order=molecule_order)
 		fill_status=fill.status
 		box_width=500.0
 	if fill_status: print ("> Combined topology and structure files generated!!!")
