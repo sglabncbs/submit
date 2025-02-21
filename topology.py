@@ -2592,7 +2592,7 @@ class Reddy2017(Topology):
         self.opt = opt
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
-        self.mass=(1.8e-22)*(6.022e+23) #g to amu
+        self.mass=opt.mass #(1.8e-22)*(6.022e+23) #g to amu
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -2803,7 +2803,7 @@ class Baul2019(Reddy2017):
         self.eps_scsc = 0.18*self.fconst.caltoj 
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
-        self.mass=(1.8e-22)*(6.022e+23) #g to amu
+        self.mass=opt.mass #self.mass=(1.8e-22)*(6.022e+23) #g to amu
         self.atomtypes = []
         self.tableb_ndx = 0
 
@@ -2931,7 +2931,7 @@ class SOPSC_IDR(Reddy2017):
         self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
         self.excl_volume,self.excl_volume_set = dict(),dict()
         self.atomtypes = []
-        self.mass=(1.8e-22)*(6.022e+23) #g to amu
+        self.mass=opt.mass #(1.8e-22)*(6.022e+23) #g to amu
         self.tableb_ndx = 0
         self.bonds = []
 

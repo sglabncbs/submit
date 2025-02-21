@@ -139,6 +139,7 @@ class CleanUP:
 		self.moveFiles(f_prefix="table",f_suffix=".xvg",out_subdir="Tables")
 		self.moveFiles(f_prefix="interactions",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_prefix="rad",f_suffix=".dat",out_subdir="model_params")
+		self.moveFiles(f_prefix="cgmass",f_suffix=".dat",out_subdir="model_params")
 		self.moveFiles(f_middle="molecule_order.list")
 		self.renameTables()
 		if not fillstatus:
@@ -450,6 +451,19 @@ def main():
 
 	"""" Defining inputs for preset models """
 
+	list_of_protein_presets=[
+		args.clementi2000, args.afsar2008, args.azia2009, args.reddy2017,\
+		args.baul2019, args.baidya2022, args.baratam2024, args.sop_idr]
+	list_of_nucleicacid_presets=[args.denesyuk2013, args.chakraborty2018,args.dlprakash]
+	list_of_hybrid_presets=[args.banerjee2023, args.virusassembly,args.pal2019]
+
+	assert (np.sum(np.int_(list_of_hybrid_presets))) <= 1,\
+		"Error! Two hybrid (protein + nucleic acid) SBMs cannot be implemented togther."
+	assert (np.sum(np.int_(list_of_protein_presets+list_of_hybrid_presets))) <= 1,\
+		"Error! Two protein SBMs cannot be implemented togther."
+	assert (np.sum(np.int_(list_of_nucleicacid_presets+list_of_hybrid_presets))) <= 1,\
+		"Error! Two nucleic acid SBMs cannot be implemented togther."
+
 	if args.clementi2000:
 		print (">>> Using Clementi et. al. 2000 CA-only model. 10.1006/jmbi.2000.3693")
 		assert args.aa_pdb, "Error no pdb input --aa_pdb"
@@ -599,7 +613,9 @@ def main():
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
+		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
 	if args.baul2019 or args.baidya2022:
@@ -623,7 +639,9 @@ def main():
 		charge.dielec=78
 		charge.iconc=0.15	#M
 		opt.nonbond=True
+		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	if args.sop_idr:
@@ -648,7 +666,9 @@ def main():
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
+		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
@@ -918,8 +938,8 @@ def main():
 		aa_resi=Prot_Data().amino_acid_dict
 		rad.update({"CB"+aa_resi[x]:rad["CB"] for x in aa_resi})
 
-	if args.cg_mass:
-		CG_mass=True
+	if args.cg_mass: CG_mass=True
+	if CG_mass:
 		opt.mass.update({l.split()[0]:float(l.split()[1]) for l in open("cgmass.dat") if l.strip()!=str() and not l.strip().startswith("#")})
 
 	#rad adding nucl rads
