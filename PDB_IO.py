@@ -95,6 +95,7 @@ class CoarseGrain:
         COM = {}
         for resnum in sc_xyz:
             C,M=np.float_(sc_xyz[resnum]),np.float_(sc_mass[resnum])
+            if sum(M)==0: continue
             COM[resnum]=np.matmul(M,C)/sum(M)
         return COM
 
