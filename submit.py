@@ -298,7 +298,7 @@ def main():
 	parser.add_argument("--CA_rad","-CA_rad","--ca_rad","-ca_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-alpha (same for all beads) in Angstrom. Default: 1.9 Å")
 	parser.add_argument("--CA_com","-CA_com","--ca_com","-ca_com",action="store_true",help="Place C-alpha at COM of backbone. Default: False")
 	parser.add_argument("--CB_rad","-CB_rad","--cb_rad","-cb_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-beta (same for all beads) in Angstrom. Default: 1.5 Å")
-	parser.add_argument("--CB_radii","-CB_radii","--cb_radii","-cb_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
+	parser.add_argument("--CG_radii","-CG_radii","--cG_radii","-cG_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
 	parser.add_argument("--CB_com","-CB_com","--cb_com","-cb_com", action="store_true", default=False,help="Put C-beta at side-chain COM. Default: False")
 	parser.add_argument("--CB_far", "-CB_far","--Cb_far", "-Cb_far", action="store_true", help="Place C-beta on farthest non-hydrogen atom. Default: False")
 	parser.add_argument("--CB_chiral","-CB_chiral","--cb_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality (CAi-1:CAi+1:CAi:CBi). Default: False")
@@ -426,7 +426,7 @@ def main():
 	CB_far=False
 	CB_com=False
 	CB_chiral=False
-	CB_radii=False
+	CG_radii=False
 	CB_gly=False
 	#Set default parameters for nucleotides
 	rad["P"]=1.9					#A
@@ -609,7 +609,7 @@ def main():
 		CB_gly=False #True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CB_radii=True
+		CG_radii=True
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
@@ -630,7 +630,7 @@ def main():
 		excl_rule=2
 		opt.btparams=True
 		rad["CA"]=1.9 #A
-		CB_radii=True
+		CG_radii=True
 		charge.CB=True
 		CB_gly=False
 		fconst.Kb_prot=20.0*fconst.caltoj
@@ -662,7 +662,7 @@ def main():
 		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CB_radii=True
+		CG_radii=True
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
@@ -690,7 +690,7 @@ def main():
 		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CB_radii=True
+		CG_radii=True
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
@@ -720,7 +720,7 @@ def main():
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		fconst.Kr_nucl=1.0*fconst.caltoj
-		CB_radii=True
+		CG_radii=True
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
@@ -862,9 +862,9 @@ def main():
 		opt.mjparams=True
 		prot_contmap.custom_pairs=True
 	
-	if args.CB_radii:
+	if args.CG_radii:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
-		CB_radii=True
+		CG_radii=True
 
 	if args.CB_gly:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -919,7 +919,7 @@ def main():
 		with open("radii.dat","w+") as fout:
 			print (">>> C-beta radius given via user input. Storing in radii.dat")
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CB"]))
-		CB_radii=True	#Read CB radius from radii.dat	
+		CG_radii=True	#Read CB radius from radii.dat	
 
 	if charge.CA or opt.CA_hp:
 		print (">>> Adding non-native potential for CA. Creating residue wise CA-types (refered as CBX)")
@@ -927,13 +927,12 @@ def main():
 		aa_resi=Prot_Data().amino_acid_dict
 		with open("radii.dat","w+") as fout:
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CA"]))
-		CB_radii=True
+		CG_radii=True
 		if charge.CA: charge.CB=True
 
-	if CB_radii:
-		aa_resi=Prot_Data().amino_acid_dict
+	if CG_radii:
 		with open("radii.dat") as fin:
-			rad.update({"CB"+aa_resi[x.split()[0]]:float(x.split()[1]) for x in fin})
+			rad.update({x.split()[0]:float(x.split()[1]) for x in fin})
 	else:
 		aa_resi=Prot_Data().amino_acid_dict
 		rad.update({"CB"+aa_resi[x]:rad["CB"] for x in aa_resi})

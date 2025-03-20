@@ -149,9 +149,9 @@
   --CB_rad CB_RAD, -CB_rad CB_RAD
                         User defined radius (0.5*excl-volume-rad) for C-beta
                         (same for all beads) in Angstrom. Default: 1.5 Å
-  --CB_radii, -CB_radii
-                        User defined C-beta radii from radii.dat (AA-3-letter-
-                        code radius-in-Angsrtom). Default: False
+  --cg_radii, -cg_radii
+                        User defined CG-bead radii from radii.dat 
+                        (atype radius-in-Angsrtom). Default: False
   --CB_com, -CB_com     Put C-beta at side-chain COM. Default: False
   --CB_far, -CB_far     Place C-beta on farthest non-hydrogen atom. Default:
                         False
