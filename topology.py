@@ -56,11 +56,11 @@ class Tables:
             else:
                 inv_dl = 10*coulomb.inv_dl #A-1 to -nm-1
             Bk = np.exp(inv_dl*irad)/(1+inv_dl*irad)
-            #K_debye = (jtocal*inv_4pieps/D)*Bk
         else:
             inv_dl = 0
             Bk = 1
-        K_elec = jtocal*Bk/D #inv_4pieps*q1q2 is multiplied by gromacs
+        K_elec = Bk/D #inv_4pieps*q1q2 is multiplied by gromacs
+        if coulomb.kcal: K_elec *= jtocal
         self.Bk,self.inv_dl=Bk,inv_dl
         if len(r)==0: return
         V = K_elec*np.exp(-inv_dl*r)/r
@@ -1399,7 +1399,8 @@ class OpenSMOGXML:
         self.coulomb=coulomb
         if coulomb.P or coulomb.CA or coulomb.CB:
             self.add_electrostatics=True
-            K_elec,D=coulomb.inv_4pieps/coulomb.caltoj,coulomb.dielec
+            if coulomb.kcal: K_elec,D=coulomb.inv_4pieps/coulomb.caltoj,coulomb.dielec
+            else: K_elec,D=coulomb.inv_4pieps,coulomb.dielec
             T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float_([]))
             self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
             self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
@@ -2764,6 +2765,8 @@ class Reddy2017(Topology):
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
         
+        print ("> Switching CA bead radius from 2.25 to 1.9 A for local repulsions.")
+        diam["CA"]=0.19*2 #nm
         for index in range(len(data.angles)):
             triplets,angles = data.angles[index]
             I,J,K = np.transpose(triplets)

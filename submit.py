@@ -103,6 +103,7 @@ class Charge(Dict):
 	debye_temp=298  		#K
 	inv_dl=0
 	Kboltz=8.314462618E-3	#KJ mol-1 nm-1
+	kcal=False				# use Kcal/mol value 
 	caltoj=4.184			#kcal mol-1 A-2 to kcal mol-1 A-2
 	inv_4pieps=138.935485	#KJ mol-1 e-2
 	permol=6.022E+23		#n/mol  		#Avogadro's number
@@ -298,7 +299,7 @@ def main():
 	parser.add_argument("--CA_rad","-CA_rad","--ca_rad","-ca_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-alpha (same for all beads) in Angstrom. Default: 1.9 Å")
 	parser.add_argument("--CA_com","-CA_com","--ca_com","-ca_com",action="store_true",help="Place C-alpha at COM of backbone. Default: False")
 	parser.add_argument("--CB_rad","-CB_rad","--cb_rad","-cb_rad",type=float, help="User defined radius (0.5*excl-volume-rad) for C-beta (same for all beads) in Angstrom. Default: 1.5 Å")
-	parser.add_argument("--CG_radii","-CG_radii","--cG_radii","-cG_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
+	parser.add_argument("--cg_radii","-cg_radii","--cg_radii","-cg_radii",action="store_true", help="User defined C-beta radii from radii.dat (AA-3-letter-code   radius-in-Angsrtom). Default: False")
 	parser.add_argument("--CB_com","-CB_com","--cb_com","-cb_com", action="store_true", default=False,help="Put C-beta at side-chain COM. Default: False")
 	parser.add_argument("--CB_far", "-CB_far","--Cb_far", "-Cb_far", action="store_true", help="Place C-beta on farthest non-hydrogen atom. Default: False")
 	parser.add_argument("--CB_chiral","-CB_chiral","--cb_chiral","-CB_chiral",action='store_true',help="Improper dihedral for CB sidechain chirality (CAi-1:CAi+1:CAi:CBi). Default: False")
@@ -369,7 +370,7 @@ def main():
 	parser.add_argument('--btparams',"-btparams", action='store_true', help='Use Betancourt-Thirumalai interaction matrix.')
 	parser.add_argument('--mjparams',"-mjparams", action='store_true', help='Use Miyazawa-Jernighan interaction matrix.')
 	parser.add_argument("--interface","-interface", help='User defined multimer interface nonbonded params. Format atype1 atype2 eps sig(A)')
-	parser.add_argument("--cg_mass","-cg_radii",action="store_true", help="User defined CG bead masses from cgmass.dat (atype mas in au). Default: False")
+	parser.add_argument("--cg_mass","-cg_mass",action="store_true", help="User defined CG bead masses from cgmass.dat (atype mas in au). Default: False")
 	#electrostatic
 	parser.add_argument("--debye","-debye",action='store_true', help="Use Debye-Huckel electrostatic interactions.")
 	parser.add_argument("--debye_length","-debye_length", type=float, help="Debye length. in (Å)")
@@ -384,7 +385,8 @@ def main():
 	parser.add_argument("--iconc","-iconc", type=float, help="Solvent ion conc.(N) for Debye length calcluation. Default: 0.1 M")  
 	parser.add_argument("--irad","-irad", type=float, help="Solvent ion rad for Debye length calcluation. Default: 1.4 Å")  
 	parser.add_argument("--dielec","-dielec", type=float, help="Dielectric constant of Solvent. Default: 78")
-	
+	parser.add_argument("--elec_kcal","---elec_kcal", action='store_true', help="Use inv_4.pi.eps0 33.206 (Kcal mol-1 e-2) value . Default False (138.935485 KJ mol-1 e-2)")
+
 	#disabled for now
 	parser.add_argument("--dswap","-dswap", action='store_true', default=False, help='For domain swapping runs. Symmetrised SBM is generated.')
 	parser.add_argument("--sym_intra","--sym_intra", action='store_true', default=False, help='Intra-chain Symmetrised SBM is generated.')
@@ -426,7 +428,7 @@ def main():
 	CB_far=False
 	CB_com=False
 	CB_chiral=False
-	CG_radii=False
+	cg_radii=False
 	CB_gly=False
 	#Set default parameters for nucleotides
 	rad["P"]=1.9					#A
@@ -517,6 +519,7 @@ def main():
 		charge.debye=True		# Use DH-electrostatics
 		charge.dielec=70		# dielectric constant
 		charge.iconc=0.01		# concentration
+		charge.kcal=True		# use Kcal mol-1 e-2 value
 		opt.interface=True
 		opt.P_stretch=True	# set P_P_P_P dihed to 180
 		ModelDir("pal2019/adj_nbnb.stackparams.dat").copy2("interactions.pairs.dat")
@@ -548,6 +551,7 @@ def main():
 		charge.debye=True		# Use DH-electrostatics
 		charge.iconc=0.1		# concentration
 		charge.dielec=80		# dielec constant
+		charge.kcal=True		# use Kcal mol-1 e-2 value
 		opt.nbshift=True        # Use potential shift for nonbond interactions
 		opt.P_stretch=False	
 		fconst.Kd_nucl["bb"]=0.9
@@ -575,6 +579,7 @@ def main():
 		charge.debye=True		# Use DH-electrostatics
 		charge.dielec=78		# dielectric constant
 		charge.iconc=0.1		# concentration
+		charge.kcal=True		# use Kcal mol-1 e-2 value
 		opt.nonbond=True	#write custom nonbond from file
 		opt.interface=True
 		opt.P_stretch=False	# set P_P_P_P dihed to 180
@@ -609,10 +614,11 @@ def main():
 		CB_gly=False #True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CG_radii=True
+		cg_radii=True
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
+		charge.debye_temp=300	#K
 		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
@@ -630,7 +636,7 @@ def main():
 		excl_rule=2
 		opt.btparams=True
 		rad["CA"]=1.9 #A
-		CG_radii=True
+		cg_radii=True
 		charge.CB=True
 		CB_gly=False
 		fconst.Kb_prot=20.0*fconst.caltoj
@@ -638,6 +644,7 @@ def main():
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
+		charge.debye_temp=300	#K
 		opt.nonbond=True
 		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
@@ -662,10 +669,11 @@ def main():
 		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CG_radii=True
+		cg_radii=True
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
+		charge.debye_temp=300	#K
 		CG_mass=True
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
@@ -690,10 +698,11 @@ def main():
 		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
-		CG_radii=True
+		cg_radii=True
 		charge.debye=True
 		charge.dielec=78
 		charge.iconc=0.15	#M
+		charge.debye_temp=300	#K
 		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
@@ -720,7 +729,7 @@ def main():
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		fconst.Kr_nucl=1.0*fconst.caltoj
-		CG_radii=True
+		cg_radii=True
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
@@ -862,9 +871,9 @@ def main():
 		opt.mjparams=True
 		prot_contmap.custom_pairs=True
 	
-	if args.CG_radii:
+	if args.cg_radii:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
-		CG_radii=True
+		cg_radii=True
 
 	if args.CB_gly:
 		if CGlevel["prot"] != 2: print ("WARNING: User opted for only-CA model. Ignoring all C-beta parameters.")
@@ -919,7 +928,7 @@ def main():
 		with open("radii.dat","w+") as fout:
 			print (">>> C-beta radius given via user input. Storing in radii.dat")
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CB"]))
-		CG_radii=True	#Read CB radius from radii.dat	
+		cg_radii=True	#Read CB radius from radii.dat	
 
 	if charge.CA or opt.CA_hp:
 		print (">>> Adding non-native potential for CA. Creating residue wise CA-types (refered as CBX)")
@@ -927,10 +936,10 @@ def main():
 		aa_resi=Prot_Data().amino_acid_dict
 		with open("radii.dat","w+") as fout:
 			for i in aa_resi: fout.write('%s%4.2f\n' % (i.ljust(4),rad["CA"]))
-		CG_radii=True
+		cg_radii=True
 		if charge.CA: charge.CB=True
 
-	if CG_radii:
+	if cg_radii:
 		with open("radii.dat") as fin:
 			rad.update({x.split()[0]:float(x.split()[1]) for x in fin})
 	else:
@@ -996,6 +1005,7 @@ def main():
 	if args.debye: charge.debye=True
 	if args.debye_temp: charge.debye_temp=float(args.debye_temp)
 	if args.debye_length: charge.inv_dl=1.0/float(args.debye_length)
+	if args.elec_kcal: charge.kcal=True
 
 	#input structure file
 	pdbdata=[]
