@@ -333,28 +333,28 @@ def main():
 	parser.add_argument("--Kr_nucl", "-Kr_nucl", type=float, help="Krepulsion. Default: 1.0 ε") 
 
 	#native  determining contacts parameters
-	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
+	parser.add_argument("--cutoff","-cutoff",type=float,help="User defined Cut-off (in Angstrom) for contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grained)")
 	parser.add_argument("--cutofftype","-cutofftype",type=int,help="-1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont","-W_cont",action="store_true",help="Weight (and normalize) CG contacts based on all atom contact pairs")
 	parser.add_argument("--cmap","-cmap",nargs='+',help="User defined cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling","-scaling", help="User defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc","-contfunc",type=int,help="1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18, 6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for proteins
-	parser.add_argument("--cutoff_p","-cutoff_p",type=float,help="User defined Cut-off (in Angstrom) for Protein contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
+	parser.add_argument("--cutoff_p","-cutoff_p",type=float,help="User defined Cut-off (in Angstrom) for Protein contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grained)")
 	parser.add_argument("--cutofftype_p","-cutofftype_p",type=int,help="For Proteins: -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_p","-W_cont_p",action="store_true",help="Weight (and normalize) Protein CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_p","-cmap_p",nargs='+',help="User defined Protein cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_p","-scaling_p", help="User defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_p","-contfunc_p",type=int,help="Proteins. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#overwrite for RNA/DNA
-	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
+	parser.add_argument("--cutoff_n","-cutoff_n",type=float,help="User defined Cut-off (in Angstrom) for RNA/DNA contact-map generation. Default. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grained)")
 	parser.add_argument("--cutofftype_n","-cutofftype_n",type=int,help="For RNA/DNA. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_n","-W_cont_n",action="store_true",help="Weight (and normalize) RNA/DNA CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_n","-cmap_n",nargs='+',help="User defined RNA/DNA cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
 	parser.add_argument("--scaling_n","-scaling_n", help="User RNA/DNA defined scaling for mapping to all-atom contact-map.")
 	parser.add_argument("--contfunc_n","-contfunc_n",type=int,help="RNA/DNA. 1: LJ C6-C12, 2 LJ C10-C12, 3 LJ C12-C18,  6 Gauss + excl, 7 Multi Gauss  . Default: 2")
 	#inter Protein-RNA/DNA
-	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grianed)")
+	parser.add_argument("--cutoff_i","-cutoff_i",type=float,help="User defined Cut-off (in Angstrom) for Protein RNA/DNA interface contact-map generation. Default: 4.5 Å (for all-atom) or 8.0 Å (for coarse-grained)")
 	parser.add_argument("--cutofftype_i","-cutofftype_i",type=int,help="For Protein RNA/DNA interface. -1 No map, 0 use -cmap file, 1 all-atom mapped to CG, 2: coarse-grain . Default: 1")
 	parser.add_argument("--W_cont_i","-W_cont_i",action="store_true",help="Weight (and normalize) Protein RNA/DNA interface CG contacts based on all atom contacts")
 	parser.add_argument("--cmap_i","-cmap_i",help="User defined Protein RNA/DNA interface cmap in format chain1 atom1 chain2 atom2 weight(opt) distance(opt)")
