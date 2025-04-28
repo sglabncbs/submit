@@ -603,6 +603,7 @@ def main():
 		#if args.opensmog: args.denesyuk2013=True
 		#else: 
 		CGlevel["nucl"]=0
+		CB_com=True
 		bond_function=8
 		prot_contmap.cutoff=8.0
 		prot_contmap.type=2
@@ -611,7 +612,7 @@ def main():
 		excl_rule=2
 		opt.btparams=True
 		charge.CB=True
-		CB_gly=False #True
+		CB_gly=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		cg_radii=True

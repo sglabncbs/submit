@@ -600,6 +600,9 @@ class Preprocess:
             if len(self.CA_atn) != 0:
                 tag="prot%s_"%self.file_ndx
                 cacasep=4;cacbsep=3;cbcbsep=3
+                #__TESTING__#
+                cacasep=3;cacbsep=2;cbcbsep=2
+                #__TESTING__#
                 for c1 in self.CA_atn:
                     pairs += [(self.CA_atn[c1][x],self.CA_atn[c1][y]) for x in self.CA_atn[c1] for y in self.CA_atn[c1] if y-x>=cacasep]
                     if len(self.CB_atn) != 0:
@@ -2607,6 +2610,7 @@ class Reddy2017(Topology):
         for rnum in atlist:
             assert "HA3" in atlist[rnum] \
                 or "HA2" in atlist[rnum] \
+                or "HA1" in atlist[rnum] \
                 or "CB" in atlist[rnum], "Error, SOP-SC needs H-atoms in the PDB file."
         return
 
@@ -2722,14 +2726,13 @@ class Reddy2017(Topology):
         all_atn.update(CB_atn.copy())
         eps_bbbb = 0.5*self.fconst.caltoj
         eps_bbsc = 0.5*self.fconst.caltoj
-        Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
+        Kboltz = self.fconst.Kboltz # KJ mol-1 K-1
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
             interaction_type = np.int_(\
                 np.int_([x in CB_atn for x in I])+ \
                 np.int_([x in CB_atn for x in J]))
-
             scscmat.update({(all_atn[I[x]],all_atn[J[x]]):0.0 for x in range(I.shape[0]) if (all_atn[I[x]],all_atn[J[x]]) not in scscmat})
             eps_scsc = np.float_([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
             eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz
@@ -2757,16 +2760,38 @@ class Reddy2017(Topology):
             for x in range(pairs.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
 
+        #removing dihedral contacts
+        data.Dihedrals()
+        quads,excl_quads=[],[]
+        for x in data.bb_dihedrals: quads+=list(x[0])
+        excl_quads+=[(q[0],q[3]) for q in quads]
+        excl_quads+=[(q[0],q[2]+1) for q in quads]
+        excl_quads+=[(q[0]+1,q[2]) for q in quads]
+        excl_quads+=[(q[1],q[3]+1) for q in quads]
+        excl_quads+=[(q[1]+1,q[3]) for q in quads]
+        quads=[]
+        for x in data.sc_dihedrals: quads+=list(x[0])
+        excl_quads+=[(q[0],q[3]) for q in quads]
+        quads=excl_quads
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            temp_p=np.array([pairs[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_c=np.array([chains[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_d=np.array([dist[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_w=np.array([eps[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            data.contacts[c]=temp_p,temp_c,temp_d,temp_w
+
         print ("> Using -C6 repulsion for local beads")
         fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         data.Angles()
+        
         diam = self.excl_volume.copy()
+        print ("> Switching CA bead radius from 2.25 to 1.9 A for local repulsions.")
+        diam["CA"]=0.19*2 #nm
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
-        
-        print ("> Switching CA bead radius from 2.25 to 1.9 A for local repulsions.")
-        diam["CA"]=0.19*2 #nm
+
         for index in range(len(data.angles)):
             triplets,angles = data.angles[index]
             I,J,K = np.transpose(triplets)
@@ -3354,7 +3379,7 @@ class SOPSC_IDR(Reddy2017):
             scscmat.update({(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")):0.0 for x in range(I.shape[0])\
                              if (all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")) not in scscmat})
             eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i"))] for x in range(I.shape[0])])
-            eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
+            eps_scsc = 0.5*np.abs(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
             eps = np.float_(eps)
             eps = eps_bbbb*np.int_(interaction_type==0) \
                 + eps_bbsc*np.int_(interaction_type==1) \

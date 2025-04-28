@@ -31,7 +31,7 @@ class Prot_Data:
 class CoarseGrain:
     def __init__(self) -> None:
         self.mass = {"H":1.008,"C":12.011,"N":14.007,"O":15.999,"S":32.065,"P":30.974}    
-    
+
     def get_BB_group(self,reslist,atnum):
         assert len(reslist) == len(atnum)
         return [reslist[x] for x in range(len(reslist))]
@@ -45,7 +45,7 @@ class CoarseGrain:
                 if (chain,resnum,resname) not in bb_group:
                     bb_group[(chain,resnum,resname)] = []
                     sc_group[(chain,resnum,resname)] = []
-                if atname in ["N","CA","C","O","H","OXT"]: bb_group[(chain,resnum,resname)].append(atnum[x])
+                if atname in ["N","CA","HA2","HA","C","O","H","HN","OXT","OT1","OT2"]: bb_group[(chain,resnum,resname)].append(atnum[x])
                 else: sc_group[(chain,resnum,resname)].append(atnum[x])
             elif resname[-1] in "AUTGC": 
                 assert len(resname) < 3
@@ -59,7 +59,7 @@ class CoarseGrain:
         for x in range(XYZ.shape[0]):
             chain,resnum,resname,atname = reslist[x]
             if (chain,resnum,resname) not in bb_xyz: bb_xyz[(chain,resnum,resname)],bb_mass[(chain,resnum,resname)] = [],[]
-            if atname in ["N","CA","C","O","H","OXT"]:
+            if atname in ["N","CA","HA2","HA","C","O","H","HN","OXT","OT1","OT2"]:
                 bb_xyz[(chain,resnum,resname)].append(XYZ[x])
                 bb_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
         COM = {}
@@ -86,11 +86,11 @@ class CoarseGrain:
             chain,resnum,resname,atname = reslist[x]
             if (chain,resnum,resname) not in sc_xyz: sc_xyz[(chain,resnum,resname)],sc_mass[(chain,resnum,resname)] = [],[]
             if resname == "GLY" and atname == "CA": gly_count += 1
-            if atname not in ["N","CA","C","O","H","OXT"]:
+            if atname not in ["N","CA","HA2","HA","C","O","H","HN","OXT","OT1","OT2"]:
                 sc_xyz[(chain,resnum,resname)].append(XYZ[x])
                 sc_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
                 if resname == "GLY" and inc_gly: CB_for_H += 1
-        if inc_gly: assert CB_for_H == 2*gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+        if inc_gly: assert CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
     
         COM = {}
         for resnum in sc_xyz:
@@ -110,10 +110,11 @@ class CoarseGrain:
             if resname == "GLY":
                 if atname == "CA": gly_count += 1
                 if inc_gly:
-                    if atname=="CB" or atname == "HA3":
-                        CB[(chain,resnum,resname)]=XYZ[x]
-                        CB_for_H += 1
-        if inc_gly: assert CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+                    if atname=="CB" or atname.startswith("HA"):
+                        if atname not in ("HA","HA2"):
+                            CB[(chain,resnum,resname)]=XYZ[x]
+                            CB_for_H += 1
+        if inc_gly: assert CB_for_H == 2*gly_count or CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
         else: assert CB_for_H == 0
         return CB
 
@@ -128,10 +129,10 @@ class CoarseGrain:
                 CA[(chain,resnum,resname)]=XYZ[x]
                 if resname == "GLY": gly_count += 1
             if (chain,resnum,resname) not in sc_xyz: sc_xyz[(chain,resnum,resname)]=[]
-            if atname not in ["N","CA","C","O","H","OXT"]:
+            if atname not in ["N","CA","HA2","HA","C","O","H","HN","OXT","OT1","OT2"]:
                 sc_xyz[(chain,resnum,resname)].append(XYZ[x])
                 if resname == "GLY" and inc_gly: CB_for_H += 1
-        if inc_gly: assert CB_for_H == 2*gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
+        if inc_gly: assert CB_for_H == gly_count, "Error. GLY found without H-atom. Cannot use CB_gly. Add H-atom to the PDB"
 
         CB = {}
         for resnum in CA:
@@ -272,7 +273,7 @@ class PDB_IO:
                     self.prot.xyz.append([l[30:38],l[38:46],l[46:54]])
                     self.prot.res.append((prot_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
                     self.prot.atn.append(-1+hy36decode(5,l[6:11]))
-                    if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]
+                    if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]                   
                 if l.startswith(("TER","END")) and self.prot.lines[x-1].startswith("ATOM"):
                     self.prot.ter.append(hy36decode(5,self.prot.lines[x-1][6:11]))
                     self.prot.cid.append(self.prot.lines[x-1][21])
@@ -312,8 +313,9 @@ class PDB_IO:
                 line=fin.readline()
                 atnum=a+1
                 atname=line[10:15].strip()
-                if atname.startswith("H") and not self.CBgly: continue
+                #if atname.startswith("H") and not self.CBgly: continue
                 resname,resnum =  line[5:10].strip(),int(line[0:5])
+                if atname.startswith("H") and not self.CBgly and resname=="GLY": continue
                 XYZ=10*np.float_([line[20:28],line[28:36],line[36:44]])
                 line="ATOM".ljust(6)+hy36encode(5,atnum)+" "+atname.center(4)\
                     +" "+resname.ljust(3)+" "+"A"+hy36encode(4,resnum)+4*" "\
@@ -382,13 +384,17 @@ class PDB_IO:
             for line in fin:
                 if line.startswith(("ATOM","HETATM")):
                     atname=line[12:16].strip()
-                    if atname.startswith("H") and not self.CBgly: continue
+                    #if atname.startswith("H") and not self.CBgly: continue
                     resname,resnum =  line[17:20].strip(),hy36decode(4,line[22:26])
+                    if atname.startswith("H") and not self.CBgly and resname=="GLY": continue
                     if prev_resnum not in (resnum,resnum-1) and len(prev_resname)!=0:
                         if prev_resname in self.prot.amino_acid_dict: prot_lines.append("TER\n")
                         elif prev_resname in self.nucleotide_dict: nucl_lines.append("TER\n")
                     if resname in self.prot.amino_acid_dict: prot_lines.append("ATOM".ljust(6)+line[6:])
                     elif resname in self.nucleotide_dict: nucl_lines.append("ATOM".ljust(6)+line[6:])
+                    else:
+                        print ("Unrecognised residue name",resname,resnum)
+                        exit()
                     prev_resname,prev_resnum = resname,resnum
                 if line.startswith(("TER","END")):
                     if resname in self.prot.amino_acid_dict:
