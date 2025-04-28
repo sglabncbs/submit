@@ -52,6 +52,8 @@
 <pre> -h, --help            show this help message and exit </pre>
  
 ### Preset models:-
+#### NOTE: Based on the information available to us, we have implemented the models listed below in accordance with their respective publications. If any contributors to the development of these models identify any bugs, errors, or incorrect parameters, we kindly request that they raise an issue on the GitHub page.  </br>
+
 <pre>
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000
                         Clementi et. al. 2000 CA-only model.
