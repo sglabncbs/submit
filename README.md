@@ -52,7 +52,9 @@
 <pre> -h, --help            show this help message and exit </pre>
  
 ### Preset models:-
-#### NOTE: Based on the information available to us, we have implemented the models listed below in accordance with their respective publications. If any contributors to the development of these models identify any bugs, errors, or incorrect parameters, we kindly request that they raise an issue on the GitHub page.  </br>
+#### NOTE 1: Based on the information available to us, we have implemented the models listed below in accordance with their respective publications. If any contributors to the development of these models identify any bugs, errors, or incorrect parameters, we kindly request that they raise an issue on the GitHub page.  </br>
+#### NOTE 3: Models with [TEST] tag, are not from any previous publication and haven't been tested. </br>
+#### NOTE 3: Models with [WIP] tag, are still being tested and will be available in next version.  </br>
 
 <pre>
   --clementi2000, -clementi2000, --calpha_go2000, -calpha_go2000
@@ -70,10 +72,10 @@
   --reddy2017, -reddy2017, --sopsc2017, -sopsc2017
                         Reddy & Thirumalai 2017 SOP-SC CA-CB.
                         10.1021/acs.jpcb.6b13100
-  --denesyuk2013, -denesyuk2013, --rna_tis2013, -rna_tis2013
+  --denesyuk2013, -denesyuk2013, --rna_tis2013, -rna_tis2013 [WIP]
                         Denesyuk & Thirumalai 2013 Three Interaction Site TIS
                         P-S-B model. 10.1021/jp401087x
-  --chakraborty2018, -chakraborty2018, --dna_tis2018, -dna_tis2018
+  --chakraborty2018, -chakraborty2018, --dna_tis2018, -dna_tis2018 [WIP]
                         Chakraborty & Thirumalai 2018 Three Interaction Site
                         TIS P-S-B model. 10.1021/acs.jctc.8b00091
   --baul2019, -baul2019, --sop_idp2019, -sop_idp2019
@@ -87,13 +89,13 @@
                         10.1021/acs.jctc.4c00579
   --sop_idr, -sop_idr   Reddy-Thirumalai(SOPSC) + Baidya-Reddy(SOPIDP) hybrid
                         CA-CB
-  --banerjee2023, -banerjee2023, --selfpeptide, -selfpeptide
+  --banerjee2023, -banerjee2023, --selfpeptide, -selfpeptide [WIP]
                         Banerjee & Gosavi 2023 Self-Peptide model.
                         10.1021/acs.jpcb.2c05917
-  --virusassembly, -virusassembly, --capsid, -capsid
+  --virusassembly, -virusassembly, --capsid, -capsid [TEST]
                         Preset for structure based virus assembly (inter-
                         Symmetrized)
-  --dlprakash, -dlprakash, --duplexpair, -duplexpair
+  --dlprakash, -dlprakash, --duplexpair, -duplexpair [TEST]
                         Codon pairs (duplex based weight) for Pal2019
 </pre>
 
