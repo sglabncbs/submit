@@ -264,7 +264,7 @@ def main():
 	parser.add_argument("--afsar2008","-afsar2008","--chan2008","-chan2008",action="store_true",help="Zarrine-Afsar et. al. 2008 CA-only + hydrophobic model with . 10.1073/pnas.0801874105")
 	parser.add_argument("--azia2009","-azia2009","--levy2009","-levy2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model. 10.1016/j.jmb.2009.08.010")
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model. 10.1371/journal.pcbi.1006768")
-	parser.add_argument("--reddy2017","-reddy2017","--sopsc2017","-sopsc2017",action="store_true",help="Reddy & Thirumalai 2017 SOP-SC CA-CB. 10.1021/acs.jpcb.6b13100")
+	parser.add_argument("--reddy2016","-reddy2016","--maity2016","-maity2016","--sopsc2016","-sopsc2016",action="store_true",help="Maity & Reddy 2016 SOP-SC CA-CB. 10.1021/jacs.5b11300")
 	parser.add_argument("--denesyuk2013","-denesyuk2013","--rna_tis2013","-rna_tis2013",action="store_true",help="Denesyuk & Thirumalai 2013 Three Interaction Site TIS P-S-B model. 10.1021/jp401087x")
 	parser.add_argument("--chakraborty2018","-chakraborty2018","--dna_tis2018","-dna_tis2018",action="store_true",help="Chakraborty & Thirumalai 2018 Three Interaction Site TIS P-S-B model. 10.1021/acs.jctc.8b00091")
 	parser.add_argument("--baul2019","-baul2019","--sop_idp2019","-sop_idp2019",action="store_true",help="Baul et. al. 2019 SOP-SC-IDP CA-CB. 10.1021/acs.jpcb.9b02575")
@@ -454,7 +454,7 @@ def main():
 	"""" Defining inputs for preset models """
 
 	list_of_protein_presets=[
-		args.clementi2000, args.afsar2008, args.azia2009, args.reddy2017,\
+		args.clementi2000, args.afsar2008, args.azia2009, args.reddy2016,\
 		args.baul2019, args.baidya2022, args.baratam2024, args.sop_idr]
 	list_of_nucleicacid_presets=[args.denesyuk2013, args.chakraborty2018,args.dlprakash]
 	list_of_hybrid_presets=[args.banerjee2023, args.virusassembly,args.pal2019]
@@ -593,8 +593,8 @@ def main():
 		uniqtype=True
 		fconst.Kr_prot=0.7**12
 
-	if args.reddy2017:
-		print (">>> Using Reddy & Thirumalai 2017 SOP-SCP model. 10.1021/acs.jpcb.6b13100")
+	if args.reddy2016:
+		print (">>> Using Maity & Reddy 2016 SOP-SCP model. 10.1021/jacs.5b11300")
 		if args.idp_seq: 
 			print (">>> IDR-sequence given. Using Baidya-Reddy 2022 SOP-SCP-IDP model for IDRs")
 			args.sop_idr=True
@@ -621,9 +621,9 @@ def main():
 		charge.iconc=0.01		# M
 		charge.debye_temp=300	#K
 		CG_mass=True
-		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("reddy2016/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2016/sopsc.cgmass.dat").copy2("cgmass.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
 	if args.baul2019 or args.baidya2022:
 		print (">>> Using Baul et. al. 2019/ Baidya-Reddy 2022 SOP-SCP-IDP model.")
@@ -648,9 +648,9 @@ def main():
 		charge.debye_temp=300	#K
 		opt.nonbond=True
 		CG_mass=True
-		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
+		ModelDir("reddy2016/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2016/sopsc.cgmass.dat").copy2("cgmass.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	if args.sop_idr:
 		print (">>> Using Reddy-Thirumalai SOP-SC for ordered regions and Baidya-Reddy SOP-IDP for IDRs.")
@@ -676,10 +676,10 @@ def main():
 		charge.iconc=0.15	#M
 		charge.debye_temp=300	#K
 		CG_mass=True
-		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.cgmass.dat").copy2("cgmass.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
+		ModelDir("reddy2016/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2016/sopsc.cgmass.dat").copy2("cgmass.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	if args.baratam2024:
 		print (">>> Using Baratam & Srivastava SOP-MULTI IDR model.")
@@ -704,9 +704,9 @@ def main():
 		charge.dielec=78
 		charge.iconc=0.15	#M
 		charge.debye_temp=300	#K
-		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
+		ModelDir("reddy2016/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	if args.denesyuk2013 or args.chakraborty2018:
 		print (">>> Using TIS model. \n\t 1) Denesyuk & Thirumalai 2013 for RNA. \n\t 2) Chakraborty & Thirumalai 2018 for DNA.")
@@ -734,8 +734,8 @@ def main():
 		charge.debye=True
 		charge.dielec=10
 		charge.iconc=0.01		# M
-		ModelDir("reddy2017/sopsc.radii.dat").copy2("radii.dat")
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.pairs.dat")
+		ModelDir("reddy2016/sopsc.radii.dat").copy2("radii.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
 	if args.banerjee2023:
 		print (">>> Using Banerjee & Gosavi 2023 self-peptide approach.")
@@ -864,11 +864,11 @@ def main():
 
 	if args.interaction: prot_contmap.custom_pairs=True
 	if args.btparams:
-		ModelDir("reddy2017/sopsc.btparams.dat").copy2("interactions.dat")
+		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.dat")
 		opt.btparams=True
 		prot_contmap.custom_pairs=True
 	if args.mjparams:
-		ModelDir("reddy2017/sopsc.mjparams.dat").copy2("interactions.dat")
+		ModelDir("reddy2016/sopsc.mjparams.dat").copy2("interactions.dat")
 		opt.mjparams=True
 		prot_contmap.custom_pairs=True
 	
@@ -1150,8 +1150,8 @@ def main():
 				print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
 				top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
-		elif args.reddy2017:
-			top=Reddy2017(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+		elif args.reddy2016:
+			top=Reddy2016(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		elif args.baul2019 or args.baidya2022:
 			top=Baul2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

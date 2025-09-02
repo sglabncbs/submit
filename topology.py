@@ -2585,7 +2585,7 @@ class Denesyuk2013_Chakraborty2018(Topology):
 
         return 
 
-class Reddy2017(Topology):
+class Reddy2016(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         #for data in range(len(allatomdata)) self.__check_H_atom__(data)
@@ -2724,8 +2724,10 @@ class Reddy2017(Topology):
         CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.caltoj
-        eps_bbsc = 0.5*self.fconst.caltoj
+        # TESTING #
+        eps_bbbb = 0.45*self.fconst.caltoj
+        eps_bbsc = 0.45*self.fconst.caltoj
+        ###########
         Kboltz = self.fconst.Kboltz # KJ mol-1 K-1
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
@@ -2802,7 +2804,7 @@ class Reddy2017(Topology):
             sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
             assert 2 not in interaction_type
             c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-                + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
+                + -1*eps_bbsc*((0.9*sig)**6)*np.int_(interaction_type==1) 
             pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
             #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
             if self.opt.opensmog:
@@ -2811,14 +2813,14 @@ class Reddy2017(Topology):
                     expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
                     params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
-                    expression="eps*((0.8*sig/r)^6);eps=%e"%eps_bbsc)
+                    expression="eps*((0.9*sig/r)^6);eps=%e"%eps_bbsc)
                 continue
             I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
-class Baul2019(Reddy2017):
+class Baul2019(Reddy2016):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
@@ -2944,7 +2946,7 @@ class Baul2019(Reddy2017):
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
-class SOPSC_IDR(Reddy2017):
+class SOPSC_IDR(Reddy2016):
     def __init__(self,allatomdata,idrdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.idrdata=idrdata

@@ -9,13 +9,13 @@
  ```
  $ python submit.py --clementi2000 --aa_pdb [All-atom .pdb file]   
  ```
-### 2. CA-CB SOP-SC model (Reddy and Thirumalai, 2017. https://doi.org/10.1021/acs.jpcb.6b13100) 
+### 2. CA-CB SOP-SC model (Maity and Reddy, 2016. https://pubs.acs.org/doi/abs/10.1021/jacs.5b11300) 
  ```
- $ python submit.py --reddy2017 --aa_pdb [All-atom .pdb file] 
+ $ python submit.py --reddy2016 --aa_pdb [All-atom .pdb file] 
  ```
 ##### OR
  ```
- $ python submit.py --reddy2017 --cg_pdb [Coarse-grained .pdb file] 
+ $ python submit.py --reddy2016 --cg_pdb [Coarse-grained .pdb file] 
  ```
 ### 3. CA-CB SOP-SC-IDP model (Baidya and Reddy, 2022. https://doi.org/10.1021/acs.jpclett.2c01972) 
  ```
@@ -69,9 +69,9 @@
   --pal2019, -pal2019, --levy2019, -levy2019
                         Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model.
                         10.1371/journal.pcbi.1006768
-  --reddy2017, -reddy2017, --sopsc2017, -sopsc2017
-                        Reddy & Thirumalai 2017 SOP-SC CA-CB.
-                        10.1021/acs.jpcb.6b13100
+  --reddy2016, -reddy2016, --maity2016, -maity2016, --sopsc2016, -sopsc2016
+                        Maity & Reddy  2016 SOP-SC CA-CB.
+                        10.1021/jacs.5b11300
   --denesyuk2013, -denesyuk2013, --rna_tis2013, -rna_tis2013 [WIP]
                         Denesyuk & Thirumalai 2013 Three Interaction Site TIS
                         P-S-B model. 10.1021/jp401087x
