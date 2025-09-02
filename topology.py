@@ -11,7 +11,7 @@ class Tables:
 
     def __prePad(self,X):
         step = 0.001 #nm
-        return np.int_(range(0,int(X[0]*1000)))*0.001
+        return np.intp(range(0,int(X[0]*1000)))*0.001
 
     def write_bond_table(self,index,X,V,V_1):
         with open("table_b"+str(index)+".xvg","w+") as fout:
@@ -79,8 +79,8 @@ class Tables:
     def write_pair_table(self,ljtype,coulomb):
         #writing pairs table file
 
-        r = np.int_(range(0,250000))*0.002 #100 nm
-        cutoff = np.int_(r>=0.01)
+        r = np.intp(range(0,250000))*0.002 #100 nm
+        cutoff = np.intp(r>=0.01)
         r[0]=10E-9  #buffer to avoid division by zero
 
         if ljtype == 1: 
@@ -160,9 +160,9 @@ class Preprocess:
         n2 = np.cross(CD,BC)
         direction = np.cross(n1,n2)
         cosine_d = np.sum(direction*BC,1)/((np.sum(direction**2,1)**0.5)*(np.sum(BC**2,1)**0.5))
-        sign=np.float_(np.round(cosine_d))
+        sign=np.float64(np.round(cosine_d))
         n1n2 = (np.sum((n1**2),1)**0.5)*(np.sum((n2**2),1)**0.5)
-        angle_normalizer = np.int_(sign<0)*2*180
+        angle_normalizer = np.intp(sign<0)*2*180
         phi = sign*np.arccos(np.sum(n1*n2,1)/n1n2)*180/np.pi
         phi += angle_normalizer
         return phi
@@ -210,7 +210,7 @@ class Preprocess:
                 eps[(k0,k1)] = float(line[2])
                 eps[(k1,k0)] = eps[(k0,k1)]
                 if len(line[2:])>=2:
-                    sig[(k0,k1)]= 0.1*np.float_(line[3:])
+                    sig[(k0,k1)]= 0.1*np.float64(line[3:])
                     sig[(k1,k0)] = sig[(k0,k1)]
         return eps,sig
 
@@ -226,7 +226,7 @@ class Preprocess:
                 if len(self.CB_atn)!=0: pairs += [(self.CA_atn[c][x],self.CB_atn[c][x])   for x in resnum if  x  in self.CB_atn[c]]
                 #determine bond details in chain order
                 if len(pairs)!=0:
-                    pairs = np.int_(pairs)
+                    pairs = np.intp(pairs)
                     D = self.__distances__(pairs)
                     self.bonds.append((pairs,D))
 
@@ -246,7 +246,7 @@ class Preprocess:
                         pairs.append((self.S_atn[c][x],self.B_atn[c][x]))
                         if x+1 in self.P_atn[c]: pairs.append((self.S_atn[c][x],self.P_atn[c][x+1]))
                 if len(pairs)!=0:
-                    pairs = np.int_(pairs)
+                    pairs = np.intp(pairs)
                     D = self.__distances__(pairs)
                     self.bonds.append((pairs,D))
         
@@ -264,7 +264,7 @@ class Preprocess:
                     triplets += [(self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c]]
                     triplets += [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1])   for x in resnum if x in self.CB_atn[c] and x+1 in self.CA_atn[c]]
                 if len(triplets)!=0:
-                    triplets = np.int_(triplets)
+                    triplets = np.intp(triplets)
                     A = self.__angles__(triplets=triplets)
                     self.angles.append((triplets,A))
 
@@ -289,7 +289,7 @@ class Preprocess:
                                 triplets.append((self.P_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
                                 triplets.append((self.B_atn[c][x],self.S_atn[c][x],self.P_atn[c][x+1]))
                 if len(triplets)!=0:
-                    triplets = np.int_(triplets)
+                    triplets = np.intp(triplets)
                     A = self.__angles__(triplets=triplets)
                     self.angles.append((triplets,A))
 
@@ -303,13 +303,13 @@ class Preprocess:
                 resnum.sort()
                 quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
                 if len(quadruplets)!=0:
-                    quadruplets = np.int_(quadruplets)
+                    quadruplets = np.intp(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
                     self.bb_dihedrals.append((quadruplets,T))
                 if len(self.CB_atn)!=0:
                     quadruplets = [(self.CB_atn[c][x],self.CA_atn[c][x],self.CA_atn[c][x+1],self.CB_atn[c][x+1]) for x in resnum if x+1 in self.CB_atn[c] and x in self.CB_atn[c]]
                     if len(quadruplets)!=0:
-                        quadruplets = np.int_(quadruplets)
+                        quadruplets = np.intp(quadruplets)
                         T = self.__torsions__(quadruplets=quadruplets)
                         self.sc_dihedrals.append((quadruplets,T))
 
@@ -320,7 +320,7 @@ class Preprocess:
                     resnum.sort()
                     quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
                     if len(quadruplets)!=0:
-                        quadruplets = np.int_(quadruplets)
+                        quadruplets = np.intp(quadruplets)
                         T = self.__torsions__(quadruplets=quadruplets)
                         self.bb_dihedrals.append((quadruplets,T))
             if len(self.S_atn) != 0:
@@ -336,7 +336,7 @@ class Preprocess:
                                     for x in resnum if x+1 in self.S_atn[c] and \
                                     x in self.P_atn[c] and x+1 in self.P_atn[c]]
                         if len(quadruplets)!=0:
-                            quadruplets = np.int_(quadruplets)
+                            quadruplets = np.intp(quadruplets)
                             T = self.__torsions__(quadruplets=quadruplets)
                             self.bb_dihedrals.append((quadruplets,T))
                     if spsp:
@@ -345,7 +345,7 @@ class Preprocess:
                                     for x in resnum if x+1 in self.S_atn[c] and \
                                     x+1 in self.P_atn[c] and x+2 in self.P_atn[c]]
                         if len(quadruplets)!=0:
-                            quadruplets = np.int_(quadruplets)
+                            quadruplets = np.intp(quadruplets)
                             T = self.__torsions__(quadruplets=quadruplets)
                             self.bb_dihedrals.append((quadruplets,T))
                     if bsps:
@@ -353,7 +353,7 @@ class Preprocess:
                                        self.P_atn[c][x+1],self.S_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
                         if len(quadruplets)!=0:
-                            quadruplets = np.int_(quadruplets)
+                            quadruplets = np.intp(quadruplets)
                             T = self.__torsions__(quadruplets=quadruplets)
                             self.sc_dihedrals.append((quadruplets,T))
                     if spsb:
@@ -361,7 +361,7 @@ class Preprocess:
                                     self.S_atn[c][x+1],self.B_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c] and x+1 in self.P_atn[c]]
                         if len(quadruplets)!=0:
-                            quadruplets = np.int_(quadruplets)
+                            quadruplets = np.intp(quadruplets)
                             T = self.__torsions__(quadruplets=quadruplets)
                             self.sc_dihedrals.append((quadruplets,T))
 
@@ -375,13 +375,13 @@ class Preprocess:
                 resnum.sort()
                 quadruplets = [tuple([self.CA_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.CA_atn[c]]
                 if len(quadruplets)!=0:
-                    quadruplets = np.int_(quadruplets)
+                    quadruplets = np.intp(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
                     self.bb_dihedrals.append((quadruplets,T))
                 if len(self.CB_atn)!=0:
                     quadruplets = [(self.CA_atn[c][x-1],self.CA_atn[c][x+1],self.CA_atn[c][x],self.CB_atn[c][x]) for x in resnum if x+1 in self.CA_atn[c] and x-1 in self.CA_atn[c] and x in self.CB_atn[c]]
                     if len(quadruplets)!=0:
-                        quadruplets = np.int_(quadruplets)
+                        quadruplets = np.intp(quadruplets)
                         T = self.__torsions__(quadruplets=quadruplets)
                         self.sc_dihedrals.append((quadruplets,T))
 
@@ -391,7 +391,7 @@ class Preprocess:
                 resnum.sort()
                 quadruplets = [tuple([self.P_atn[c][x+i] for i in range(4)]) for x in resnum if x+3 in self.P_atn[c]]
                 if len(quadruplets)!=0:
-                    quadruplets = np.int_(quadruplets)
+                    quadruplets = np.intp(quadruplets)
                     T = self.__torsions__(quadruplets=quadruplets)
                     self.bb_dihedrals.append((quadruplets,T))
             if len(self.S_atn) != 0:
@@ -403,7 +403,7 @@ class Preprocess:
                                     self.S_atn[c][x+1],self.B_atn[c][x+1]) \
                                     for x in resnum if x+1 in self.S_atn[c]]
                     if len(quadruplets)!=0:
-                        quadruplets = np.int_(quadruplets)
+                        quadruplets = np.intp(quadruplets)
                         T = self.__torsions__(quadruplets=quadruplets)
                         self.sc_dihedrals.append((quadruplets,T))
         
@@ -435,7 +435,7 @@ class Preprocess:
                     line = line.split()
                     if len(line)==0: continue
                     c1,a1,c2,a2 = line[:4]
-                    a1,a2 = np.int_([a1,a2])-1
+                    a1,a2 = np.intp([a1,a2])-1
                     if c1!=c2 and c2.startswith("nucl"):
                         c1,a1,c2,a2 = c2,a2,c1,a1
                     if len(line) < 6:
@@ -445,17 +445,17 @@ class Preprocess:
                     elif len(line)>=6:
                         pairs.append((a1,a2));chains.append((c1,c2))
                         if cmap.func!=7:
-                            w,d=np.float_(line[4:6]); d=0.1*d
+                            w,d=np.float64(line[4:6]); d=0.1*d
                             weights.append(w);distances.append(d)
                         elif cmap.func==7:
-                            w= np.float_(line[4])
-                            d=np.float_(line[5:]); d=0.1*d
+                            w= np.float64(line[4])
+                            d=np.float64(line[5:]); d=0.1*d
                             weights.append(w);distances.append(d)
 
             if len(temp_p)!=0: 
-                if group!="inter": temp_d = list(self.__distances__(pairs=np.int_(temp_p)))
+                if group!="inter": temp_d = list(self.__distances__(pairs=np.intp(temp_p)))
                 elif group=="inter": 
-                    temp_d = list(self.__distances__(pairs=np.int_(temp_p),xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz))
+                    temp_d = list(self.__distances__(pairs=np.intp(temp_p),xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz))
                 if cmap.func==7: temp_d=[tuple([x]) for x in temp_d]
             pairs += temp_p; chains += temp_c; weights += temp_w; distances += temp_d
             del (temp_p,temp_c,temp_d,temp_w)
@@ -475,7 +475,7 @@ class Preprocess:
                     else: c[1]=[tagforfile,c[1]]
                     c=tuple(["_".join(y) for y in c])
             if cmap.func!=7 and len(pairs)!=0:
-                pairs=np.int_(pairs); weights=np.float_(weights); distances=np.float_(distances)
+                pairs=np.intp(pairs); weights=np.float64(weights); distances=np.float64(distances)
                 self.contacts.append((pairs,chains,distances,weights))
                 if writefile:
                     for x in range(pairs.shape[0]):
@@ -485,11 +485,11 @@ class Preprocess:
                     fcg.close()
             else:
                 for max_dist_values in set([len(x) for x in distances]):
-                    temp_p=np.int_([pairs[i] for i in range(len(pairs)) if len(distances[i])==max_dist_values])
+                    temp_p=np.intp([pairs[i] for i in range(len(pairs)) if len(distances[i])==max_dist_values])
                     if len(temp_p)==0: continue
                     temp_c=[chains[i] for i in range(len(chains)) if len(distances[i])==max_dist_values]
-                    temp_w=np.float_([weights[i] for i in range(len(weights)) if len(distances[i])==max_dist_values])
-                    temp_d=np.float_([distances[i] for i in range(len(distances)) if len(distances[i])==max_dist_values])
+                    temp_w=np.float64([weights[i] for i in range(len(weights)) if len(distances[i])==max_dist_values])
+                    temp_d=np.float64([distances[i] for i in range(len(distances)) if len(distances[i])==max_dist_values])
                     self.contacts.append((temp_p,temp_c,temp_d,temp_w))
                     if writefile:
                         for x in range(temp_p.shape[0]):
@@ -507,7 +507,7 @@ class Preprocess:
                 aa_data_res,aa_data_xyz = self.allatpdb.nucl.res.copy(),self.allatpdb.nucl.xyz.copy()
             elif group in ("all","inter"):
                 aa_data_res = list(self.allatpdb.nucl.res.copy())+list(self.allatpdb.prot.res.copy())
-                aa_data_xyz = np.float_(list(self.allatpdb.nucl.xyz.copy())+list(self.allatpdb.prot.xyz.copy()))
+                aa_data_xyz = np.float64(list(self.allatpdb.nucl.xyz.copy())+list(self.allatpdb.prot.xyz.copy()))
             
             atomgroup,mol_id = [],[]
             for r in aa_data_res:
@@ -539,7 +539,7 @@ class Preprocess:
             resgap = 4 
             contacts_dict = dict()
             
-            mol_id = np.int_(mol_id)
+            mol_id = np.intp(mol_id)
             str_cid  = np.array([["nucl%s_"%self.file_ndx,"prot%s_"%self.file_ndx][mol_id[x]]+\
                                     str(cid[x]+1) for x in range(mol_id.shape[0])])
 
@@ -553,23 +553,23 @@ class Preprocess:
             print ("> Determining contacts for %d*%d atom pairs using %.2f A cutoff and %.2f scaling-factor"%(aa_data_xyz0.shape[0],aa_data_xyz.shape[0],cmap.cutoff,cmap.scale))
             for i in trange(aa_data_xyz0.shape[0]):
                 #resgap = 4:CA-CA, 3:CA-CB, 3:CB-CB, 
-                gap=resgap-np.int_(bb_sc+bb_sc0[i]>0) #aa2cg bbsc CA:0,CB:1
+                gap=resgap-np.intp(bb_sc+bb_sc0[i]>0) #aa2cg bbsc CA:0,CB:1
                 #resgap 1: P/B/S-P/S/B
                 gap=gap+(1-gap)*int(bb_sc0[i]>=2) #aa2cg bbsc P:5,B:3,S:2
 
                 if group in ("prot","nucl"): #calculate for intra molecule
-                    calculate = np.int_(mol_id==mol_id0[i])*\
-                                np.int_( (np.int_(rnum-gap>=rnum0[i])*np.int_(cid==cid0[i])\
-                                         + np.int_(cid>cid0[i])) > 0 )
+                    calculate = np.intp(mol_id==mol_id0[i])*\
+                                np.intp( (np.intp(rnum-gap>=rnum0[i])*np.intp(cid==cid0[i])\
+                                         + np.intp(cid>cid0[i])) > 0 )
                 elif group == "inter":      #calculate for inter molecule
                     if mol_id0[i] == 1: continue
-                    calculate = np.int_(mol_id>mol_id0[i])
+                    calculate = np.intp(mol_id>mol_id0[i])
                 elif group == "all":        #calculate all
-                    calculate = np.int_( np.int_(mol_id!=mol_id0[i] + \
-                                         np.int_(rnum-gap>=rnum0[i])*np.int_(cid==cid0[i])\
-                                         + np.int_(cid>cid0[i])) > 0)
+                    calculate = np.intp( np.intp(mol_id!=mol_id0[i] + \
+                                         np.intp(rnum-gap>=rnum0[i])*np.intp(cid==cid0[i])\
+                                         + np.intp(cid>cid0[i])) > 0)
                     
-                contact=np.where(np.int_(np.sum((aa_data_xyz-aa_data_xyz0[i])**2,1)**0.5<=cutoff)*calculate==1)[0]
+                contact=np.where(np.intp(np.sum((aa_data_xyz-aa_data_xyz0[i])**2,1)**0.5<=cutoff)*calculate==1)[0]
                 for x in contact:
                     faa.write("%s %d %s %d\n"%(str_cid0[i],i+1,str_cid[x],x+1))
                     cg_a1 = aa2cg[bb_sc0[i]][cid0[i]][rnum0[i]]
@@ -579,12 +579,12 @@ class Preprocess:
                     contacts_dict[pair_set] += 1
             contacts_dict = {y:(x,contacts_dict[(x,y)]) for x,y in contacts_dict}
             pairs = list(contacts_dict.keys()); pairs.sort()
-            weights = np.float_([contacts_dict[x][1] for x in pairs])
+            weights = np.float64([contacts_dict[x][1] for x in pairs])
             weights = weights*(weights.shape[0]/np.sum(weights))
             if not cmap.W: weights = np.ones(weights.shape)
-            #cid = np.int_([contacts_dict[x][0] for x in pairs])
+            #cid = np.intp([contacts_dict[x][0] for x in pairs])
             chains = [contacts_dict[x][0] for x in pairs]
-            pairs = np.int_(pairs)
+            pairs = np.intp(pairs)
             if len(pairs)>0:
                 if group!="inter": distances = self.__distances__(pairs=pairs)
                 elif group=="inter": distances = self.__distances__(pairs=pairs,xyz0=self.cgpdb_n.xyz,xyz1=self.cgpdb_p.xyz)
@@ -641,12 +641,12 @@ class Preprocess:
                                 pairs += [(ax,ay) for rx,ax in all_atn_c1 for ry,ay in all_atn_c2]
                                 cid += [(tag+str(c1+1),tag+str(c2+1)) for x in range(len(pairs)-len(cid))]
 
-            pairs = np.int_(pairs)
+            pairs = np.intp(pairs)
             if len(pairs)>0:
                 cid = np.array(cid)
                 cutoff = 0.1*cmap.cutoff
                 distances = self.__distances__(pairs)
-                contacts = np.where(np.int_(distances<=cutoff))[0]
+                contacts = np.where(np.intp(distances<=cutoff))[0]
                 pairs = pairs[contacts]
                 chains = cid[contacts]
                 distances = distances[contacts]
@@ -786,13 +786,13 @@ class MergeTop:
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
             #filtering entries in cmap files which are not present in here 
-            pairs=np.int_([pairs[x] for x in range(len(pairs)) \
+            pairs=np.intp([pairs[x] for x in range(len(pairs)) \
                 if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
             chains=[chains[x] for x in range(len(chains))
                 if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes]
-            sig=np.float_([sig[x] for x in range(len(sig))
+            sig=np.float64([sig[x] for x in range(len(sig))
                 if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
-            eps=np.float_([eps[x] for x in range(len(eps))
+            eps=np.float64([eps[x] for x in range(len(eps))
                 if C1[x] in self.molatnum2new_atomtypes and C2[x] in self.molatnum2new_atomtypes])
             C1,C2 = np.transpose(chains)
             C1,C2 = [x.split("_")[0] for x in C1],[x.split("_")[0] for x in C2]
@@ -806,8 +806,8 @@ class MergeTop:
             elif cmap_func in (5,6,7):
                 assert self.opt.opensmog
                 func,sd = 6,0.05
-                I_rad = np.float_([self.excl_volume[I[x].split("_")[0]] for x in range(len(I))])
-                J_rad = np.float_([self.excl_volume[J[x].split("_")[0]] for x in range(len(J))])
+                I_rad = np.float64([self.excl_volume[I[x].split("_")[0]] for x in range(len(I))])
+                J_rad = np.float64([self.excl_volume[J[x].split("_")[0]] for x in range(len(J))])
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
                 #print (sig[0],sig[-1]);exit()
@@ -985,7 +985,7 @@ class MergeTop:
                 elif y.strip().startswith(";"): fsec.write(y+"\n")
                 else:
                     line=y.strip() .split()
-                    a = np.int_([atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)])
+                    a = np.intp([atnum_offset + int(line[i]) + prev_at_count + x*atoms_in_mol for i in range(nparticles)])
                     if len(a)==2:self.already_excluded_atoms['exclusions'].append(tuple(a))
                     elif len(a)>2:
                         for a1 in a:
@@ -1055,13 +1055,13 @@ class MergeTop:
             if len(set([x[-1] for x in C1]+[x[-1] for x in C2]))==1:
                 C1,C2=[x.split("0")[0] for x in C1],[x.split("0")[0] for x in C2]
             #filtering for entries in user input cmap that are not present
-            pairs=np.int_([pairs[x] for x in range(len(pairs)) \
+            pairs=np.intp([pairs[x] for x in range(len(pairs)) \
                 if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
             chains=[chains[x] for x in range(len(chains))
                 if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol]
-            sig=np.float_([sig[x] for x in range(len(sig))
+            sig=np.float64([sig[x] for x in range(len(sig))
                 if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
-            eps=np.float_([eps[x] for x in range(len(eps))
+            eps=np.float64([eps[x] for x in range(len(eps))
                 if C1[x] in atoms_in_mol and C2[x] in atoms_in_mol])
             I,J = np.transpose(pairs)
             C1,C2 = np.transpose(chains)
@@ -1069,17 +1069,17 @@ class MergeTop:
             if len(set([x[-1] for x in C1]+[x[-1] for x in C2]))==1:
                 C1,C2=[x.split("0")[0] for x in C1],[x.split("0")[0] for x in C2]
             # done filtering
-            sym_I = [1 + np.int_([I[y] + x*atoms_in_mol[C1[y]] for x in range(nmol[C1[y]])]) + \
+            sym_I = [1 + np.intp([I[y] + x*atoms_in_mol[C1[y]] for x in range(nmol[C1[y]])]) + \
                         atnum_offset + prev_at_count[C1[y]] for y in range(I.shape[0])]
-            sym_J = [1 + np.int_([J[y] + x*atoms_in_mol[C2[y]] for x in range(nmol[C2[y]])]) + \
+            sym_J = [1 + np.intp([J[y] + x*atoms_in_mol[C2[y]] for x in range(nmol[C2[y]])]) + \
                         atnum_offset + prev_at_count[C2[y]] for y in range(J.shape[0])]
             func=1
             if cmap_func==1: values = 2*eps*((sig)**6),1*eps*((sig)**12)
             elif cmap_func==2: values = 6*eps*((sig)**10),5*eps*((sig)**12)
             elif cmap_func in (5,6,7):
                 func,sd = 6,0.05
-                I_rad = np.float_([self.excl_volume[self.atomtypes[C1[x]][I[x]].split("_")[0]] for x in range(I.shape[0])])
-                J_rad = np.float_([self.excl_volume[self.atomtypes[C2[x]][J[x]].split("_")[0]] for x in range(J.shape[0])])
+                I_rad = np.float64([self.excl_volume[self.atomtypes[C1[x]][I[x]].split("_")[0]] for x in range(I.shape[0])])
+                J_rad = np.float64([self.excl_volume[self.atomtypes[C2[x]][J[x]].split("_")[0]] for x in range(J.shape[0])])
                 if self.excl_rule == 1: C12 = ((I_rad**12.0)*(J_rad**12.0))**0.5
                 elif self.excl_rule == 2: C12 = ((I_rad+J_rad)/2.0)**12.0
                 values = eps,sig,np.ones(C12.shape[0])*sd,C12
@@ -1117,7 +1117,7 @@ class MergeTop:
         if self.opt.opensmog and len(xml_pairs_data)!=0:
             if cmap_func==7: I,J,eps,sig0,sig1,C12=np.transpose(xml_pairs_data)
             else: I,J,eps,sig0,C12=np.transpose(xml_pairs_data)
-            pairs=-1+np.int_([(I[x],J[x]) for x in range(len(xml_pairs_data))])
+            pairs=-1+np.intp([(I[x],J[x]) for x in range(len(xml_pairs_data))])
             params={"eps":eps,"r0":sig0}
 
             if cmap_func==1: expr,name="eps*( 1*((r0/r)^12) - 2*((r0/r)^10) )","symInter_contacts_LJ-06-12"
@@ -1383,7 +1383,7 @@ class MergeTop:
                         for line in inter_exclusions_section: 
                             if line.startswith(";"): fout.write(line)
                             else:
-                                a1,a2=np.int_(line.split()[:2])
+                                a1,a2=np.intp(line.split()[:2])
                                 if a2 in self.already_excluded_atoms[a1]: continue
                                 if True in [a2 in self.already_excluded_atoms[b1] for b1 in self.already_excluded_atoms[a1]]: continue
                                 if (a1,a2) in self.already_excluded_atoms['exclusions']: continue
@@ -1404,7 +1404,7 @@ class OpenSMOGXML:
             self.add_electrostatics=True
             if coulomb.kcal: K_elec,D=coulomb.inv_4pieps/coulomb.caltoj,coulomb.dielec
             else: K_elec,D=coulomb.inv_4pieps,coulomb.dielec
-            T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float_([]))
+            T=Tables(); T.__electrostatics__(coulomb=coulomb,r=np.float64([]))
             self.elec_expr="(Kelec/D)*Bk*exp(-inv_dl*r)*q1q2(type1,type2)/r"
             self.elec_const="Bk=%e; inv_dl=%e; D=%d; Kelec=%e"%(T.Bk,T.inv_dl,D,K_elec)
 
@@ -1456,11 +1456,11 @@ class OpenSMOGXML:
             sd=0.05
             assert len(C12)!=0
             if func==1: 
-                params["C06"]=2*np.float_(epsA)*(np.float_(sig)**6)
+                params["C06"]=2*np.float64(epsA)*(np.float64(sig)**6)
                 expression="C12(type1,type2)/(r^12) - C06(type1,type2)/(r^6)"
                 sig,epsA=list(),list()
             elif func==2: 
-                params["C10"]=6*np.float_(epsA)*(np.float_(sig)**10)
+                params["C10"]=6*np.float64(epsA)*(np.float64(sig)**10)
                 expression="C12(type1,type2)/(r^12) - C10(type1,type2)/(r^10)"
                 sig,epsA=list(),list()
             elif func==6: expression="epsA(type1,type2)*((1+(C12(type1,type2)/(r^12)))*(1-exp(-((r-r0(type1,type2))^2)/(2*(sd(type1,type2)^2))))-1); sd=%e"%sd
@@ -1945,7 +1945,7 @@ class Topology:
             temp_q,temp_d=[],[]
             for quads,diheds in  data.bb_dihedrals:
                 temp_q+=list(quads);temp_d+=list(diheds)
-            quads,diheds=np.int_(temp_q),np.float_(temp_d)
+            quads,diheds=np.intp(temp_q),np.float64(temp_d)
             self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals",\
                         expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
                         params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
@@ -1954,7 +1954,7 @@ class Topology:
                 temp_q,temp_d=[],[]
                 for quads,diheds in  data.sc_dihedrals:
                     temp_q+=list(quads);temp_d+=list(diheds)
-                quads,diheds=np.int_(temp_q),np.float_(temp_d)
+                quads,diheds=np.intp(temp_q),np.float64(temp_d)
                 self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
                             expression="Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
                             params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
@@ -1992,8 +1992,8 @@ class Topology:
                 pairs,chains,dist,eps = data.contacts[index]
                 I,J = np.transpose(pairs)
                 interaction_type = \
-                        np.int_([x in CB_atn for x in I])+ \
-                        np.int_([x in CB_atn for x in J])
+                        np.intp([x in CB_atn for x in I])+ \
+                        np.intp([x in CB_atn for x in J])
                 epsmat.update({(all_atn[I[x]],all_atn[J[x]]):1.0 for x in range(len(I))})
                 for x in range(I.shape[0]):
                     if (all_atn[I[x]],all_atn[J[x]]) in epsmat:
@@ -2051,8 +2051,8 @@ class Topology:
             for c in range(len(data.contacts)):
                 pairs,chains,dist,eps=data.contacts[c]
                 I,J = np.transpose(pairs)
-                I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
-                J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
+                I = np.float64([self.excl_volume[self.atomtypes[x]] for x in I])
+                J = np.float64([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
                 if cmap.func==6:
@@ -2067,7 +2067,7 @@ class Topology:
                         fout.write(" %5d %5d %5d %.3f %e %e %e\n"%(I[x],J[x],func,eps[x],dist[x],sd,c12[x]))
                 elif cmap.func==7:
                     if self.opt.opensmog:
-                        #if len(dist.shape)==1: dist=np.float_
+                        #if len(dist.shape)==1: dist=np.float64
                         N_dist_values=dist.shape[1]
                         expr="(1+(C12/(r^12)))"
                         for i in range(N_dist_values): expr+="*(1-G%d)"%i
@@ -2151,7 +2151,7 @@ class Topology:
             for quads,diheds in  data.bb_dihedrals:
                 if self.opt.P_stretch: diheds=180*np.ones(diheds.shape)
                 temp_q+=list(quads);temp_d+=list(diheds)
-            quads,diheds=np.int_(temp_q),np.float_(temp_d)
+            quads,diheds=np.intp(temp_q),np.float64(temp_d)
             self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="bb_dihedrals",\
                         expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
                         params={"phi0_deg":diheds,"Kd":Kd_bb*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
@@ -2160,7 +2160,7 @@ class Topology:
                 temp_q,temp_d=[],[]
                 for quads,diheds in  data.sc_dihedrals:
                     temp_q+=list(quads);temp_d+=list(diheds)
-                quads,diheds=np.int_(temp_q),np.float_(temp_d)
+                quads,diheds=np.intp(temp_q),np.float64(temp_d)
                 self.nucl_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
                             expression="Kd*(1-cos(phi-phi0)) + (Kd/fn)*(1-cos(3*(phi-phi0)));phi0=phi0_deg*pi/180;pi=3.141592653589793",\
                             params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0]),"fn":mfac*np.ones(quads.shape[0])})
@@ -2241,8 +2241,8 @@ class Topology:
             for c in range(len(data.contacts)):
                 pairs,chains,dist,eps=data.contacts[c]
                 I,J = np.transpose(pairs)
-                I = np.float_([self.excl_volume[self.atomtypes[x]] for x in I])
-                J = np.float_([self.excl_volume[self.atomtypes[x]] for x in J])
+                I = np.float64([self.excl_volume[self.atomtypes[x]] for x in I])
+                J = np.float64([self.excl_volume[self.atomtypes[x]] for x in J])
                 if excl_rule == 1: c12 = ((I**12.0)*(J**12.0))**0.5
                 elif excl_rule == 2: c12 = ((I+J)/2.0)**12.0
                 if cmap.func==6:
@@ -2417,11 +2417,11 @@ class Pal2019(Topology):
         for c in data.B_atn:
             resnum = list(data.B_atn[c].keys())
             resnum.sort()
-            pairs = np.int_([(data.B_atn[c][x],data.B_atn[c][x+1]) for x in resnum if x+1 in data.B_atn[c]])
+            pairs = np.intp([(data.B_atn[c][x],data.B_atn[c][x+1]) for x in resnum if x+1 in data.B_atn[c]])
             if len(pairs)==0: continue
             I,J = np.transpose(pairs)
-            eps = np.float_([epsmat[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
-            dist = np.float_([stack[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
+            eps = np.float64([epsmat[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
+            dist = np.float64([stack[(B_atn[I[x]],B_atn[J[x]])] for x in range(I.shape[0])])
             chains = [tuple(["nucl_"+str(c+1)]*2) for x in range(I.shape[0])]
             data.contacts.append((pairs,chains,dist,eps))
             if self.opt.opensmog:
@@ -2577,7 +2577,7 @@ class Denesyuk2013_Chakraborty2018(Topology):
 
             Kl,Kd=1.45,3.00
             if not opensmog_dlp_fork:
-                quads1=np.int_(quads1)
+                quads1=np.intp(quads1)
                 values=np.transpose(values)
                 self.nucl_xmlfile.write_dihedrals_xml(quads=quads1,name="base_stacking%d_"%c,\
                                 params={"r0":values[0],"phi0":values[1]},\
@@ -2672,7 +2672,7 @@ class Reddy2016(Topology):
             temp_p,temp_d=[],[]
             for pairs,dist in data.bonds:
                 temp_p+=list(pairs);temp_d+=list(dist)
-            pairs,dist=np.int_(temp_p),np.float_(temp_d)
+            pairs,dist=np.intp(temp_p),np.float64(temp_d)
             I,J = 1+np.transpose(pairs) 
             print (">Writing FENE Bonds as OpenSMOG contacts")
             self.prot_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
@@ -2690,8 +2690,8 @@ class Reddy2016(Topology):
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
-                if r0-R>0:r=0.001*np.int_(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
-                else: r=0.001*np.int_(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
+                if r0-R>0:r=0.001*np.intp(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
+                else: r=0.001*np.intp(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
@@ -2732,16 +2732,16 @@ class Reddy2016(Topology):
         for index in range(len(data.contacts)):
             pairs,chains,dist,eps = data.contacts[index]
             I,J = np.transpose(pairs)
-            interaction_type = np.int_(\
-                np.int_([x in CB_atn for x in I])+ \
-                np.int_([x in CB_atn for x in J]))
+            interaction_type = np.intp(\
+                np.intp([x in CB_atn for x in I])+ \
+                np.intp([x in CB_atn for x in J]))
             scscmat.update({(all_atn[I[x]],all_atn[J[x]]):0.0 for x in range(I.shape[0]) if (all_atn[I[x]],all_atn[J[x]]) not in scscmat})
-            eps_scsc = np.float_([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
+            eps_scsc = np.float64([scscmat[(all_atn[I[x]],all_atn[J[x]])] for x in range(I.shape[0])])
             eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz
-            eps = np.float_(eps)
-            eps = eps_bbbb*np.int_(interaction_type==0) \
-                + eps_bbsc*np.int_(interaction_type==1) \
-                + eps_scsc*np.int_(interaction_type==2) 
+            eps = np.float64(eps)
+            eps = eps_bbbb*np.intp(interaction_type==0) \
+                + eps_bbsc*np.intp(interaction_type==1) \
+                + eps_scsc*np.intp(interaction_type==2) 
             data.contacts[index] = pairs,chains,dist,eps
 
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -2797,15 +2797,15 @@ class Reddy2016(Topology):
         for index in range(len(data.angles)):
             triplets,angles = data.angles[index]
             I,J,K = np.transpose(triplets)
-            interaction_type = np.int_(\
-                np.int_([x in CB_atn for x in I])+ \
-                np.int_([x in CB_atn for x in K]))
+            interaction_type = np.intp(\
+                np.intp([x in CB_atn for x in I])+ \
+                np.intp([x in CB_atn for x in K]))
             sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-            sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+            sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
             assert 2 not in interaction_type
-            c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-                + -1*eps_bbsc*((0.9*sig)**6)*np.int_(interaction_type==1) 
-            pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+            c06 = -1*eps_bbbb*((1.0*sig)**6)*np.intp(interaction_type==0) \
+                + -1*eps_bbsc*((0.9*sig)**6)*np.intp(interaction_type==1) 
+            pairs = np.intp([(I[x],K[x]) for x in range(I.shape[0])])
             #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
             if self.opt.opensmog:
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==0)],\
@@ -2918,16 +2918,16 @@ class Baul2019(Reddy2016):
                             pairs.append((data.CB_atn[c][x],data.CB_atn[c][y]))
         
         if len(pairs)==0: return
-        I,K = np.transpose(np.int_(pairs))
-        interaction_type = np.int_(\
-            np.int_([x in CB_atn for x in I])+ \
-            np.int_([x in CB_atn for x in K]))
+        I,K = np.transpose(np.intp(pairs))
+        interaction_type = np.intp(\
+            np.intp([x in CB_atn for x in I])+ \
+            np.intp([x in CB_atn for x in K]))
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
-        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-            + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
-            + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
-        pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+        sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.intp(interaction_type==0) \
+            + -1*eps_bbsc*((1.0*sig)**6)*np.intp(interaction_type==1) \
+            + -1*eps_scsc*((1.0*sig)**6)*np.intp(interaction_type==2) 
+        pairs = np.intp([(I[x],K[x]) for x in range(I.shape[0])])
         #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
@@ -3229,9 +3229,9 @@ class SOPSC_IDR(Reddy2016):
                 r0 = np.round(dist[i],3)
                 if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
                 if r0-R>0:
-                    r=0.001*np.int_(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
+                    r=0.001*np.intp(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
                 else:
-                    r=0.001*np.int_(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
+                    r=0.001*np.intp(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
                 V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
                 #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
                 V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
@@ -3275,7 +3275,7 @@ class SOPSC_IDR(Reddy2016):
                                 idr_pairs.append((u_data.CB_atn[c][x],u_data.CA_atn[c][y]))
                             if x in u_data.CB_atn[c] and y in u_data.CB_atn[c]:
                                 idr_pairs.append((u_data.CB_atn[c][x],u_data.CB_atn[c][y]))
-        pairs,idr_pairs=np.int_(pairs),np.int_(idr_pairs)
+        pairs,idr_pairs=np.intp(pairs),np.intp(idr_pairs)
         assert len(pairs)!=0, "Error, No structured region?"
         
         CA_atn = {u_data.CA_atn[c][r]:self.atomtypes[u_data.CA_atn[c][r]] for c in u_data.CA_atn for r in u_data.CA_atn[c]}
@@ -3283,12 +3283,12 @@ class SOPSC_IDR(Reddy2016):
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
         I,K = np.transpose(pairs)   
-        interaction_type = np.int_(np.int_([x in CB_atn for x in I])+ np.int_([x in CB_atn for x in K]))
+        interaction_type = np.intp(np.intp([x in CB_atn for x in I])+ np.intp([x in CB_atn for x in K]))
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
+        sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
         assert 2 not in interaction_type
-        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-            + -1*eps_bbsc*((0.8*sig)**6)*np.int_(interaction_type==1) 
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.intp(interaction_type==0) \
+            + -1*eps_bbsc*((0.8*sig)**6)*np.intp(interaction_type==1) 
         #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
@@ -3307,15 +3307,15 @@ class SOPSC_IDR(Reddy2016):
         print ("> Using -C6 repulsion for IDR local beads")
         fout.write(";IDR angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
         I,K = np.transpose(idr_pairs)
-        interaction_type = np.int_(\
-            np.int_([x in CB_atn for x in I])+ \
-            np.int_([x in CB_atn for x in K]))
+        interaction_type = np.intp(\
+            np.intp([x in CB_atn for x in I])+ \
+            np.intp([x in CB_atn for x in K]))
         sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
-        sig = 0.5*np.float_([diam[x]+diam[y] for x,y in sig])
-        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.int_(interaction_type==0) \
-            + -1*eps_bbsc*((1.0*sig)**6)*np.int_(interaction_type==1) \
-            + -1*eps_scsc*((1.0*sig)**6)*np.int_(interaction_type==2) 
-        pairs = np.int_([(I[x],K[x]) for x in range(I.shape[0])])
+        sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
+        c06 = -1*eps_bbbb*((1.0*sig)**6)*np.intp(interaction_type==0) \
+            + -1*eps_bbsc*((1.0*sig)**6)*np.intp(interaction_type==1) \
+            + -1*eps_scsc*((1.0*sig)**6)*np.intp(interaction_type==2) 
+        pairs = np.intp([(I[x],K[x]) for x in range(I.shape[0])])
         #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
@@ -3374,19 +3374,19 @@ class SOPSC_IDR(Reddy2016):
             pairs,chains,dist,eps=temp_p,temp_c,temp_d,temp_w
                 
             I,J = np.transpose(pairs)
-            interaction_type = np.int_(\
-                np.int_([x in CB_atn for x in I])+ \
-                np.int_([x in CB_atn for x in J]))
+            interaction_type = np.intp(\
+                np.intp([x in CB_atn for x in I])+ \
+                np.intp([x in CB_atn for x in J]))
 
             scscmat.update({(all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")):0.0 for x in range(I.shape[0])\
                              if (all_atn[I[x]].strip("i"),all_atn[J[x]].strip("i")) not in scscmat})
-            eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i"))] for x in range(I.shape[0])])
+            eps_scsc = np.float64([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i"))] for x in range(I.shape[0])])
             eps_scsc = 0.5*np.abs(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
-            eps = np.float_(eps)
-            eps = eps_bbbb*np.int_(interaction_type==0) \
-                + eps_bbsc*np.int_(interaction_type==1) \
-                + eps_scsc*np.int_(interaction_type==2) 
-            pairs = np.int_([(old2new_atn[x],old2new_atn[y]) for x,y in pairs])
+            eps = np.float64(eps)
+            eps = eps_bbbb*np.intp(interaction_type==0) \
+                + eps_bbsc*np.intp(interaction_type==1) \
+                + eps_scsc*np.intp(interaction_type==2) 
+            pairs = np.intp([(old2new_atn[x],old2new_atn[y]) for x,y in pairs])
             data.contacts[index] = pairs,chains,dist,eps
 
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -3402,7 +3402,7 @@ class SOPSC_IDR(Reddy2016):
                             expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
                 continue
             I,J = 1+np.transpose(pairs)
-            dist=np.float_(dist)
+            dist=np.float64(dist)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
             for x in range(pairs.shape[0]): 
@@ -3664,19 +3664,19 @@ class Baratam2024(SOPSC_IDR):
             del(checK_pair)
             
             I,J = np.transpose(pairs)
-            interaction_type = np.int_(\
-                np.int_([x in CB_atn for x in I])+ \
-                np.int_([x in CB_atn for x in J]))
+            interaction_type = np.intp(\
+                np.intp([x in CB_atn for x in I])+ \
+                np.intp([x in CB_atn for x in J]))
 
             scscmat.update({(all_atn[I[x]].strip("i0123456789"),all_atn[J[x]].strip("i0123456789")):0.0 for x in range(I.shape[0])\
                              if (all_atn[I[x]].strip("i0123456789"),all_atn[J[x]].strip("i0123456789")) not in scscmat})
-            eps_scsc = np.float_([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i0123456789"))] for x in range(I.shape[0])])
+            eps_scsc = np.float64([scscmat[(all_atn[I[x]].strip("i0123456798"),all_atn[J[x]].strip("i0123456789"))] for x in range(I.shape[0])])
             eps_scsc = 0.5*(0.7-eps_scsc)*300*Kboltz # eps(KJ/mol)*J2cal*300*Kboltz(KJ/mol)/J2Cal
-            eps = np.float_(eps)
-            eps = eps_bbbb*np.int_(interaction_type==0) \
-                + eps_bbsc*np.int_(interaction_type==1) \
-                + eps_scsc*np.int_(interaction_type==2) 
-            pairs = np.int_([(old2new_atn[x],old2new_atn[y]) for x,y in pairs])
+            eps = np.float64(eps)
+            eps = eps_bbbb*np.intp(interaction_type==0) \
+                + eps_bbsc*np.intp(interaction_type==1) \
+                + eps_scsc*np.intp(interaction_type==2) 
+            pairs = np.intp([(old2new_atn[x],old2new_atn[y]) for x,y in pairs])
             data.contacts[index] = pairs,chains,dist,eps
 
         fout.write("\n%s\n"%("[ pairs ]"))
@@ -3692,7 +3692,7 @@ class Baratam2024(SOPSC_IDR):
                             expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
                 continue
             I,J = 1+np.transpose(pairs)
-            dist=np.float_(dist)
+            dist=np.float64(dist)
             c06 = 2*eps*(dist**6.0)
             c12 = eps*(dist**12.0)
             for x in range(pairs.shape[0]): 

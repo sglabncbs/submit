@@ -216,7 +216,7 @@ class CleanUP:
 					open("SuBMIT_Output/GRO_TOP_XML/%s_%s"%(mol_list[0][1],grosuffix)).read())
 			else:			
 				assert len(mol_list)!=0
-				if np.sum(np.int_(np.transpose(mol_list)[0]))==0:
+				if np.sum(np.intp(np.transpose(mol_list)[0]))==0:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
 				else:
 					mol_list=[("%s_%s"%(x[1],grosuffix),int(x[2])) for x in mol_list]
@@ -459,11 +459,11 @@ def main():
 	list_of_nucleicacid_presets=[args.denesyuk2013, args.chakraborty2018,args.dlprakash]
 	list_of_hybrid_presets=[args.banerjee2023, args.virusassembly,args.pal2019]
 
-	assert (np.sum(np.int_(list_of_hybrid_presets))) <= 1,\
+	assert (np.sum(np.intp(list_of_hybrid_presets))) <= 1,\
 		"Error! Two hybrid (protein + nucleic acid) SBMs cannot be implemented togther."
-	assert (np.sum(np.int_(list_of_protein_presets+list_of_hybrid_presets))) <= 1,\
+	assert (np.sum(np.intp(list_of_protein_presets+list_of_hybrid_presets))) <= 1,\
 		"Error! Two protein SBMs cannot be implemented togther."
-	assert (np.sum(np.int_(list_of_nucleicacid_presets+list_of_hybrid_presets))) <= 1,\
+	assert (np.sum(np.intp(list_of_nucleicacid_presets+list_of_hybrid_presets))) <= 1,\
 		"Error! Two nucleic acid SBMs cannot be implemented togther."
 
 	if args.clementi2000:
@@ -1064,7 +1064,7 @@ def main():
 
 	if args.nmol:
 		assert len(args.nmol)==len(pdbdata), "Error, number of values given to --nmol should be equal to values given to --aa_pdb/--cg_pdb"
-		args.nmol=np.int_(args.nmol)
+		args.nmol=np.intp(args.nmol)
 	else: args.nmol = np.ones(len(pdbdata),dtype=int)
 	Nmol['prot'],Nmol["nucl"]=list(args.nmol),list(args.nmol)
 	if CGlevel["prot"]==0: Nmol["prot"]=list(np.zeros(len(Nmol["prot"])))

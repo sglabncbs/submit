@@ -64,7 +64,7 @@ class CoarseGrain:
                 bb_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
         COM = {}
         for resnum in bb_xyz:
-            C,M=np.float_(bb_xyz[resnum]),np.float_(bb_mass[resnum])
+            C,M=np.float64(bb_xyz[resnum]),np.float64(bb_mass[resnum])
             COM[resnum]=np.matmul(M,C)/sum(M)
         return COM
 
@@ -94,7 +94,7 @@ class CoarseGrain:
     
         COM = {}
         for resnum in sc_xyz:
-            C,M=np.float_(sc_xyz[resnum]),np.float_(sc_mass[resnum])
+            C,M=np.float64(sc_xyz[resnum]),np.float64(sc_mass[resnum])
             if sum(M)==0: continue
             COM[resnum]=np.matmul(M,C)/sum(M)
         return COM
@@ -136,7 +136,7 @@ class CoarseGrain:
 
         CB = {}
         for resnum in CA:
-            sc_xyz[resnum]=np.float_(sc_xyz[resnum])
+            sc_xyz[resnum]=np.float64(sc_xyz[resnum])
             if sc_xyz[resnum].shape[0]==0:continue
             sq_dist = np.sum((CA[resnum]-sc_xyz[resnum])**2,1)
             CB[resnum]=sc_xyz[resnum][np.where(sq_dist==np.max(sq_dist))[0][0]]
@@ -161,7 +161,7 @@ class CoarseGrain:
                 if atname == "O3'": prev_O3prime = [reslist[x],XYZ[x]]
             COM = {}
             for resnum in bb_xyz:
-                C,M=np.float_(bb_xyz[resnum]),np.float_(bb_mass[resnum])
+                C,M=np.float64(bb_xyz[resnum]),np.float64(bb_mass[resnum])
                 COM[resnum]=np.matmul(M,C)/sum(M)
             return COM
         else:
@@ -185,7 +185,7 @@ class CoarseGrain:
                     bb_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
             COM = {}
             for resnum in bb_xyz:
-                C,M=np.float_(bb_xyz[resnum]),np.float_(bb_mass[resnum])
+                C,M=np.float64(bb_xyz[resnum]),np.float64(bb_mass[resnum])
                 COM[resnum]=np.matmul(M,C)/sum(M)
             return COM
         else:
@@ -211,7 +211,7 @@ class CoarseGrain:
                         bb_mass[(chain,resnum,resname)].append(self.mass[atname[0]])
             COM = {}
             for resnum in bb_xyz:
-                C,M=np.float_(bb_xyz[resnum]),np.float_(bb_mass[resnum])
+                C,M=np.float64(bb_xyz[resnum]),np.float64(bb_mass[resnum])
                 COM[resnum] = [np.matmul(M,C)/sum(M)]
             return COM
         else:
@@ -264,7 +264,7 @@ class PDB_IO:
                     self.nucl.seq += " "
             if len(self.nucl.seq) == 0: self.nucl.seq = bbseq
             else: assert len(self.nucl.seq) >= len(bbseq), "Error missing sugar atoms"
-            self.nucl.xyz=np.float_(self.nucl.xyz); self.nucl.atn=np.int_(self.nucl.atn); self.nucl.ter=np.int_(self.nucl.ter)
+            self.nucl.xyz=np.float64(self.nucl.xyz); self.nucl.atn=np.intp(self.nucl.atn); self.nucl.ter=np.intp(self.nucl.ter)
         if len(self.prot.lines) > 0:
             prot_chain_count = 0
             for x in range(len(self.prot.lines)):
@@ -279,7 +279,7 @@ class PDB_IO:
                     self.prot.cid.append(self.prot.lines[x-1][21])
                     prot_chain_count+=1
                     self.prot.seq += " "
-            self.prot.xyz=np.float_(self.prot.xyz); self.prot.atn=np.int_(self.prot.atn); self.prot.ter=np.int_(self.prot.ter)
+            self.prot.xyz=np.float64(self.prot.xyz); self.prot.atn=np.intp(self.prot.atn); self.prot.ter=np.intp(self.prot.ter)
         return
     
     def __fixMultiOcc__(self,pdb_lines=list()):
@@ -316,7 +316,7 @@ class PDB_IO:
                 #if atname.startswith("H") and not self.CBgly: continue
                 resname,resnum =  line[5:10].strip(),int(line[0:5])
                 if atname.startswith("H") and not self.CBgly and resname=="GLY": continue
-                XYZ=10*np.float_([line[20:28],line[28:36],line[36:44]])
+                XYZ=10*np.float64([line[20:28],line[28:36],line[36:44]])
                 line="ATOM".ljust(6)+hy36encode(5,atnum)+" "+atname.center(4)\
                     +" "+resname.ljust(3)+" "+"A"+hy36encode(4,resnum)+4*" "\
                     +"%8.3f%8.3f%8.3f\n"%tuple(XYZ)
@@ -353,8 +353,8 @@ class PDB_IO:
                                     " ",a[atom_data[A_or_L+"_asym_id"]].strip()[0].rjust(1),          #20 blank # 21 chain. if cid is 2-letter then use first one
                                     hy36encode(4,int(a[atom_data[A_or_L+"_seq_id"]])).rjust(4),       #22-25 residue number
                                     " "*4]                                                            #26-29 blank
-                            XYZ=np.float_([a[atom_data["Cartn_x"]],a[atom_data["Cartn_y"]],a[atom_data["Cartn_z"]]])
-                            occ_bf=np.float_([a[atom_data["occupancy"]],a[atom_data["B_iso_or_equiv"]]])
+                            XYZ=np.float64([a[atom_data["Cartn_x"]],a[atom_data["Cartn_y"]],a[atom_data["Cartn_z"]]])
+                            occ_bf=np.float64([a[atom_data["occupancy"]],a[atom_data["B_iso_or_equiv"]]])
                             if prev_cid != 0 and prev_cid != a[atom_data["label_asym_id"]].strip():
                                 fout.write("TER\n")
                             prev_cid = a[atom_data["label_asym_id"]].strip()
@@ -518,7 +518,7 @@ class PDB_IO:
         Z_trans = trans_vec*np.cos(alpha)
 
         #definfing new coordinates for nucleic acid structure
-        new_nucl_geocent = prot_geocent + np.float_([X_trans,Y_trans,Z_trans])
+        new_nucl_geocent = prot_geocent + np.float64([X_trans,Y_trans,Z_trans])
         print ("DNA/RNA new Geometric center = ",new_nucl_geocent)
 
         #defining linear transition matrix for moving FNA/RNA
@@ -585,14 +585,14 @@ class PDB_IO:
                 if line.startswith(("#","@",";")): continue
                 line=line.split()
                 c1,a1,c2,a2=line[:4]
-                a1,a2=np.int_([a1,a2])-1
+                a1,a2=np.intp([a1,a2])-1
                 if "p" in c1 or "n" in c1:
                     assert "p" in c2 or "n" in c2
                 else:
-                    n1,n2=np.int_([c1,c2])-1
+                    n1,n2=np.intp([c1,c2])-1
                     c1="%s_%s"%(self.original_chain_order[n1][0],c1)
                     c2="%s_%s"%(self.original_chain_order[n2][0],c2)
-                a1,a2=np.int_([a1,a2])+1
+                a1,a2=np.intp([a1,a2])+1
                 if c1[0]==c2[0]=="n":
                     fnucl.write("%s %d %s %d"%(c1,a1,c2,a2))
                     fnucl.write(len(line[4:])*" %s"%tuple(line[4:])+"\n")
@@ -819,7 +819,7 @@ class PDB_IO:
         
         amino_acid_dict={v:k for k,v in Prot_Data().amino_acid_dict.items()}
         with open(outpdb,"w+") as fout:
-            ca_xyz = np.float_([-25*(len(chain_order)-1),chain_width/2,0])
+            ca_xyz = np.float64([-25*(len(chain_order)-1),chain_width/2,0])
             offset,chain_count,atnum,prev_ca = 0,0,0,0
             for tag in chain_order:
                 if len(tag)==3: 
@@ -828,7 +828,7 @@ class PDB_IO:
                     r1=r0+len(chains[tag])
                 else:
                     name,c=tag[:2]
-                    r0,r1=np.int_(tag[2:])
+                    r0,r1=np.intp(tag[2:])
                     assert 1+r1-r0==len(chains[tag]),\
                         "Error, chain length and resnum mismatch in %s"%fasta
                 resnum = list(range(r0,r1+1))
@@ -838,8 +838,8 @@ class PDB_IO:
                     atnum+=1
                     Arad,Brad = 10*rad["CA"],10*rad["CB"+res]
                     if prev_ca !=0:
-                        if topbonds: ca_xyz = ca_xyz + np.float_([0,dist[(prev_ca,atnum)],0])*[-1,+1][chain_count%2]
-                        else: ca_xyz = ca_xyz + np.float_([0,Arad+Arad,0])*[-1,+1][chain_count%2]
+                        if topbonds: ca_xyz = ca_xyz + np.float64([0,dist[(prev_ca,atnum)],0])*[-1,+1][chain_count%2]
+                        else: ca_xyz = ca_xyz + np.float64([0,Arad+Arad,0])*[-1,+1][chain_count%2]
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CA".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(ca_xyz)
@@ -847,8 +847,8 @@ class PDB_IO:
                     prev_ca=atnum
                     if not CBgly and res=="G":continue
                     atnum+=1
-                    if topbonds: cb_xyz = ca_xyz + np.float_([0,0,dist[(prev_ca,atnum)]])*[-1,+1][x%2]
-                    else: cb_xyz = ca_xyz + np.float_([0,0,Arad+Brad])*[-1,+1][x%2]
+                    if topbonds: cb_xyz = ca_xyz + np.float64([0,0,dist[(prev_ca,atnum)]])*[-1,+1][x%2]
+                    else: cb_xyz = ca_xyz + np.float64([0,0,Arad+Brad])*[-1,+1][x%2]
                     line = "ATOM".ljust(6)+hy36encode(5,atnum)+" "+"CB".center(4)\
                          +" "+amino_acid_dict[res]+" "+c[0].upper()+hy36encode(4,resnum[x]+offset)\
                          +4*" "+3*"%8.3f"%tuple(cb_xyz)
@@ -856,7 +856,7 @@ class PDB_IO:
                     prev_cb=atnum
                 fout.write("TER\n")
                 chain_count+=1
-                ca_xyz = ca_xyz + np.float_([50,0,0])
+                ca_xyz = ca_xyz + np.float64([50,0,0])
         self.pdbfile=self.__renumberPDB__(infile=outpdb)
         self.__readPDB__()
         return outpdb
@@ -880,7 +880,7 @@ class Fill_Box:
             with open(grofile) as fin:
                 natoms=int([fin.readline() for i in range(2)][1])
                 lines=[fin.readline() for i in range(natoms)]
-                XYZ=np.float_([(l[20:28],l[28:36],l[36:44]) for l in lines])
+                XYZ=np.float64([(l[20:28],l[28:36],l[36:44]) for l in lines])
                 XYZ=XYZ-np.mean(XYZ,0)
             self.diam.append(2*np.max(np.sum((XYZ-np.mean(XYZ,0))**2,1))**0.5)
             #self.diam.append(np.sum((np.max(XYZ,0)-np.min(XYZ,0))**2)**0.5)
@@ -988,7 +988,7 @@ class Fill_Box:
 
     def assign_rotation(self,XYZ):
         #getting random angles for rotation around x, y and z axes
-        a=np.float_(rnd.choices(range(0,360,2),k=3))*np.pi/180.0
+        a=np.float64(rnd.choices(range(0,360,2),k=3))*np.pi/180.0
         rotmat_x = np.array([[1,            0,             0],
                              [0, np.cos(a[0]), -np.sin(a[0])],
                              [0, np.sin(a[0]),  np.cos(a[0])]])
