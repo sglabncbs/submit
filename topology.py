@@ -3143,10 +3143,12 @@ class SOPSC_IDR(Reddy2016):
                     if atype not in Q: Q[atype] = 0
                     if atinfo in self.idrdata.res:
                         Q[atype+"i"]=Q[atype]
+                        self.mass[atype+"i"]=self.mass[atype]
                         atype=atype+"i"
-                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass))
+                    fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass[atype]))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
+        exit()
         return
 
     def __get_idr_bonds__(self,data):
