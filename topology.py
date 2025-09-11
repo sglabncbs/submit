@@ -2820,7 +2820,7 @@ class Reddy2016(Topology):
                 fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
         return 
 
-class Baul2019(Reddy2016):
+class Baidya2022(Reddy2016):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
         self.fconst = fconst
@@ -2848,7 +2848,6 @@ class Baul2019(Reddy2016):
         eps[("CA","CA")] = self.eps_bbbb
         eps[("CB","CB")] = self.eps_bbsc
         eps[("CA","CB")] = self.eps_scsc
-
 
         epsmat,sigmat=data.Interactions(nonbond=True)
         assert len(epsmat)!=0 and len(sigmat)==0

@@ -626,7 +626,11 @@ def main():
 		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.pairs.dat")
 
 	if args.baul2019 or args.baidya2022:
-		print (">>> Using Baul et. al. 2019/ Baidya-Reddy 2022 SOP-SCP-IDP model.")
+		if args.baul2019: 
+			user_option=input(">>> Baul et. al. 2019 is WIP. Switch to Baidya-Reddy-2022 SOP-IDP? [Y/n]").upper()
+			assert user_option in "YN", "Error input can be either Y or N"
+			if user_option == "N": exit()
+		print (">>> Using Baidya-Reddy 2022 SOP-SCP-IDP model.")
 		CGlevel["prot"]=2
 		CGlevel["nucl"]=0
 		bond_function=8
@@ -639,7 +643,7 @@ def main():
 		rad["CA"]=1.9 #A
 		cg_radii=True
 		charge.CB=True
-		CB_gly=False
+		CB_gly=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		charge.debye=True
@@ -1154,7 +1158,7 @@ def main():
 			top=Reddy2016(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		elif args.baul2019 or args.baidya2022:
-			top=Baul2019(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			top=Baidya2022(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		elif args.baratam2024 or args.sop_idr:
 			assert args.aa_pdb or args.cg_pdb, "Error, SOP-MULTI needs input structure"
