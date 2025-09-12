@@ -2588,7 +2588,7 @@ class Denesyuk2013_Chakraborty2018(Topology):
 class Reddy2016(Topology):
     def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
-        #for data in range(len(allatomdata)) self.__check_H_atom__(data)
+        for data in allatomdata: self.__check_H_atom__(data)
         self.fconst = fconst
         self.CGlevel = CGlevel
         self.Nmol = Nmol
@@ -2602,7 +2602,7 @@ class Reddy2016(Topology):
 
     def __check_H_atom__(self,data):
         # checking presence of H-atom. Important for adding GLY CB
-        data = [(x[1],x[-1]) for x in data if "GLY" in x]
+        data = [(x[1],x[-1]) for x in data.prot.res if "GLY" in x]
         atlist = {}
         for x in data:
             if x[0] not in atlist: atlist[x[0]] = list()
@@ -2948,6 +2948,7 @@ class Baidya2022(Reddy2016):
 class SOPSC_IDR(Reddy2016):
     def __init__(self,allatomdata,idrdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
         self.allatomdata = allatomdata
+        for data in allatomdata: self.__check_H_atom__(data)
         self.idrdata=idrdata
         self.fconst = fconst
         self.CGlevel = CGlevel
@@ -2970,18 +2971,15 @@ class SOPSC_IDR(Reddy2016):
         residues = dict()
         for x in self.ordered.res: residues[x]=1
         for x in self.idrdata.res: residues[x]=0
-        #residues=set(self.idrdata.res+self.ordered.res)
-        domains = {x:residues[x] for x in residues if "CA" in x}
-        residues = list(domains.keys()); residues.sort()
-        prev_dx,dx=0,0
+        ordered_section = {x:residues[x] for x in residues if "CA" in x}
+        residues = list(ordered_section.keys()); residues.sort()
+        prev_idx,idx=0,0
         for x in residues: 
-            if prev_dx==0 and domains[x]!=0: dx+=1
-            if domains[x]!=0: domains[x]=dx
-            prev_dx=domains[x]
-        #for x in residues: print (x,domains[x])
-
-        chain,prev_rnum=0,0
-        outfasta="unfolded.fa"
+            #assign ordered section index
+            if prev_idx==0 and ordered_section[x]!=0: idx+=1 #increment index after every disordered region 
+            if ordered_section[x]!=0: ordered_section[x]=idx #use the same index for continous ordered section
+            prev_idx=ordered_section[x] #load previous residue index 
+        #for x in residues: print (x,ordered_section[x])
 
         if len(self.ordered.cid)>len(self.idrdata.cid):
             CID=self.ordered.cid
@@ -2990,6 +2988,8 @@ class SOPSC_IDR(Reddy2016):
             CID=self.idrdata.cid
             assert tuple(CID[:len(self.ordered.cid)])==tuple(self.ordered.cid)
 
+        chain,prev_rnum=0,0
+        outfasta="unfolded.fa"
         self.new2old_res,ch_count=dict(),-1
         with open(outfasta,"w+") as fout:
             for x in range(len(residues)):
@@ -3004,14 +3004,14 @@ class SOPSC_IDR(Reddy2016):
                 prev_rnum=rnum
         #get unfolded CG-pdb
         unfolded = PDB_IO()
-        unfolded.buildProtIDR(fasta=outfasta,rad=rad)
+        unfolded.buildProtIDR(fasta=outfasta,rad=rad,CBgly=self.opt.CB_gly)
         self.unfolded_cgpdb=unfolded.prot
         #get unfolded CG-pdb processed data
         unfolded = Preprocess(aa_pdb=self.allatomdata)
         unfolded.processData(data=self.unfolded_cgpdb)
         self.unfolded_data=unfolded
 
-        return domains.copy()
+        return ordered_section.copy()
 
     def write_protein_atomtypes(self,fout,type,rad,seq,data):
         print (">> Writing atomtypes section")
@@ -3147,7 +3147,6 @@ class SOPSC_IDR(Reddy2016):
                     fout.write("  %5d %5s %4d %5s %5s %5d %5.2f %5.2f\n"%(atnum,atype,resnum,resname,atname,atnum,Q[atype],self.mass[atype]))
                     self.atomtypes.append(atype)
                 elif line.startswith("TER"): seqcount,rescount=1+seqcount,0
-        exit()
         return
 
     def __get_idr_bonds__(self,data):
@@ -3289,7 +3288,7 @@ class SOPSC_IDR(Reddy2016):
         sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
         assert 2 not in interaction_type
         c06 = -1*eps_bbbb*((1.0*sig)**6)*np.intp(interaction_type==0) \
-            + -1*eps_bbsc*((0.8*sig)**6)*np.intp(interaction_type==1) 
+            + -1*eps_bbsc*((0.9*sig)**6)*np.intp(interaction_type==1) 
         #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
         if self.opt.opensmog:
             c=0
@@ -3298,7 +3297,7 @@ class SOPSC_IDR(Reddy2016):
                     expression="eps*((sig/r)^6);eps=%e"%eps_bbbb)
             self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
                     params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
-                    expression="eps*((0.8*sig/r)^6);eps=%e"%eps_bbsc)
+                    expression="eps*((0.9*sig/r)^6);eps=%e"%eps_bbsc)
         else:
             I,K = 1+np.transpose(pairs)
             for x in range(pairs.shape[0]): 
@@ -3348,8 +3347,8 @@ class SOPSC_IDR(Reddy2016):
         CB_atn = {data.CB_atn[c][r]:self.atomtypes[data.CB_atn[c][r]] for c in data.CB_atn for r in data.CB_atn[c]}
         all_atn = CA_atn.copy()
         all_atn.update(CB_atn.copy())
-        eps_bbbb = 0.5*self.fconst.caltoj
-        eps_bbsc = 0.5*self.fconst.caltoj
+        eps_bbbb = 0.45*self.fconst.caltoj
+        eps_bbsc = 0.45*self.fconst.caltoj
         Kboltz = self.fconst.Kboltz #*self.fconst.caltoj/self.fconst.caltoj
         old2new_atn=dict()
         for c in self.unfolded_data.CA_atn:

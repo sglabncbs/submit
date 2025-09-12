@@ -657,7 +657,7 @@ def main():
 		ModelDir("reddy2016/sopsc.btparams.dat").copy2("interactions.nonbond.dat")
 
 	if args.sop_idr:
-		print (">>> Using Reddy-Thirumalai SOP-SC for ordered regions and Baidya-Reddy SOP-IDP for IDRs.")
+		print (">>> Using Maity-Reddy SOP-SC for ordered regions and Baidya-Reddy SOP-IDP for IDRs.")
 		CGlevel["prot"]=2
 		#if args.opensmog: args.denesyuk2013=True
 		#else: 
@@ -670,8 +670,7 @@ def main():
 		excl_rule=2
 		opt.btparams=True
 		charge.CB=True
-		CB_gly=False
-		CB_atom=True
+		CB_gly=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		cg_radii=True
@@ -700,7 +699,6 @@ def main():
 		opt.btparams=True
 		charge.CB=True
 		CB_gly=False
-		CB_atom=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		cg_radii=True
