@@ -264,6 +264,7 @@ def main():
 	parser.add_argument("--afsar2008","-afsar2008","--chan2008","-chan2008",action="store_true",help="Zarrine-Afsar et. al. 2008 CA-only + hydrophobic model with . 10.1073/pnas.0801874105")
 	parser.add_argument("--azia2009","-azia2009","--levy2009","-levy2009",action="store_true",help="Azia 2009 CB-CA + Debye-Huckel model. 10.1016/j.jmb.2009.08.010")
 	parser.add_argument("--pal2019","-pal2019","--levy2019","-levy2019",action="store_true",help="Pal & Levy 2019 Protein CB-CA & RNA/DNA P-S-B model. 10.1371/journal.pcbi.1006768")
+	parser.add_argument("--hyeon2006","-hyeon2006","--sop2006","-sop2006",action="store_true",help="Hyeon, Dutta & Thirumalai 2016 SOP CA-only. 10.1016/j.str.2006.09.002")
 	parser.add_argument("--reddy2016","-reddy2016","--maity2016","-maity2016","--sopsc2016","-sopsc2016",action="store_true",help="Maity & Reddy 2016 SOP-SC CA-CB. 10.1021/jacs.5b11300")
 	parser.add_argument("--denesyuk2013","-denesyuk2013","--rna_tis2013","-rna_tis2013",action="store_true",help="Denesyuk & Thirumalai 2013 Three Interaction Site TIS P-S-B model. 10.1021/jp401087x")
 	parser.add_argument("--chakraborty2018","-chakraborty2018","--dna_tis2018","-dna_tis2018",action="store_true",help="Chakraborty & Thirumalai 2018 Three Interaction Site TIS P-S-B model. 10.1021/acs.jctc.8b00091")
@@ -454,7 +455,7 @@ def main():
 	"""" Defining inputs for preset models """
 
 	list_of_protein_presets=[
-		args.clementi2000, args.afsar2008, args.azia2009, args.reddy2016,\
+		args.clementi2000, args.afsar2008, args.azia2009, args.reddy2016,args.hyeon2006,\
 		args.baul2019, args.baidya2022, args.baratam2024, args.sop_idr]
 	list_of_nucleicacid_presets=[args.denesyuk2013, args.chakraborty2018,args.dlprakash]
 	list_of_hybrid_presets=[args.banerjee2023, args.virusassembly,args.pal2019]
@@ -593,10 +594,30 @@ def main():
 		uniqtype=True
 		fconst.Kr_prot=0.7**12
 
+	if args.hyeon2006:
+		print (">>> Using Hyeon, Dutta & Thirumalai 2016 SOP model. 10.1016/j.str.2006.09.002")
+		CGlevel["prot"]=1
+		CGlevel["nucl"]=1
+		bond_function=8
+		prot_contmap.cutoff=8.0
+		nucl_contmap.cutoff=14.0
+		prot_contmap.type=2
+		nucl_contmap.type=2
+		prot_contmap.func=1
+		nucl_contmap.func=1
+		excl_rule=2
+		fconst.Kb_prot=20.0*fconst.caltoj
+		fconst.Kr_prot=1.0*fconst.caltoj
+		fconst.Kb_nucl=20.0*fconst.caltoj
+		fconst.Kr_nucl=1.0*fconst.caltoj
+		rad["CA"]=1.9
+		rad["P"]=3.5
+
+
 	if args.reddy2016:
-		print (">>> Using Maity & Reddy 2016 SOP-SCP model. 10.1021/jacs.5b11300")
+		print (">>> Using Maity & Reddy 2016 SOP-SC model. 10.1021/jacs.5b11300")
 		if args.idp_seq: 
-			print (">>> IDR-sequence given. Using Baidya-Reddy 2022 SOP-SCP-IDP model for IDRs")
+			print (">>> IDR-sequence given. Using Baidya-Reddy 2022 SOP-SC-IDP model for IDRs")
 			args.sop_idr=True
 			pass
 		CGlevel["prot"]=2
@@ -630,7 +651,7 @@ def main():
 			user_option=input(">>> Baul et. al. 2019 is WIP. Switch to Baidya-Reddy-2022 SOP-IDP? [Y/n]").upper()
 			assert user_option in "YN", "Error input can be either Y or N"
 			if user_option == "N": exit()
-		print (">>> Using Baidya-Reddy 2022 SOP-SCP-IDP model.")
+		print (">>> Using Baidya-Reddy 2022 SOP-SC-IDP model.")
 		CGlevel["prot"]=2
 		CGlevel["nucl"]=0
 		bond_function=8
@@ -671,6 +692,7 @@ def main():
 		opt.btparams=True
 		charge.CB=True
 		CB_gly=True
+		CB_com=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		cg_radii=True
@@ -699,6 +721,7 @@ def main():
 		opt.btparams=True
 		charge.CB=True
 		CB_gly=False
+		CB_com=True
 		fconst.Kb_prot=20.0*fconst.caltoj
 		fconst.Kr_prot=1.0*fconst.caltoj
 		cg_radii=True
@@ -1018,6 +1041,7 @@ def main():
 		nfiles=len(args.aa_pdb)
 		for i in range(nfiles):
 			pdbdata.append(PDB_IO(fileindex=i,nfiles=nfiles))
+			print ("_________BBBBBBBBBBBBBBBBBB_________")
 			pdbdata[-1].loadfile(infile=args.aa_pdb[i],renumber=True,CBgly=CB_gly)
 	elif args.cg_pdb: 
 		nfiles=len(args.cg_pdb)
@@ -1151,6 +1175,9 @@ def main():
 			if nucl_contmap.type>=0:
 				print ("WARNING: Default Pal2019 only includes base-stacking intra RNA/DNA interactions. User is forcing to calculate a different RNA/DNA contact map")
 				top=Topology(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
+			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
+		elif args.hyeon2006:
+			top=Hyeon2006(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)
 			topdata=top.write_topfile(outtop=topfile,excl=excl_rule,rad=rad,charge=charge,bond_function=bond_function,CBchiral=CB_chiral)
 		elif args.reddy2016:
 			top=Reddy2016(allatomdata=pdbdata,fconst=fconst,CGlevel=CGlevel,Nmol=Nmol,cmap=(prot_contmap,nucl_contmap,inter_contmap),opt=opt)

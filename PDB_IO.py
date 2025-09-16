@@ -262,6 +262,11 @@ class PDB_IO:
                     self.nucl.deoxy.append(self.nucl.lines[x-1][17:20].strip()[0]=="D")
                     nucl_chain_count+=1
                     self.nucl.seq += " "
+                    bbseq+=" "
+
+            self.nucl.seq=self.nucl.seq.strip()
+            bbseq=bbseq.strip()
+
             if len(self.nucl.seq) == 0: self.nucl.seq = bbseq
             else: assert len(self.nucl.seq) >= len(bbseq), "Error missing sugar atoms"
             self.nucl.xyz=np.float64(self.nucl.xyz); self.nucl.atn=np.intp(self.nucl.atn); self.nucl.ter=np.intp(self.nucl.ter)
@@ -273,7 +278,7 @@ class PDB_IO:
                     self.prot.xyz.append([l[30:38],l[38:46],l[46:54]])
                     self.prot.res.append((prot_chain_count,hy36decode(4,l[22:26]),l[17:20].strip(),l[12:16].strip()))
                     self.prot.atn.append(-1+hy36decode(5,l[6:11]))
-                    if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]                   
+                    if l[12:16].strip() == "CA": self.prot.seq += self.prot.amino_acid_dict[l[17:20]]
                 if l.startswith(("TER","END")) and self.prot.lines[x-1].startswith("ATOM"):
                     self.prot.ter.append(hy36decode(5,self.prot.lines[x-1][6:11]))
                     self.prot.cid.append(self.prot.lines[x-1][21])
@@ -393,8 +398,8 @@ class PDB_IO:
                     if resname in self.prot.amino_acid_dict: prot_lines.append("ATOM".ljust(6)+line[6:])
                     elif resname in self.nucleotide_dict: nucl_lines.append("ATOM".ljust(6)+line[6:])
                     else:
-                        print ("Unrecognised residue name",resname,resnum)
-                        exit()
+                        print ("Unrecognised residue name",resname,resnum,". Skipping. This might add a chain terminal!!!")
+                        continue
                     prev_resname,prev_resnum = resname,resnum
                 if line.startswith(("TER","END")):
                     if resname in self.prot.amino_acid_dict:
@@ -467,8 +472,8 @@ class PDB_IO:
         self.__readPDB__()
         return infile
 
-    def __call__(self, infile, renumber=True):
-        self.loadfile(infile=infile,renumber=renumber)
+    #def __call__(self, infile, renumber=True):
+        #self.loadfile(infile=infile,renumber=renumber)
 
     def coordinateTransform(self):
         #when a custom nucleic acid structure is added to the pdb,

@@ -1891,7 +1891,7 @@ class Topology:
         Kb = float(self.fconst.Kb_prot)*100.0
 
         #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
-        #if dsb: func = 9
+        assert func==1
         fout.write("\n%s\n"%("[ bonds ]"))
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "r0(nm)", "Kb"))
 
@@ -1956,7 +1956,7 @@ class Topology:
                     temp_q+=list(quads);temp_d+=list(diheds)
                 quads,diheds=np.intp(temp_q),np.float64(temp_d)
                 self.prot_xmlfile.write_dihedrals_xml(quads=quads,name="sc_dihedrals",\
-                            expression="Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
+                            expression="0.5*Kd*(min(v1,v2)^2);v1=abs(phi-phi0);v2=abs(2*pi+phi-phi0);phi0=phi0_deg*pi/180;pi=3.141592653589793",\
                             params={"phi0_deg":diheds,"Kd":Kd_sc*np.ones(quads.shape[0])})
             del(temp_q,temp_d)
             return 
@@ -2095,6 +2095,8 @@ class Topology:
     def write_nucleicacid_bonds(self,fout,data,func):
         print (">> Writing bonds section")
         #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
+        assert func==1
+
         #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
         Kb = float(self.fconst.Kb_nucl)*100.0
 
@@ -2620,7 +2622,7 @@ class Reddy2016(Topology):
         assert self.cmap["prot"].nbfunc==1
         fout.write("\n%s\n"%("[ nonbond_params ]"))
         fout.write('%s\n' % ('; i    j     func C6(or C10)  C12'))
-        assert type==2 and excl_rule == 2
+        assert type in (1,2) and excl_rule == 2
         pairs,excl_rad1,excl_rad2 = [],[],[]
         for x in self.excl_volume:
             if x.startswith(("CA","CB")):
@@ -2655,7 +2657,6 @@ class Reddy2016(Topology):
 
 
         #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
-        #if dsb: func = 9
         assert func == 8
         R = 0.2
 
@@ -2680,7 +2681,7 @@ class Reddy2016(Topology):
                             expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
             for i in range(pairs.shape[0]): 
                 r0 = np.round(dist[i],3)
-                fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
+                fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry; bond_in_xml\n"%(I[i],J[i],1,r0))
             return
         #else:
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
@@ -2716,7 +2717,9 @@ class Reddy2016(Topology):
         print (">> Writing SOP-SC pairs section")
         cmap = self.cmap["prot"]
         data.Pairs(cmap=cmap,group="prot")
+        
         assert cmap.custom_pairs and cmap.type in (-1,0,2) and cmap.func==1
+
         scscmat,sigmat=data.Interactions(pairs=cmap.custom_pairs)
         assert len(sigmat)==0
 
@@ -2788,8 +2791,8 @@ class Reddy2016(Topology):
         data.Angles()
         
         diam = self.excl_volume.copy()
-        print ("> Switching CA bead radius from 2.25 to 1.9 A for local repulsions.")
-        diam["CA"]=0.19*2 #nm
+
+        #diam["CA"]=0.19*2 #nm
         diam.update({"CA"+k[-1]:diam["CA"] for k in diam.keys() if k.startswith("CB")})
         eps_bbbb = 1.0*self.fconst.caltoj
         eps_bbsc = 1.0*self.fconst.caltoj
@@ -2814,6 +2817,244 @@ class Reddy2016(Topology):
                 self.prot_xmlfile.write_pairs_xml( pairs=pairs[np.where(interaction_type==1)],\
                     params={"sig":sig[np.where(interaction_type==1)]},name="Local_backbone-sidechain_rep%d"%c,\
                     expression="eps*((0.9*sig/r)^6);eps=%e"%eps_bbsc)
+                continue
+            I,J,K = 1+np.transpose(triplets)
+            for x in range(triplets.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        return 
+
+class Hyeon2006(Reddy2016):
+    def __init__(self,allatomdata,fconst,CGlevel,Nmol,cmap,opt) -> None:
+        self.allatomdata = allatomdata
+        self.fconst = fconst
+        self.CGlevel = CGlevel
+        self.Nmol = Nmol
+        self.cmap = {"prot":cmap[0],"nucl":cmap[1],"inter":cmap[2]}
+        self.opt = opt
+        self.eps_prot = 1.0*self.fconst.caltoj
+        self.eps_nucl = 0.7*self.fconst.caltoj
+        self.bfunc,self.afunc,self.pfunc,self.dfunc = 1,1,1,1
+        self.excl_volume,self.excl_volume_set = dict(),dict()
+        self.mass={"CA":(1.8e-22)*(6.022e+23)} #g to amu
+        self.atomtypes = []
+        self.tableb_ndx = 0
+
+    def write_protein_pairs(self,fout,data,excl_rule,charge):
+        print (">> Writing SOP pairs section")
+        cmap = self.cmap["prot"]
+        data.Pairs(cmap=cmap,group="prot")
+        
+        #if cmap.custom_pairs:  pass 
+        assert cmap.type in (-1,0,2) and cmap.func==1
+
+
+        all_atn = {data.CA_atn[c][r]:self.atomtypes[data.CA_atn[c][r]] for c in data.CA_atn for r in data.CA_atn[c]}
+
+        Kboltz = self.fconst.Kboltz # KJ mol-1 K-1
+        for index in range(len(data.contacts)):
+            pairs,chains,dist,eps = data.contacts[index]
+            I,J = np.transpose(pairs)
+            eps = np.float64(eps)*self.eps_prot
+            data.contacts[index] = pairs,chains,dist,eps
+
+        fout.write("\n%s\n"%("[ pairs ]"))
+        print ("> Using LJ C6-C12 for contacts")
+        fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
+        func = 1
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            if self.opt.opensmog:
+                self.prot_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                continue
+            I,J = 1+np.transpose(pairs)
+            c06 = 2*eps*(dist**6.0)
+            c12 = eps*(dist**12.0)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
+
+        #removing dihedral contacts
+        data.Dihedrals()
+        quads,excl_quads=[],[]
+        for x in data.bb_dihedrals: quads+=list(x[0])
+        excl_quads+=[(q[0],q[3]) for q in quads]
+        excl_quads+=[(q[0],q[2]+1) for q in quads]
+        excl_quads+=[(q[0]+1,q[2]) for q in quads]
+        excl_quads+=[(q[1],q[3]+1) for q in quads]
+        excl_quads+=[(q[1]+1,q[3]) for q in quads]
+        quads=excl_quads
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            temp_p=np.array([pairs[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_c=np.array([chains[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_d=np.array([dist[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_w=np.array([eps[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            data.contacts[c]=temp_p,temp_c,temp_d,temp_w
+
+        print ("> Using -C6 repulsion for local beads")
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        data.Angles()
+        
+        diam = self.excl_volume.copy()
+        eps_rep=self.fconst.Kr_prot
+
+        for index in range(len(data.angles)):
+            triplets,angles = data.angles[index]
+            I,J,K = np.transpose(triplets)
+            sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+            sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
+            c06 = -1*eps_rep*((1.0*sig)**6)
+            pairs = np.intp([(I[x],K[x]) for x in range(I.shape[0])])
+            #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            if self.opt.opensmog:
+                self.prot_xmlfile.write_pairs_xml( pairs=pairs,\
+                    params={"sig":sig},name="Local_backbone-backbone_rep%d"%c,\
+                    expression="eps*((sig/r)^6);eps=%e"%eps_rep)
+                continue
+            I,J,K = 1+np.transpose(triplets)
+            for x in range(triplets.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],K[x],func,c06[x],0.0))
+        return 
+
+    def write_nucleicacid_bonds(self,fout,data,func):
+        print (">> Writing bonds section")
+        #GROMACS IMPLEMENTS Ebonds = (Kx/2)*(r-r0)^2
+        #Input units KJ mol-1 A-2 GROMACS units KJ mol-1 nm-1 (100 times the input value) 
+        K = float(self.fconst.Kb_nucl)*100.0
+
+        #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
+        assert func == 8
+        R = 0.2
+
+        # V = -(K/2)*R^2*ln(1-((r-r0)/R)^2)
+        # V_1 = dV/dr = -K*0.5*R^2*(1/(1-((r-r0)/R)^2))*(-2*(r-r0)/R^2)
+        #             = -K*0.5*(-2)(r-r0)/(1-((r-r0)/R)^2)
+        #             = K*(R^2)(r-r0)/(R^2-(r-r0)^2)
+
+        fout.write("\n%s\n"%("[ bonds ]"))
+        data.Bonds()
+        table_idx = dict()
+        if self.opt.opensmog:
+            fout.write(";%5s %5s %5s %5s %5s; for excl\n"%("ai", "aj", "func", "r0", "Kb=0.0"))
+            temp_p,temp_d=[],[]
+            for pairs,dist in data.bonds:
+                temp_p+=list(pairs);temp_d+=list(dist)
+            pairs,dist=np.intp(temp_p),np.float64(temp_d)
+            I,J = 1+np.transpose(pairs) 
+            print (">Writing FENE Bonds as OpenSMOG contacts")
+            self.nucl_xmlfile.write_pairs_xml( pairs=pairs,params={"r0":dist},\
+                            name="FENE_bonds_R=0.2",\
+                            expression="-(K/2)*(R^2)*log(1-((r-r0)/R)^2); R=%.2f; K=%e"%(R,K))
+            for i in range(pairs.shape[0]): 
+                r0 = np.round(dist[i],3)
+                fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry; bond_in_xml\n"%(I[i],J[i],1,r0))
+            return
+
+        fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
+        for c in range(len(data.bonds)):
+            pairs,dist=data.bonds[c]
+            I,J = 1+np.transpose(pairs) 
+            for i in range(pairs.shape[0]): 
+                r0 = np.round(dist[i],3)
+                if r0 not in table_idx: table_idx[r0]=len(table_idx)+self.tableb_ndx
+                if r0-R>0:r=0.001*np.intp(range(int(1000*(r0-R+0.002)),int(1000*(r0+R-0.001))))
+                else: r=0.001*np.intp(range(int(1000*(0+0.002)),int(1000*(r0+R-0.001))))
+                V = -0.5*(R**2)*np.log(1-((r-r0)/R)**2)
+                #V_1 = -0.5*(R**2)*(1/(1-((r-r0)/R)**2))*(-2*(r-r0)/R**2)
+                V_1 = (R**2)*(r-r0)/(R**2-(r-r0)**2)
+                Tables().write_bond_table(X=r,index=table_idx[r0],V=V,V_1=V_1)
+                fout.write(" %5d %5d %5d %5d %e; d=%.3f\n"%(I[i],J[i],func,table_idx[r0],K,r0))
+        self.tableb_ndx=max(table_idx.values())
+        return 
+
+    def write_nucleicacid_angles(self,fout,data):
+        print (">> Not Writing angless section")
+        fout.write("\n%s\n"%("[ angles ]"))
+        fout.write("; %5s %5s %5s %5s %5s %5s\n"%("ai", "aj", "ak","func", "th0(deg)", "Ka"))
+        return
+
+    def write_nucleicacid_dihedrals(self,fout,data,chiral):
+        print (">> Not Writing dihedrals section")
+        fout.write("\n%s\n"%("[ dihedrals ]"))
+        fout.write("; %5s %5s %5s %5s %5s %5s %5s %5s\n" % (";ai","aj","ak","al","func","phi0(deg)","Kd","mult"))
+        return
+
+    def write_nucleicacid_pairs(self,fout,data,excl_rule,charge):
+        print (">> Writing SOP pairs section")
+        cmap = self.cmap["nucl"]
+        data.Pairs(cmap=cmap,group="nucl")
+        
+        #if cmap.custom_pairs:  pass 
+        assert cmap.type in (-1,0,2) and cmap.func==1
+
+        all_atn = {data.P_atn[c][r]:self.atomtypes[data.P_atn[c][r]] for c in data.P_atn for r in data.P_atn[c]}
+
+        Kboltz = self.fconst.Kboltz # KJ mol-1 K-1
+        for index in range(len(data.contacts)):
+            pairs,chains,dist,eps = data.contacts[index]
+            I,J = np.transpose(pairs)
+            eps = np.float64(eps)*self.eps_nucl
+            data.contacts[index] = pairs,chains,dist,eps
+
+        fout.write("\n%s\n"%("[ pairs ]"))
+        print ("> Using LJ C6-C12 for contacts")
+        fout.write(";%5s %5s %5s %5s %5s\n"%("i","j","func","C06(Att)","C12(Rep)"))
+        func = 1
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            if self.opt.opensmog:
+                self.nucl_xmlfile.write_pairs_xml(
+                            pairs=pairs,params={"r0":dist,"eps":eps},\
+                            name="contacts%d_LJ-06-12"%c,\
+                            expression="eps*( 1*((r0/r)^12) - 2*((r0/r)^6) )")
+                continue
+            I,J = 1+np.transpose(pairs)
+            c06 = 2*eps*(dist**6.0)
+            c12 = eps*(dist**12.0)
+            for x in range(pairs.shape[0]): 
+                fout.write(" %5d %5d %5d %e %e\n"%(I[x],J[x],func,c06[x],c12[x]))
+
+        #removing dihedral contacts
+        data.Dihedrals()
+        quads,excl_quads=[],[]
+        for x in data.bb_dihedrals: quads+=list(x[0])
+        excl_quads+=[(q[0],q[3]) for q in quads]
+        excl_quads+=[(q[0],q[2]+1) for q in quads]
+        excl_quads+=[(q[0]+1,q[2]) for q in quads]
+        excl_quads+=[(q[1],q[3]+1) for q in quads]
+        excl_quads+=[(q[1]+1,q[3]) for q in quads]
+        quads=excl_quads
+        for c in range(len(data.contacts)):
+            pairs,chains,dist,eps=data.contacts[c]
+            temp_p=np.array([pairs[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_c=np.array([chains[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_d=np.array([dist[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            temp_w=np.array([eps[x] for x in range(len(pairs)) if tuple(pairs[x]) not in quads])
+            data.contacts[c]=temp_p,temp_c,temp_d,temp_w
+
+        print ("> Using -C6 repulsion for local beads")
+        fout.write(";angle based rep temp\n;%5s %5s %5s %5s %5s\n"%("i","j","func","-C06(Rep)","C12 (N/A)"))        
+        data.Angles()
+        
+        diam = self.excl_volume.copy()
+        #SOP local repulsion diameter for Phosphate bead is 0.5 times non-local diameter
+        diam["P"]=diam["P"]/2.0
+        eps_rep=self.fconst.Kr_nucl
+
+        for index in range(len(data.angles)):
+            triplets,angles = data.angles[index]
+            I,J,K = np.transpose(triplets)
+            sig = [(all_atn[I[x]],all_atn[K[x]]) for x in range(K.shape[0])]
+            sig = 0.5*np.float64([diam[x]+diam[y] for x,y in sig])
+            c06 = -1*eps_rep*((1.0*sig)**6)
+            pairs = np.intp([(I[x],K[x]) for x in range(I.shape[0])])
+            #data.contacts.append((pairs,np.zeros(pairs.shape),np.zeros(pairs.shape[0]),np.zeros(pairs.shape[0])))
+            if self.opt.opensmog:
+                self.nucl_xmlfile.write_pairs_xml( pairs=pairs,\
+                    params={"sig":sig},name="Local_backbone-backbone_rep%d"%c,\
+                    expression="eps*((sig/r)^6);eps=%e"%eps_rep)
                 continue
             I,J,K = 1+np.transpose(triplets)
             for x in range(triplets.shape[0]): 
@@ -3010,7 +3251,6 @@ class SOPSC_IDR(Reddy2016):
         unfolded = Preprocess(aa_pdb=self.allatomdata)
         unfolded.processData(data=self.unfolded_cgpdb)
         self.unfolded_data=unfolded
-
         return ordered_section.copy()
 
     def write_protein_atomtypes(self,fout,type,rad,seq,data):
@@ -3191,7 +3431,7 @@ class SOPSC_IDR(Reddy2016):
         K = float(self.fconst.Kb_prot)*100.0
 
         #GROMACS 4.5.4 : FENE=7 AND HARMONIC=1
-        #if dsb: func = 9
+        
         assert func == 8
         R = 0.2
 
@@ -3218,7 +3458,7 @@ class SOPSC_IDR(Reddy2016):
                 I,J = 1+np.transpose(pairs) 
                 for i in range(pairs.shape[0]): 
                     r0 = np.round(dist[i],3)
-                    fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry\n"%(I[i],J[i],1,r0))
+                    fout.write(" %5d %5d %5d %.3f 0.0; dummy_entry; bond_in_xml\n"%(I[i],J[i],1,r0))
             return
         #else:
         fout.write(";%5s %5s %5s %5s %5s\n"%("ai", "aj", "func", "table_no.", "Kb"))
